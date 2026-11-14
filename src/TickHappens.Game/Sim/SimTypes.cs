@@ -52,6 +52,9 @@ public readonly record struct DamageSourceRef(int PlayerId, int ItemDef = -1)
 public sealed class PlayerState
 {
     public int Id;
+    public bool Active;
+    public int NearbyChest = -1;
+    public int LastChestItem = -1;
     public Vector2 Pos, Prev, Facing = Vector2.UnitY;
     public bool FacingLeft, Walking;
     public float Hp;

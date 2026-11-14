@@ -23,8 +23,11 @@ public sealed partial class RunWorld
     /// <summary>Run clock in seconds: real elapsed time plus statue bonuses. Drives difficulty.</summary>
     public float RunSeconds => Tick * Dt + BonusSeconds;
     public float Minutes => RunSeconds / 60f;
-    public uint Seed { get; }
-    public PlayerState Player { get; }
+    public uint Seed { get; private set; }
+    private readonly PlayerState[] _players;
+    private readonly int _localPlayerId;
+    public PlayerState Player => _players[_localPlayerId];
+    public IReadOnlyList<PlayerState> Players => _players;
 
     private SimRng _rng;
     private readonly List<GameEvent> _events = [];
@@ -47,7 +50,7 @@ public sealed partial class RunWorld
     private float _spawnAcc;
     private int _nextElite;
 
-    public RunWorld(ContentSet content, uint seed = 1, string? character = null)
+    public RunWorld(ContentSet content, uint seed = 1, string? character = null, int playerCount = 1, int localPlayerId = 0)
     {
         Content = content;
         Seed = seed;
@@ -55,29 +58,11 @@ public sealed partial class RunWorld
         var ch = character != null ? content.Characters.Find(c => c.Id == character) ?? throw new ArgumentException($"unknown character '{character}'")
                                    : content.Characters[0];
         int arena = Rules.ArenaSize;
-        Player = new PlayerState
-        {
-            Character = ch,
-            Stats = new StatBlock(),
-            Attack = ch.Attack ?? Rules.BasicAttack,
-            Wallet = new ChestWallet(Rules.Chests.StartPrice, Rules.Chests.PriceGrowth),
-            ItemStacks = new int[content.Items.Count],
-            ItemTimers = new float[content.Items.Count],
-            Pos = new Vector2(arena / 2f, arena / 2f),
-        };
-        Player.Prev = Player.Pos;
-        var st = Player.Stats;
-        var cs = ch.Stats;
-        st.SetBase(Stat.MoveSpeed, cs.MoveSpeed);
-        st.SetBase(Stat.AttackSpeed, cs.AttackSpeed);
-        st.SetBase(Stat.Armor, cs.Armor);
-        st.SetBase(Stat.MagicResist, cs.MagicResist);
-        st.SetBase(Stat.Regen, cs.Regen);
-        st.SetBase(Stat.Magnet, cs.Magnet);
-        ApplyLevelStats();
-        UpdateDynamicStats();
-        Player.Hp = MaxHealth;
-        Player.XpNext = XpForLevel(1);
+        if (playerCount is < 1 or > 4 || (uint)localPlayerId >= (uint)playerCount)
+            throw new ArgumentOutOfRangeException(nameof(playerCount));
+        _localPlayerId = localPlayerId;
+        _players = new PlayerState[playerCount];
+        for (int i = 0; i < playerCount; i++) _players[i] = CreatePlayer(ch, i, i == localPlayerId);
 
         EnemyCapacity = content.Waves.MaxAlive + 64;
         EX = new float[EnemyCapacity]; EY = new float[EnemyCapacity];
@@ -97,6 +82,74 @@ public sealed partial class RunWorld
         PlaceStatuesAndChests();
     }
 
+    private PlayerState CreatePlayer(CharacterDef character, int id, bool active)
+    {
+        float center = Rules.ArenaSize / 2f;
+        var p = new PlayerState
+        {
+            Id = id,
+            Active = active,
+            Character = character,
+            Stats = new StatBlock(),
+            Attack = character.Attack ?? Rules.BasicAttack,
+            Wallet = new ChestWallet(Rules.Chests.StartPrice, Rules.Chests.PriceGrowth),
+            ItemStacks = new int[Content.Items.Count],
+            ItemTimers = new float[Content.Items.Count],
+            Pos = new Vector2(center + (id % 2) * 16, center + (id / 2) * 16),
+            XpNext = XpForLevel(1),
+        };
+        p.Prev = p.Pos;
+        var cs = character.Stats;
+        p.Stats.SetBase(Stat.MoveSpeed, cs.MoveSpeed);
+        p.Stats.SetBase(Stat.AttackSpeed, cs.AttackSpeed);
+        p.Stats.SetBase(Stat.Armor, cs.Armor);
+        p.Stats.SetBase(Stat.MagicResist, cs.MagicResist);
+        p.Stats.SetBase(Stat.Regen, cs.Regen);
+        p.Stats.SetBase(Stat.Magnet, cs.Magnet);
+        ApplyLevelStats(p);
+        UpdateDynamicStats(p);
+        p.Hp = MaxHealthFor(p);
+        return p;
+    }
+
+    public void SetPlayerActive(int id, bool active)
+    {
+        if (_players[id].Active == active) return;
+        if (active)
+        {
+            var next = CreatePlayer(_players[id].Character, id, true);
+            int anchor = NearestLivingPlayer(_players[0].Pos);
+            if (anchor >= 0)
+            {
+                next.Pos = Vector2.Clamp(_players[anchor].Pos + new Vector2((id % 2) * 16, (id / 2) * 16),
+                    new Vector2(12), new Vector2(Rules.ArenaSize - 12));
+                next.Prev = next.Pos;
+            }
+            _players[id] = next;
+            return;
+        }
+        _players[id].Active = false;
+        for (int i = 0; i < PickupCapacity; i++)
+            if (GAlive[i] && GOwner[i] == id) GAlive[i] = false;
+        for (int i = 0; i < ProjectileCapacity; i++)
+            if (PAlive[i] && _pOwner[i] == id) PAlive[i] = false;
+    }
+
+    private int NearestLivingPlayer(Vector2 point)
+    {
+        int best = -1;
+        float distance = float.PositiveInfinity;
+        for (int i = 0; i < _players.Length; i++)
+        {
+            var p = _players[i];
+            if (!p.Active || p.Hp <= 0) continue;
+            float d = Vector2.DistanceSquared(point, p.Pos);
+            if (d >= distance) continue;
+            (best, distance) = (i, d);
+        }
+        return best;
+    }
+
     /// <summary>Returns and clears the events produced since the last call.</summary>
     public List<GameEvent> Events => _events;
 
@@ -112,23 +165,23 @@ public sealed partial class RunWorld
     public float XpForLevel(int level) => MathF.Round(Rules.XpBase * MathF.Pow(Rules.XpGrowth, level - 1));
 
     /// <summary>Final max HP: (maxHp from table and items) × hpMultiplier.</summary>
-    public float MaxHealth => Player.Stats[Stat.MaxHp] * Player.Stats[Stat.HpMultiplier];
+    public float MaxHealth => MaxHealthFor(Player);
+    private static float MaxHealthFor(PlayerState p) => p.Stats[Stat.MaxHp] * p.Stats[Stat.HpMultiplier];
     public float MoveSpeedPx => Player.Stats[Stat.MoveSpeed] * Rules.Units.MoveSpeedScale;
     public float AttacksPerSecond => Player.Stats[Stat.AttackSpeed] * Rules.Units.AttacksPerUnit;
 
     /// <summary>Table stats that grow per level: max HP and basic attack damage ("base/+per level").</summary>
-    private void ApplyLevelStats()
+    private static void ApplyLevelStats(PlayerState p)
     {
-        var cs = Player.Character.Stats;
-        int l = Player.Level - 1;
-        Player.Stats.SetBase(Stat.MaxHp, cs.MaxHp + cs.MaxHpPerLevel * l);
-        Player.Stats.SetBase(Stat.Damage, cs.Damage + cs.DamagePerLevel * l);
+        var cs = p.Character.Stats;
+        int l = p.Level - 1;
+        p.Stats.SetBase(Stat.MaxHp, cs.MaxHp + cs.MaxHpPerLevel * l);
+        p.Stats.SetBase(Stat.Damage, cs.Damage + cs.DamagePerLevel * l);
     }
 
     /// <summary>Recomputes passives: value = base + perLevel × (level − 1), × run minutes when "per": "runMinute".</summary>
-    private void UpdateDynamicStats()
+    private void UpdateDynamicStats(PlayerState p)
     {
-        var p = Player;
         p.Stats.ClearDynamic();
         int l = p.Level - 1;
         foreach (var pas in p.Character.Passives)
@@ -142,28 +195,43 @@ public sealed partial class RunWorld
 
     public void Step(RunInput input)
     {
+        Span<RunInput> inputs = stackalloc RunInput[4];
+        inputs.Clear();
+        inputs[_localPlayerId] = input;
+        StepCoop(inputs);
+    }
+
+    public void StepCoop(ReadOnlySpan<RunInput> inputs)
+    {
+        if (_replicaTick >= 0) throw new InvalidOperationException("Only the host can advance the simulation.");
         if (Phase == RunPhase.Dead) return;
+        if (inputs.Length < _players.Length) throw new ArgumentException("Each player slot needs an input.", nameof(inputs));
         Tick++;
-        UpdateDynamicStats();
-        StepPlayer(input);
+        foreach (var p in _players)
+        {
+            if (!p.Active || p.Hp <= 0) continue;
+            UpdateDynamicStats(p);
+            StepPlayer(p, inputs[p.Id]);
+        }
+        if (NearestLivingPlayer(Player.Pos) < 0)
+        {
+            Phase = RunPhase.Dead;
+            return;
+        }
         SpawnEnemies();
         StepEnemies();
-        StepWeapons();
+        foreach (var p in _players)
+            if (p.Active && p.Hp > 0) StepWeapons(p);
         StepProjectiles();
         StepPickups();
         StepStatues();
         StepChests();
-        if (Player.Hp <= 0)
-        {
-            Player.Hp = 0;
-            Phase = RunPhase.Dead;
-        }
+        if (NearestLivingPlayer(Player.Pos) < 0) Phase = RunPhase.Dead;
     }
 
     // ---------------------------------------------------------------- player
-    private void StepPlayer(RunInput input)
+    private void StepPlayer(PlayerState p, RunInput input)
     {
-        var p = Player;
         p.Prev = p.Pos;
         var dir = new Vector2(Math.Sign(input.X), Math.Sign(input.Y));
         if (dir != Vector2.Zero)
@@ -193,11 +261,11 @@ public sealed partial class RunWorld
             // Exact distance: split it over the whole number of dash ticks.
             move = p.DashDir * (dash.Distance / Math.Max(1, (int)MathF.Round(dash.Seconds * TicksPerSecond)));
         }
-        else move = dir * MoveSpeedPx * Dt;
+        else move = dir * p.Stats[Stat.MoveSpeed] * Rules.Units.MoveSpeedScale * Dt;
         float a = Rules.ArenaSize;
         p.Pos = Vector2.Clamp(p.Pos + move, new Vector2(12), new Vector2(a - 12));
         p.Walking = p.Pos != p.Prev;
-        p.Hp = MathF.Min(MaxHealth, p.Hp + p.Stats[Stat.Regen] * Dt);
+        p.Hp = MathF.Min(MaxHealthFor(p), p.Hp + p.Stats[Stat.Regen] * Dt);
     }
 
     /// <summary>Fraction of damage blocked: armor for physical, magic resist for magical, nothing for pure (capped).</summary>
@@ -209,12 +277,11 @@ public sealed partial class RunWorld
     });
 
     /// <summary>Damages the player after defences; returns the damage actually dealt (0 while invulnerable).</summary>
-    private float HurtPlayer(float amount, DamageKind kind, float fromX, float fromY)
+    private float HurtPlayer(PlayerState p, float amount, DamageKind kind, float fromX, float fromY)
     {
-        var p = Player;
-        if (p.InvulnTicks > 0 || Phase != RunPhase.Playing) return 0;
+        if (p.InvulnTicks > 0 || p.Hp <= 0) return 0;
         float dmg = amount * (1 - Resist(kind, p.Stats[Stat.Armor], p.Stats[Stat.MagicResist]));
-        p.Hp -= dmg;
+        p.Hp = Math.Max(0, p.Hp - dmg);
         p.InvulnTicks = (int)MathF.Round(Rules.InvulnerableSeconds * TicksPerSecond);
         p.HurtTick = Tick;
         Emit(EventKind.PlayerHurt, p.Pos.X, p.Pos.Y, dmg, x2: fromX, y2: fromY);
@@ -281,7 +348,18 @@ public sealed partial class RunWorld
         else
         {
             float ang = _rng.Range(0, MathF.Tau), dist = _rng.Range(350, 410);
-            pos = Player.Pos + new Vector2(MathF.Cos(ang) * dist, MathF.Sin(ang) * dist * 0.7f);
+            int player = NearestLivingPlayer(Player.Pos);
+            if (_players.Length > 1)
+            {
+                // Rotate spawns across living players so split groups both see enemies.
+                for (int offset = 0; offset < _players.Length; offset++)
+                {
+                    int id = (_nextUid + offset) % _players.Length;
+                    if (_players[id].Active && _players[id].Hp > 0) { player = id; break; }
+                }
+            }
+            pos = (player >= 0 ? _players[player].Pos : Player.Pos) +
+                new Vector2(MathF.Cos(ang) * dist, MathF.Sin(ang) * dist * 0.7f);
         }
         float arena = Rules.ArenaSize;
         pos = Vector2.Clamp(pos, new Vector2(8), new Vector2(arena - 8));
@@ -317,7 +395,6 @@ public sealed partial class RunWorld
     private void StepEnemies()
     {
         _grid.Build(EX.AsSpan(0, _enemyHigh), EY.AsSpan(0, _enemyHigh));
-        var p = Player.Pos;
         float arena = Rules.ArenaSize;
         for (int i = 0; i < _enemyHigh; i++)
         {
@@ -326,6 +403,10 @@ public sealed partial class RunWorld
             _prevY[i] = EY[i];
             if (EFlash[i] > 0) EFlash[i]--;
             var d = Content.Enemies[EDef[i]];
+            int target = NearestLivingPlayer(new Vector2(EX[i], EY[i]));
+            if (target < 0) break;
+            var player = _players[target];
+            var p = player.Pos;
             float dx = p.X - EX[i], dy = p.Y - EY[i], dist = MathF.Sqrt(dx * dx + dy * dy);
             float vx = 0, vy = 0;
             float speed = d.Speed * Rules.Units.MoveSpeedScale;
@@ -338,7 +419,7 @@ public sealed partial class RunWorld
             EKy[i] *= 0.82f;
             if (dist < d.Radius + PlayerRadius)
             {
-                float dealt = HurtPlayer(EDamage[i], _enemyKind[EDef[i]], EX[i], EY[i]);
+                float dealt = HurtPlayer(player, EDamage[i], _enemyKind[EDef[i]], EX[i], EY[i]);
                 // Enemy lifesteal (Вампиризм) heals the attacker by its share of the damage dealt.
                 if (dealt > 0 && d.Lifesteal > 0) EHp[i] = MathF.Min(EMaxHp[i], EHp[i] + dealt * d.Lifesteal);
             }
@@ -350,9 +431,11 @@ public sealed partial class RunWorld
     public Vector2 EnemyPos(int i, float alpha) => new(_prevX[i] + (EX[i] - _prevX[i]) * alpha, _prevY[i] + (EY[i] - _prevY[i]) * alpha);
 
     /// <summary>Outgoing multiplier for a hit: might × damage-type bonus × item bonus (for item sources).</summary>
-    public float OutgoingMultiplier(DamageKind kind, bool fromItem)
+    public float OutgoingMultiplier(DamageKind kind, bool fromItem) => OutgoingMultiplier(Player, kind, fromItem);
+
+    private static float OutgoingMultiplier(PlayerState p, DamageKind kind, bool fromItem)
     {
-        var s = Player.Stats;
+        var s = p.Stats;
         float m = s[Stat.Might] * kind switch
         {
             DamageKind.Physical => s[Stat.PhysicalDamage],
@@ -370,8 +453,9 @@ public sealed partial class RunWorld
     {
         if (!EAlive[i] || raw <= 0) return;
         var def = Content.Enemies[EDef[i]];
-        float amount = raw * OutgoingMultiplier(kind, source.FromItem) * (1 - Resist(kind, def.Armor, def.MagicResist));
         int playerId = source.PlayerId;
+        var p = (uint)playerId < (uint)_players.Length ? _players[playerId] : Player;
+        float amount = raw * OutgoingMultiplier(p, kind, source.FromItem) * (1 - Resist(kind, def.Armor, def.MagicResist));
         if (amount <= 0) return;
         EHp[i] -= amount;
         EFlash[i] = 3;
@@ -391,9 +475,9 @@ public sealed partial class RunWorld
         EAlive[i] = false;
         AliveEnemies--;
         var d = Content.Enemies[EDef[i]];
-        if (credit >= 0)
+        if ((uint)credit < (uint)_players.Length)
         {
-            Player.Kills++;
+            _players[credit].Kills++;
             DropPickup(PickupKind.Xp, EX[i], EY[i], d.Xp, -1);
             if (d.Gold > 0 && _rng.Next() < d.GoldChance)
                 DropPickup(PickupKind.Gold, EX[i] + _rng.Range(-3, 3), EY[i] + _rng.Range(-3, 3), d.Gold, GoldDrop.FromKill(d.Gold, credit).OwnerId);
@@ -408,9 +492,16 @@ public sealed partial class RunWorld
     {
         ulong h = 1469598103934665603;
         void Mix(float v) { h = (h ^ BitConverter.SingleToUInt32Bits(v)) * 1099511628211; }
-        Mix(Tick); Mix(Player.Pos.X); Mix(Player.Pos.Y); Mix(Player.Hp); Mix(Player.Xp); Mix(Player.Level); Mix(BonusSeconds);
+        Mix(Tick); Mix(BonusSeconds);
+        foreach (var p in _players)
+        {
+            Mix(p.Active ? 1 : 0);
+            if (!p.Active) continue;
+            Mix(p.Pos.X); Mix(p.Pos.Y); Mix(p.Hp); Mix(p.Xp); Mix(p.Level);
+            Mix(p.Kills); Mix(p.Wallet.Gold); Mix(p.Wallet.NextPrice);
+        }
         for (int i = 0; i < _enemyHigh; i++) if (EAlive[i]) { Mix(EX[i]); Mix(EY[i]); Mix(EHp[i]); }
-        Mix(AliveEnemies); Mix(Player.Kills); Mix(Player.Wallet.Gold);
+        Mix(AliveEnemies);
         return h;
     }
 }

@@ -195,7 +195,8 @@ internal sealed class RunView : IDisposable
     }
 
     /// <summary>Draws a frame; with <paramref name="menuSelection"/> ≥ 0 the character select screen is drawn over the scene.</summary>
-    public void Draw(int width, int height, RunWorld world, float alpha, bool paused, float frameDt, int menuSelection = -1)
+    public void Draw(int width, int height, RunWorld world, float alpha, bool paused, float frameDt,
+        int menuSelection = -1, Action<PixelRenderer>? overlay = null, bool online = false)
     {
         _time += paused ? 0 : frameDt;
         var p = world.Player;
@@ -225,8 +226,12 @@ internal sealed class RunView : IDisposable
         void Add(int id, float y) { if (n < order.Length) { order[n] = id; _depth[n++] = y; } }
         for (int i = 0; i < world.EnemyHighWater; i++)
             if (world.EAlive[i] && Visible(world.EX[i], world.EY[i])) Add(i, world.EY[i]);
-        const int HeroId = -1, StatueBase = -1000, ChestBase = -2000;
-        Add(HeroId, hero.Y);
+        const int HeroBase = -1, StatueBase = -1000, ChestBase = -2000;
+        for (int i = 0; i < world.Players.Count; i++)
+        {
+            var player = world.Players[i];
+            if (player.Active && Visible(player.Pos.X, player.Pos.Y)) Add(HeroBase - i, player.Pos.Y);
+        }
         for (int i = 0; i < world.Statues.Length; i++) if (Visible(world.Statues[i].X, world.Statues[i].Y)) Add(StatueBase - i, world.Statues[i].Y);
         for (int i = 0; i < world.Chests.Length; i++) if (Visible(world.Chests[i].X, world.Chests[i].Y)) Add(ChestBase - i, world.Chests[i].Y);
         Array.Sort(_depth, order, 0, n);
@@ -242,14 +247,17 @@ internal sealed class RunView : IDisposable
                 uint tint = world.EFlash[id] > 0 ? 0x00FFFFFFu : _enemyTint[def];
                 _batch.Draw(_enemySprites[def], frame, pos.X - ox, pos.Y - oy, flipX: pos.X > hero.X, tint: tint);
             }
-            else if (id == HeroId)
+            else if (id > StatueBase)
             {
-                bool blink = p.InvulnTicks > 0 && p.DashTicks == 0 && (world.Tick / 2) % 2 == 0;
-                if (blink || world.Phase == RunPhase.Dead) continue;
-                var sprite = _heroSprites[world.Content.CharacterIndex(p.Character.Id)];
-                var anim = sprite.Anims[p.Walking && sprite.Anims.ContainsKey("walk") ? "walk" : "idle"];
+                var player = world.Players[HeroBase - id];
+                bool blink = player.InvulnTicks > 0 && player.DashTicks == 0 && (world.Tick / 2) % 2 == 0;
+                if (blink || player.Hp <= 0) continue;
+                var sprite = _heroSprites[world.Content.CharacterIndex(player.Character.Id)];
+                var anim = sprite.Anims[player.Walking && sprite.Anims.ContainsKey("walk") ? "walk" : "idle"];
                 int frame = anim.Frames[(int)(_time * anim.Fps) % anim.Frames.Count];
-                _batch.Draw(sprite, frame, hero.X - ox, hero.Y - oy, p.FacingLeft);
+                var position = Vector2.Lerp(player.Prev, player.Pos, alpha);
+                _batch.Draw(sprite, frame, position.X - ox, position.Y - oy, player.FacingLeft,
+                    tint: ReferenceEquals(player, p) ? 0xFFFFFFFFu : 0xFFE6F4BCu);
             }
             else if (id <= ChestBase)
             {
@@ -331,7 +339,8 @@ internal sealed class RunView : IDisposable
         _particles.Draw(ox, oy, tw, th, _time);
 
         if (menuSelection >= 0) _hud.DrawMenu(_renderer, world.Content, menuSelection);
-        else _hud.Draw(_renderer, world, hero, frameDt, paused);
+        else _hud.Draw(_renderer, world, hero, frameDt, paused, online);
+        overlay?.Invoke(_renderer);
         _renderer.Finish();
     }
 

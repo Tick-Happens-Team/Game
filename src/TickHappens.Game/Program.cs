@@ -4,6 +4,11 @@ using TickHappens.Engine.Platform;
 using TickHappens.Game;
 using TickHappens.Game.Content;
 using TickHappens.Game.Sim;
+#if TICKHAPPENS_EOS
+using TickHappens.Game.Online;
+
+if (args is ["--eos-probe"]) return EosProbe.Run();
+#endif
 
 // TickHappens single-player game: character select, then a run.
 //   --demo              autopilot plays (deterministic, fixed 60 FPS frame time), skips the menu
@@ -67,14 +72,53 @@ var loop = new RunLoop(world);
 var clock = Stopwatch.StartNew();
 double last = clock.Elapsed.TotalSeconds, fpsTimer = 0;
 int fpsFrames = 0;
+#if TICKHAPPENS_EOS
+using var online = new OnlineGame(content);
+var onlineMenu = new OnlineMenu(online);
+bool wasOnlinePlaying = false;
+#endif
 
 for (int frame = 1; !window.QuitRequested; frame++)
 {
     window.PumpEvents();
-    if (window.QuitRequested || window.WasPressed(Key.Escape)) break;
+    if (window.QuitRequested) break;
     double now = clock.Elapsed.TotalSeconds;
     float frameDt = demo ? 1f / 60 : (float)Math.Min(0.1, now - last);
     last = now;
+
+#if TICKHAPPENS_EOS
+    bool escapeHandled = inMenu && (onlineMenu.IsOpen || online.Playing);
+    bool onlineMenuWasOpen = onlineMenu.IsOpen;
+    if (inMenu && online.Playing && window.WasPressed(Key.Escape)) online.Leave();
+    else if (inMenu && !stayInMenu && !online.Playing)
+        onlineMenu.Read(window, view.Renderer, content.Characters[selected].Id, seed);
+    var netInput = new RunInput(Axis(Key.D, Key.Right, Key.A, Key.Left),
+        Axis(Key.S, Key.Down, Key.W, Key.Up), window.IsDown(Key.Space));
+    online.Update(frameDt, netInput);
+    if (online.Playing != wasOnlinePlaying)
+    {
+        view.Reset();
+        wasOnlinePlaying = online.Playing;
+    }
+    if (inMenu && online.Playing)
+    {
+        var onlineWorld = online.World!;
+        view.Consume(onlineWorld);
+        onlineWorld.ClearEvents();
+        view.Draw(window.Width, window.Height, onlineWorld, online.Alpha, false, frameDt, online: true);
+        window.Present();
+        continue;
+    }
+    if (inMenu && (onlineMenu.IsOpen || onlineMenuWasOpen))
+    {
+        view.Draw(window.Width, window.Height, world, 1, true, frameDt, selected, onlineMenu.Draw);
+        window.Present();
+        continue;
+    }
+    if (window.WasPressed(Key.Escape) && !escapeHandled) break;
+#else
+    if (window.WasPressed(Key.Escape)) break;
+#endif
 
     if (inMenu)
     {
@@ -93,7 +137,11 @@ for (int frame = 1; !window.QuitRequested; frame++)
             view.Reset();
             inMenu = false;
         }
-        view.Draw(window.Width, window.Height, world, 1, paused: true, frameDt, menuSelection: selected);
+        view.Draw(window.Width, window.Height, world, 1, paused: true, frameDt, menuSelection: selected
+#if TICKHAPPENS_EOS
+            , overlay: stayInMenu ? null : onlineMenu.Draw
+#endif
+        );
     }
     else
     {

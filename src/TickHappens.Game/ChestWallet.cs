@@ -21,6 +21,12 @@ public sealed class ChestWallet(int startPrice = 10, decimal growth = 1.5m)
         _nextPrice *= growth;
         return true;
     }
+
+    internal void ApplyReplica(int gold, int nextPrice)
+    {
+        Gold = gold;
+        _nextPrice = nextPrice;
+    }
 }
 
 public readonly record struct GoldDrop(int Amount, int OwnerId)

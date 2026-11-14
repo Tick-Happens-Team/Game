@@ -11,6 +11,7 @@ public sealed class GameWindow : IDisposable
     public int Width { get; private set; }
     public int Height { get; private set; }
     public bool QuitRequested { get; private set; }
+    public (float X, float Y)? LeftClick { get; private set; }
 
     private readonly nint _context;
     private readonly bool[] _down = new bool[512];
@@ -39,6 +40,7 @@ public sealed class GameWindow : IDisposable
     public void PumpEvents()
     {
         Array.Clear(_pressed);
+        LeftClick = null;
         while (SDL.PollEvent(out var e))
         {
             switch ((SDL.EventType)e.Type)
@@ -63,6 +65,10 @@ public sealed class GameWindow : IDisposable
                     if (sc is >= 0 and < 512) _down[sc] = false;
                     break;
                 }
+                case SDL.EventType.MouseButtonDown when e.Button.Button == 1:
+                    SDL.GetWindowSize(Handle, out int w, out int h);
+                    LeftClick = (e.Button.X / Math.Max(w, 1), e.Button.Y / Math.Max(h, 1));
+                    break;
             }
         }
         UpdateSize();
@@ -77,6 +83,12 @@ public sealed class GameWindow : IDisposable
 
     public bool IsDown(Key k) => _down[(int)k];
     public bool WasPressed(Key k) => _pressed[(int)k];
+    public char PressedCodeCharacter()
+    {
+        for (int i = 4; i <= 29; i++) if (_pressed[i]) return (char)('A' + i - 4);
+        for (int i = 30; i <= 39; i++) if (_pressed[i]) return "1234567890"[i - 30];
+        return '\0';
+    }
     public void SetTitle(string title) => SDL.SetWindowTitle(Handle, title);
     public void Present() => SDL.GLSwapWindow(Handle);
     public void RequestQuit() => QuitRequested = true;
@@ -94,7 +106,7 @@ public enum Key
 {
     A = 4, D = 7, E = 8, N = 17, P = 19, Q = 20, R = 21, S = 22, W = 26,
     D1 = 30, D2 = 31, D3 = 32, D4 = 33, D5 = 34, D6 = 35,
-    Return = 40, Escape = 41, Tab = 43, Space = 44,
+    Return = 40, Escape = 41, Backspace = 42, Tab = 43, Space = 44,
     F1 = 58, F2 = 59, F3 = 60, F4 = 61, F5 = 62, F12 = 69,
     Right = 79, Left = 80, Down = 81, Up = 82,
 }

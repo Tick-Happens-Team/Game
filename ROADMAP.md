@@ -60,14 +60,14 @@
 
 | ID | Task | Priority | Depends on | Acceptance |
 |---|---|---|---|---|
-| 3.1 | [ ] ITransport, loopback, versioned compressed messages | P! | 2.1 | Host and three clients in one process. |
-| 3.2 | [ ] Client input, delta/quantized snapshots, local prediction | P! | 3.1 | ≤150 KB/s per client with 1,000 enemies and responsive input at 100 ms. |
-| 3.3 | [ ] Statue, damage, death/drop seed, chest, and level events | P! | 3.2 | RunClock and loot match. Effects stay local. |
+| 3.1 | [x] Transport contract, loopback tests, versioned messages | P! | 2.1 | Host and three clients negotiate slots in one process. |
+| 3.2 | [~] Client input, delta/quantized snapshots, local prediction | P! | 3.1 | Hosts process input and send quantized snapshots. Delta compression, prediction/reconciliation, and the latency/bandwidth benchmark remain. |
+| 3.3 | [~] Statue, damage, death/drop seed, chest, and level events | P! | 3.2 | Host snapshots carry run time, entities, and per-player rewards. Complete event fidelity and multiplayer VFX verification. |
 | 3.4 | [ ] LiteNetLib LAN discovery and direct IP | P! | 3.1 | Two computers on one LAN can play. |
-| 3.5 | [ ] EOS Device ID, room code, P2P relay, and release SDK | P! | 3.1 | Clean Windows installs join over separate NAT/CGNAT networks without registering or using a third-party launcher. Test forced relay. |
-| 3.6 | [ ] Reconnect within 60 seconds and handle host departure | P+ | 3.3 | Verify by interrupting a connection. |
-| 3.7 | [ ] Required mod compatibility hash | P! | 3.1, 4.2 | Explain mismatches or download exact packages. |
-| 3.8 | [ ] Relay-only setting | P+ | 3.5 | Option avoids sharing peer IP addresses. |
+| 3.5 | [~] EOS Device ID, room code, P2P relay, and release SDK | P! | 3.1 | Windows SDK build signs in, creates, finds by code, and closes a real EOS lobby. Validate a full join and run from independent networks and add protected release packaging. |
+| 3.6 | [~] Reconnect within 60 seconds and handle host departure | P+ | 3.3 | Heartbeat and disconnect handling have loopback coverage. Reconnect and a real interrupted-session test remain. |
+| 3.7 | [~] Required mod compatibility hash | P! | 3.1, 4.2 | Handshake rejects mismatched loaded gameplay data. Exact mod retrieval remains. |
+| 3.8 | [~] Relay-only setting | P+ | 3.5 | Developer flag selects ForceRelays. Player setting and cross-network verification remain. |
 | 3.9 | [ ] Assess WebRTC, signaling, and TURN if EOS is blocked | P- | 3.5 | Check relay availability, cost, and account-free access. |
 
 ## P4. Mods and Workshop

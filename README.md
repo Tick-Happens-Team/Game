@@ -21,6 +21,10 @@ Pick one of six heroes from the owner roster (Октарин, Мечник, Ку
 
 Content (6 heroes, 6 items, enemies, waves, rules) is data in `content/core/*.json`, the built-in `core` mod; the full plan is the [content roadmap](docs/CONTENT_ROADMAP.md). Autopilot and captures: `--demo --character ID --menu --frames N --screenshot PATH --seed S --no-vsync`.
 
+## Online co-op
+
+Windows developer builds can enable online co-op with the official EOS SDK and local credentials. See the [online setup and test instructions](docs/NETWORKING.md#local-windows-eos-build).
+
 ## Windows launcher
 
 The Windows launcher and signed-release tooling are described in the [release guide](docs/RELEASING.md). A signed release supplies the one-time launcher download. The source launch command above also works for development.

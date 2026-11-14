@@ -19,3 +19,6 @@ Thumbs.db
 .env*
 secrets/
 third_party/eos-sdk/
+eos.local.json
+client_secret_env*
+EOSSDK-*-Shipping*.dll

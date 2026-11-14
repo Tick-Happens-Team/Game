@@ -85,7 +85,7 @@ internal sealed class Hud
     private static string F(float v) => v.ToString("0.##", CultureInfo.InvariantCulture);
     private static string Pct(float v) => (v * 100).ToString("0.##", CultureInfo.InvariantCulture) + "%";
 
-    public void Draw(PixelRenderer renderer, RunWorld world, Vector2 hero, float dt, bool paused)
+    public void Draw(PixelRenderer renderer, RunWorld world, Vector2 hero, float dt, bool paused, bool online)
     {
         var ui = PixelCanvas.ColorOf(renderer.UiFrame);
         int w = renderer.ViewW, h = renderer.ViewH;
@@ -148,7 +148,7 @@ internal sealed class Hud
             PixelFont.DrawCentered(ui, _notice, w / 2, 40, _noticeColor, Ink);
         }
 
-        if (world.Phase == RunPhase.Dead) DrawDeath(ui, world, w, h);
+        if (world.Phase == RunPhase.Dead) DrawDeath(ui, world, w, h, online);
         else if (paused)
         {
             Dim(ui, w, h, 0.5f);
@@ -231,7 +231,7 @@ internal sealed class Hud
                 ui.Set(x + xx, y + yy, xx == 0 || yy == 0 || xx == bw - 1 || yy == bh - 1 ? border : Panel);
     }
 
-    private static void DrawDeath(PixelCanvas ui, RunWorld world, int w, int h)
+    private static void DrawDeath(PixelCanvas ui, RunWorld world, int w, int h, bool online)
     {
         Dim(ui, w, h, 0.65f);
         var p = world.Player;
@@ -239,7 +239,8 @@ internal sealed class Hud
         PixelFont.DrawCentered(ui, "ГЕРОЙ ПАЛ", w / 2, h / 2 - 50, 0xFF6060FFu, Ink, 3);
         PixelFont.DrawCentered(ui, $"ПРОДЕРЖАЛСЯ {secs / 60:00}:{secs % 60:00}   ЧАСЫ ЗАБЕГА {(int)world.RunSeconds / 60:00}:{(int)world.RunSeconds % 60:00}", w / 2, h / 2 - 12, White, Ink);
         PixelFont.DrawCentered(ui, $"{p.Character.Name}   УРОВЕНЬ {p.Level}   УБИТО {p.Kills}   ЗОЛОТО {p.Wallet.Gold}", w / 2, h / 2 + 2, White, Ink);
-        PixelFont.DrawCentered(ui, "R - НОВЫЙ ЗАБЕГ   ESC - ВЫХОД", w / 2, h / 2 + 26, Teal, Ink);
+        PixelFont.DrawCentered(ui, online ? "ESC - ПОКИНУТЬ КОМНАТУ" : "R - НОВЫЙ ЗАБЕГ   ESC - ВЫХОД",
+            w / 2, h / 2 + 26, Teal, Ink);
     }
 
     private static IEnumerable<string> Wrap(string text, int maxChars)
