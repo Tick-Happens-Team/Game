@@ -5,18 +5,22 @@ namespace TickHappens.Tests;
 public sealed class RunWorldTests
 {
     [Fact]
-    public void ChestRequiresProximityAndOpensOncePerRun()
+    public void EnemyGoldPaysForNearbyChestOncePerRun()
     {
         var world = new RunWorld();
-        world.Step(new(0, 0, true));
+        world.Step(default);
+        Assert.False(world.IsAlive(0));
+        Assert.True(world.HasGoldDrop(0));
+        Assert.Equal(0, world.Wallet.Gold);
         Assert.Equal(0, world.OpenedCount);
 
         for (int i = 0; i < 14; i++) world.Step(new(0, -1));
-        Assert.Equal(0, world.NearbyChest);
-        world.Step(new(0, 0, true));
+        Assert.False(world.HasGoldDrop(0));
         Assert.True(world.IsOpen(0));
         Assert.Equal(0, world.LastOpenedChest);
-        world.Step(new(0, 0, true));
+        Assert.Equal(0, world.Wallet.Gold);
+        Assert.Equal(15, world.Wallet.NextPrice);
+        world.Step(default);
         Assert.Equal(1, world.OpenedCount);
         Assert.False(new RunWorld().IsOpen(0));
     }
@@ -36,22 +40,42 @@ public sealed class RunWorldTests
     }
 
     [Fact]
-    public void InteractionSurvivesFramesWithoutTicksAndPauseFreezesTheRun()
+    public void PauseFreezesTheRun()
     {
         var world = new RunWorld();
         var loop = new RunLoop(world);
         for (int i = 0; i < 14; i++) world.Step(new(0, -1));
-        loop.Advance(1d / 120, new(0, 0, true));
-        Assert.Equal(0, world.OpenedCount);
-        loop.Advance(1d / 40, default);
         Assert.Equal(1, world.OpenedCount);
 
         loop.TogglePause();
-        loop.Advance(0.25, new(1, 0, true));
-        Assert.Equal(15, world.Tick);
+        loop.Advance(0.25, new(1, 0));
+        Assert.Equal(14, world.Tick);
         loop.TogglePause();
         loop.Advance(1d / 30, default);
-        Assert.Equal(16, world.Tick);
+        Assert.Equal(15, world.Tick);
+    }
+
+    [Fact]
+    public void GoldBelongsToKillerOrSummonerAndChestPricesAreIndividual()
+    {
+        var first = new ChestWallet();
+        var second = new ChestWallet();
+        var direct = GoldDrop.FromKill(25, killerPlayerId: 0);
+        var summonKill = GoldDrop.FromKill(23, killerPlayerId: 0, summonOwnerId: 1);
+        first.Collect(summonKill, playerId: 0);
+        second.Collect(direct, playerId: 1);
+        Assert.False(first.TryPay());
+        Assert.Equal(0, second.Gold);
+        first.Collect(direct, playerId: 0);
+        second.Collect(summonKill, playerId: 1);
+        Assert.Equal(23, second.Gold);
+        Assert.True(first.TryPay());
+        Assert.Equal(15, first.NextPrice);
+        Assert.Equal(10, second.NextPrice);
+        Assert.True(first.TryPay());
+        Assert.Equal(23, first.NextPrice);
+        Assert.False(first.TryPay());
+        Assert.Equal(23, first.NextPrice);
     }
 
     private static RunWorld PlayAt(int fps)
@@ -61,7 +85,7 @@ public sealed class RunWorldTests
         for (int frame = 0; frame < 10_000 * fps / 30; frame++)
         {
             bool approaching = frame < fps / 2;
-            loop.Advance(1d / fps, new(0, approaching ? -1 : 0, frame == fps / 2));
+            loop.Advance(1d / fps, new(0, approaching ? -1 : 0));
         }
         return world;
     }

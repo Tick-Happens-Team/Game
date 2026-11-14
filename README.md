@@ -10,7 +10,7 @@ Install the .NET 10 SDK, keep Game and Assets side by side, and use a GPU with O
 dotnet run --project src/TickHappens.Game
 ```
 
-Move with WASD or the arrow keys. Approach a chest and press **E** when its marker appears. Each of the three chests opens once per run. The window title shows the run timer and opened chest count. Press **P** to pause, **R** to restart, or **Esc** to quit. Item rewards and combat are planned on the [roadmap](ROADMAP.md).
+Move with WASD or the arrow keys. The hero attacks automatically. Walk over dropped gold to collect it, then approach a chest to buy and open it automatically. The prototype starts at 10 gold per chest. Each purchase multiplies the player's next price by 1.5, rounding up only when charging whole coins. The window title shows the balance, next price, and run timer. Press **P** to pause, **R** to restart, or **Esc** to quit. Item rewards, dash/dodge, and expanded combat are planned on the [roadmap](ROADMAP.md).
 
 ## Contributing
 
