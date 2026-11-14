@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\TickHappens.Engine\TickHappens.Engine.csproj" />
+    <ProjectReference Include="..\..\src\TickHappens.Game\TickHappens.Game.csproj" />
     <ProjectReference Include="..\..\tools\TickHappens.AssetTool\TickHappens.AssetTool.csproj" />
     <ProjectReference Include="..\..\src\TickHappens.Distribution\TickHappens.Distribution.csproj" />
   </ItemGroup>
