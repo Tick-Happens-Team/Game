@@ -16,6 +16,8 @@ Veldrid was dropped over maintenance concerns. raylib-cs offered insufficient co
 
 ## Projects
 
+The Windows launcher uses the .NET Windows Forms desktop runtime for its controls. It is published self-contained and keeps the Windows UI outside the portable game and engine projects.
+
 - `TickHappens.Engine` owns SDL3, OpenGL resources, SpriteBatch, PixelRenderer, GPU particles, VFX, images, palettes, atlases, and SpatialGrid.
 - `TickHappens.Game` runs the single-player game.
   - `Content/` loads and validates the data-driven `core` mod (`content/core/*.json`): characters, weapons, items, enemies, waves, rules.

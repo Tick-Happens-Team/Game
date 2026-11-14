@@ -36,7 +36,13 @@ if (screenshot is not null && frames == 0)
 }
 
 ContentSet content;
-try { content = ContentLoader.Load(ContentLoader.FindCore()); }
+try
+{
+    string local = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TickHappens");
+    content = ContentLoader.Load(ContentLoader.FindCore(),
+        Environment.GetEnvironmentVariable("TICKHAPPENS_MODS_ROOT") ?? Path.Combine(local, "mods"),
+        Environment.GetEnvironmentVariable("TICKHAPPENS_MOD_PROFILE") ?? Path.Combine(local, "enabled-mods.json"));
+}
 catch (ContentException e) { Console.Error.WriteLine(e.Message); return 3; }
 
 var atlas = AtlasData.Load(AssetPaths.Get("atlas", "main.json"));

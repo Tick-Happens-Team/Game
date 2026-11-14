@@ -26,6 +26,19 @@ Build on `ChannelManifest` and `PackageManifest` in Distribution. The signed man
 
 CI signs with a key from the protected Game environment. The launcher verifies the signature before using any fields. Ship trust for a replacement key before rotating. PR and test workflows use read-only access. Only protected release jobs receive publish permissions.
 
+### Prepare a signed Windows release
+
+Use clean, exact Game and Assets checkouts and PowerShell 7.3 or later. Run `dotnet run --project tools/TickHappens.ReleaseTool -- keygen PRIVATE.pem PUBLIC.pem` once for a new release key and store the private PEM in the protected signing environment. Set `TICKHAPPENS_RELEASE_PRIVATE_KEY` from that secret for the packaging step. Keep the same public key across releases so existing launchers can verify new manifests.
+
+```powershell
+./tools/Pack-LauncherRelease.ps1 -GameVersion 0.1.0 -LauncherVersion 0.1.0 `
+    -AssetsVersion 0.1.0 -Sequence 1 -PublicKey C:/signing/public.pem `
+    -AssetsRoot ../Assets -DownloadBase https://github.com/Tick-Happens-Team/Game/releases/download/v0.1.0 `
+    -Output .tmp/release-v0.1.0
+```
+
+Publish `launcher-win-x64.zip`, `game-win-x64.zip`, `assets.zip`, `channel.json`, and `channel.json.sig` from the output's `release` directory. The adjacent ZIP reference JSON files are packaging intermediates. Test away from the source checkouts before promoting a release to latest. For a local smoke test, point both the package URLs and `TICKHAPPENS_CHANNEL_URL` at the same loopback HTTP file server and use a disposable test key.
+
 ## Install, repair, and run
 
 Players initially download the launcher ZIP from Game Releases. The launcher validates the manifest, schema, RID, minimum launcher version, and monotonic release sequence. Keep the highest successfully installed sequence across local rollbacks. If the launcher is too old, show the download link for a new one. Cache packages by digest to reuse unchanged content.
@@ -35,3 +48,7 @@ Verify archive lengths and SHA-256 before extracting into same-volume staging. V
 A failed or interrupted update leaves the current pair usable. Keep the previous working pair for local rollback and support offline launch. Keep settings, saves, and mods outside versioned installations. If a save format is incompatible, allow the player to select a backup for rollback. A central rollback publishes a larger sequence pointing to a previously tested pair.
 
 Players may launch the game directly after installation. The game provides the room UI and checks Workshop mods against the game version and content schema.
+
+The Windows launcher checks on startup and every 15 minutes while idle. It can also retry from its window. It stores packages, versioned installs, and the local mod profile under `%LOCALAPPDATA%/TickHappens`. Keep the original launcher shortcut. It hands off to a verified newer executable in that directory. A failed update leaves the last installed game available, including offline. Previous installations remain on disk. Selecting a previous version in the UI and signed Workshop catalog browsing are roadmap work.
+
+Local item mods go under `mods/<mod-id>/items.json`. The file is an array using the core item schema, with IDs such as `my-mod:my-item`. Check the mod in the launcher to include it at the next launch. The profile also applies when launching the installed game directly. Only item definitions are supported in this local workflow.

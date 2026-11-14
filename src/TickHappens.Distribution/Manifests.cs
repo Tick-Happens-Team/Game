@@ -69,11 +69,21 @@ public sealed class PackageManifest
         foreach (var f in Files)
         {
             string p = f.Path;
-            if (p.Length == 0 || p.Contains('\\') || p.StartsWith('/') || p.Contains(':') || p.Split('/').Any(seg => seg is "" or "." or ".."))
+            if (p.Split('/').Any(UnsafeSegment) || p.Equals(InstallLayout.ManifestFileName, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException($"unsafe path in manifest: '{p}'");
             if (!seen.Add(p)) throw new InvalidDataException($"duplicate path (case-insensitive) in manifest: '{p}'");
             if (f.Size < 0 || f.Sha256.Length != 64) throw new InvalidDataException($"bad entry for '{p}'");
         }
+    }
+
+    private static bool UnsafeSegment(string segment)
+    {
+        if (segment.Length == 0 || segment.EndsWith('.') || segment.EndsWith(' ') ||
+            segment.Any(c => c < 32 || "<>:\"\\|?*".Contains(c))) return true;
+        string device = segment.Split('.')[0].TrimEnd().ToUpperInvariant();
+        return device is "CON" or "NUL" or "PRN" or "AUX" or "CONIN$" or "CONOUT$" ||
+            (device.Length == 4 && (device.StartsWith("COM") || device.StartsWith("LPT")) &&
+            "0123456789¹²³".Contains(device[3]));
     }
 }
 
@@ -99,6 +109,7 @@ public sealed class ChannelManifest
     [JsonPropertyName("minLauncher")] public string MinLauncher { get; set; } = "0.1.0";
     [JsonPropertyName("game")] public Dictionary<string, PackageRef> Game { get; set; } = [];
     [JsonPropertyName("assets")] public PackageRef Assets { get; set; } = new();
+    [JsonPropertyName("launcher")] public Dictionary<string, PackageRef> Launcher { get; set; } = [];
 
     public static ChannelManifest FromJson(string json) =>
         JsonSerializer.Deserialize<ChannelManifest>(json, PackageManifest.Json) ?? throw new InvalidDataException("empty channel manifest");
