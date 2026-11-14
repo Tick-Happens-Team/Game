@@ -2,7 +2,19 @@
 
 TickHappens is a free, open-source, top-down bullet heaven with 16-bit pixel art, dynamic lighting, and planned online co-op for 2–4 players. Difficulty follows the run clock. Time statues advance it.
 
-The visual benchmark and asset pipeline are available today. The playable prototype and launcher are on the [roadmap](ROADMAP.md).
+## Play the prototype
+
+Install the .NET 10 SDK, keep Game and Assets side by side, and use a GPU with OpenGL 4.3. From Game, run:
+
+```powershell
+dotnet run --project src/TickHappens.Game
+```
+
+Move with WASD or the arrow keys. Approach a chest and press **E** when its marker appears. Each of the three chests opens once per run. The window title shows the run timer and opened chest count. Press **P** to pause, **R** to restart, or **Esc** to quit. Item rewards and combat are planned on the [roadmap](ROADMAP.md).
+
+## Contributing
+
+Submit changes through a pull request into `dev`. See the [repository workflow](docs/RELEASING.md) for CI, coordinated Assets changes, and promotion to `stable`.
 
 ## Run the visual benchmark
 

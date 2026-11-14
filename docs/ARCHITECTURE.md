@@ -17,9 +17,10 @@ Veldrid was dropped over maintenance concerns. raylib-cs offered insufficient co
 ## Projects
 
 - `TickHappens.Engine` owns SDL3, OpenGL resources, SpriteBatch, PixelRenderer, GPU particles, VFX, images, palettes, atlases, and SpatialGrid.
+- `TickHappens.Game` runs the single-player prototype. RunWorld owns movement and chest state, RunLoop advances the world at 30 Hz, and RunView renders interpolated movement.
 - `TickHappens.VisualBench` exercises rendering and crowds. See the [Game README](../README.md) for arguments.
 - `TickHappens.AssetTool`, `TickHappens.Distribution`, `TickHappens.ReleaseTool`, and `TickHappens.Tests` cover asset generation, package contracts, release tooling, and tests. ReleaseTool is still a scaffold.
-- Planned projects cover gameplay, network transports and snapshots, mod validation and installation, and the executable entry point.
+- Planned projects cover network transports and snapshots and mod validation and installation.
 
 Game depends on Engine. Net depends on the game protocol and Engine. The engine is genre-independent.
 
@@ -38,7 +39,7 @@ Debug controls include lighting (F1), bloom (F2), G-buffer and VFX light views (
 
 ## Simulation
 
-P2 plans a deterministic 30 Hz fixed step with render interpolation. Entities use struct-of-arrays by type and handles with an index and generation. SpatialGrid uses allocation-free O(n) counting sort for crowd separation, contact damage, and area queries.
+The prototype advances movement and chest interactions at a deterministic 30 Hz with render interpolation. The platform loop supplies elapsed time and input. RunWorld owns the result of each tick and records the last chest opened for presentation. P2 plans struct-of-arrays entity storage by type and handles with an index and generation. SpatialGrid uses allocation-free O(n) counting sort for crowd separation, contact damage, and area queries.
 
 RunClock tracks elapsed simulation time plus time statue bonuses. Wave composition, stats, and bosses use this clock. A `StatueActivated{id, minutes}` event advances it immediately. StatBlock applies ordered additive and multiplicative modifiers. Passives subscribe to events such as OnLevelUp. Seed each system's RNG. The host owns authoritative state while clients predict their own movement.
 

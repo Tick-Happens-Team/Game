@@ -8,7 +8,9 @@ TickHappens is distributed free of charge through GitHub Releases. The public Ti
 
 ## Branches and version pairing
 
-Game and Assets develop on `dev` and promote tested changes to protected `stable` branches. Game will pin the full Assets commit and expected package tag in a lock file. Stable builds require an available package from the Assets/stable history. A local Assets checkout can be placed beside Game or selected with `TICKHAPPENS_ASSETS_ROOT`. Generation runs locally on files. Pinning published versions is part of the release rollout.
+Open pull requests from topic branches into `dev`, the default branch for Game and Assets. Mods PRs target `main`. Review and run CI before merging, including for documentation changes. For changes spanning Game and Assets, link the PRs and merge Assets first when Game depends on the new atlas. Promote tested changes to `stable` through a separate PR. Promote the matching Assets changes first when the Game promotion depends on them.
+
+Until the launcher is available, run the prototype directly from the Game checkout using the [README](../README.md). Keep a compatible Assets checkout beside Game or select it with `TICKHAPPENS_ASSETS_ROOT`. Asset generation runs locally on files. As part of the release rollout, Game will pin the full Assets commit and expected package tag in a lock file. Stable release builds will require an available package from the Assets/stable history.
 
 The current workflows build and test both branches. Assets publishes an atlas ZIP and SHA-256 checksum from stable. Game uploads a self-contained Windows visual benchmark as an Actions artifact from stable. The signed launcher and game release described below requires the playable game and launcher.
 

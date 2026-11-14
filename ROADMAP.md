@@ -29,7 +29,7 @@
 |---|---|---|---|---|
 | 1.1 | [x] SDL3 window, GL 4.3 context, keyboard | P! | — | Bench opens and responds. |
 | 1.2 | [ ] SDL3 gamepad and rebinding | P+ | 1.1 | Stick movement and menu navigation. |
-| 1.3 | [ ] 30 Hz fixed step, interpolation, and pause | P! | 1.1 | Simulation produces identical positions at different render rates. |
+| 1.3 | [x] 30 Hz fixed step, interpolation, and pause | P! | 1.1 | Simulation produces identical positions at different render rates. |
 | 1.4 | [x] Instanced SpriteBatch, atlas, animation | P! | — | About 2,850 sprites per draw in the bench. |
 | 1.5 | [ ] Back and front CPU VFX passes | P+ | 0.11 | Scorch below enemies and sparks above in a screenshot. |
 | 1.6 | [ ] Bake VFX flipbooks into a VFX atlas | P+ | 0.11 | 200 concurrent explosions use ≤2 ms CPU per frame. |
@@ -43,15 +43,15 @@
 
 | ID | Task | Priority | Depends on | Acceptance |
 |---|---|---|---|---|
-| 2.1 | [ ] Game project, struct-of-arrays world, handles, systems, and seeded RNG | P! | 1.3 | Matching state hashes after 10,000 ticks with the same seed. |
+| 2.1 | [~] Game project, struct-of-arrays world, handles, systems, and seeded RNG | P! | 1.3 | Standalone prototype and 10,000-tick movement/chest test. General entity storage, handles, seeded RNG, and state hashes remain. |
 | 2.2 | [ ] Data loader for built-in core mod | P! | 2.1 | Characters, weapons, enemies, and waves load from JSON with clear validation errors. |
-| 2.3 | [ ] Movement, enemy collisions, contact damage, HP, and death | P! | 2.1 | Player can die. |
+| 2.3 | [~] Movement, enemy collisions, contact damage, HP, and death | P! | 2.1 | Player movement and arena bounds work. Enemy collisions, damage, HP, and death remain. |
 | 2.4 | [ ] Projectile, area, and chain-lightning auto-attacks with VFX | P! | 2.2, 0.12 | JSON-defined weapons and upgrades work. |
 | 2.5 | [ ] RunClock and time-based waves, stats, and bosses | P! | 2.2 | Wave composition matches tables at minutes 0, 5, and 10. |
 | 2.6 | [ ] Time statues advance RunClock | P! | 2.5 | Difficulty jumps and HUD reflects it. |
 | 2.7 | [ ] XP drops, magnet, level-up, and upgrade choice | P! | 2.3 | Three upgrade choices update StatBlock. |
 | 2.8 | [ ] Ordered additive and multiplicative StatBlock modifiers and event-based passives | P! | 2.2 | Combination tests cover examples such as +1 armor on level-up. |
-| 2.9 | [ ] Chests and loot tables | P+ | 2.8 | Opening a chest awards an item from its pool. |
+| 2.9 | [~] Chests and loot tables | P+ | 2.8 | Three arena chests can each be opened once in range. Item pools and rewards follow the item system. |
 | 2.10 | [ ] HUD clock, level, HP, XP, and results screen | P+ | 1.9 | Complete run flow. |
 | 2.11 | [ ] Simulation performance | P! | 2.3 | Bench confirms ≤4 ms per tick with 2,000 enemies. |
 
