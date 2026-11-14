@@ -2,6 +2,12 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(TickHappensEosSdk)' != ''">
+    <DefineConstants>$(DefineConstants);TICKHAPPENS_EOS</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(TickHappensEosSdk)' != ''">
+    <ProjectReference Include="../TickHappens.EosSdk/TickHappens.EosSdk.csproj" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\TickHappens.Engine\TickHappens.Engine.csproj" />
     <None Include="..\..\assets\**\*" LinkBase="assets" CopyToOutputDirectory="PreserveNewest" />

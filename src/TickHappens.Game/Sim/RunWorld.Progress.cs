@@ -15,6 +15,7 @@ public sealed partial class RunWorld
     public readonly int[] GValue = new int[PickupCapacity], GOwner = new int[PickupCapacity];
     public readonly bool[] GAlive = new bool[PickupCapacity];
     private readonly bool[] _gPulled = new bool[PickupCapacity];
+    private readonly byte[] _gPullTarget = new byte[PickupCapacity];
     private int _pickupCursor;
 
     // ---- statues and chests ----
@@ -24,7 +25,7 @@ public sealed partial class RunWorld
     public Vector2[] Chests { get; private set; } = [];
     public bool[] ChestOpen { get; private set; } = [];
     /// <summary>Unopened chest the player stands at but cannot afford yet (-1 if none).</summary>
-    public int NearbyChest { get; private set; } = -1;
+    public int NearbyChest => Player.NearbyChest;
 
     private void InitPickups() { }
 
@@ -32,7 +33,7 @@ public sealed partial class RunWorld
     {
         // Deterministic layout from the run seed: rings around the start, so early ones are close.
         var rng = new SimRng(Seed * 2654435761u + 17);
-        var center = Player.Pos;
+        var center = new Vector2(Rules.ArenaSize / 2f);
         float arena = Rules.ArenaSize;
         Vector2 Ring(int i, int n, float r0, float r1)
         {
@@ -74,22 +75,39 @@ public sealed partial class RunWorld
 
     private void StepPickups()
     {
-        var p = Player;
-        float magnet = p.Stats[Stat.Magnet];
         for (int i = 0; i < PickupCapacity; i++)
         {
             if (!GAlive[i]) continue;
-            // Gold belongs to the killer: other players cannot see-pull or collect it.
-            if (GKind[i] == PickupKind.Gold && GOwner[i] != p.Id) continue;
+            int collector = _gPullTarget[i];
+            if (!_gPulled[i] || !_players[collector].Active || _players[collector].Hp <= 0)
+            {
+                _gPulled[i] = false;
+                float closest = float.PositiveInfinity;
+                for (int j = 0; j < _players.Length; j++)
+                {
+                    var candidate = _players[j];
+                    if (!candidate.Active || candidate.Hp <= 0 ||
+                        (GKind[i] == PickupKind.Gold && GOwner[i] != j)) continue;
+                    float mx = candidate.Pos.X - GX[i], my = candidate.Pos.Y - 8 - GY[i];
+                    float dSquared = mx * mx + my * my;
+                    float radius = candidate.Stats[Stat.Magnet];
+                    if (dSquared >= closest || dSquared >= radius * radius) continue;
+                    closest = dSquared;
+                    collector = j;
+                    _gPulled[i] = true;
+                }
+                if (!_gPulled[i]) continue;
+                _gPullTarget[i] = (byte)collector;
+            }
+            var p = _players[collector];
+            float magnet = p.Stats[Stat.Magnet];
             float dx = p.Pos.X - GX[i], dy = p.Pos.Y - 8 - GY[i], d2 = dx * dx + dy * dy;
-            if (!_gPulled[i] && d2 < magnet * magnet) _gPulled[i] = true;
-            if (!_gPulled[i]) continue;
             float d = MathF.Sqrt(d2);
             if (d < 7)
             {
                 GAlive[i] = false;
-                if (GKind[i] == PickupKind.Xp) GainXp(GValue[i]);
-                else CollectGold(GValue[i], GOwner[i]);
+                if (GKind[i] == PickupKind.Xp) GainXp(p, GValue[i]);
+                else CollectGold(p, GValue[i], GOwner[i]);
                 Emit(EventKind.Pickup, GX[i], GY[i], GValue[i], a: (int)GKind[i]);
                 continue;
             }
@@ -101,9 +119,8 @@ public sealed partial class RunWorld
     }
 
     /// <summary>Adds owned gold through the gold multiplier, carrying fractions so small bonuses are never lost.</summary>
-    private void CollectGold(int amount, int owner)
+    private static void CollectGold(PlayerState p, int amount, int owner)
     {
-        var p = Player;
         if (owner != p.Id) return;
         float total = amount * p.Stats[Stat.GoldGain] + p.GoldCarry;
         int whole = (int)MathF.Floor(total);
@@ -112,34 +129,36 @@ public sealed partial class RunWorld
     }
 
     /// <summary>Levels apply automatically: table growth (HP, damage) and level-scaled passives. Max HP growth also heals.</summary>
-    public void GainXp(float amount)
+    public void GainXp(float amount) => GainXp(Player, amount);
+
+    private void GainXp(PlayerState p, float amount)
     {
-        var p = Player;
         p.Xp += amount;
         while (p.Xp >= p.XpNext)
         {
             p.Xp -= p.XpNext;
-            float before = MaxHealth;
+            float before = MaxHealthFor(p);
             p.Level++;
             p.XpNext = XpForLevel(p.Level);
-            ApplyLevelStats();
-            UpdateDynamicStats();
-            p.Hp += MathF.Max(0, MaxHealth - before);
+            ApplyLevelStats(p);
+            UpdateDynamicStats(p);
+            p.Hp += MathF.Max(0, MaxHealthFor(p) - before);
             Emit(EventKind.LevelUp, p.Pos.X, p.Pos.Y, p.Level);
         }
     }
 
     // ---------------------------------------------------------------- items
     /// <summary>Gives the player one more copy of an item: its stat mods apply once per copy; weapon copies add +1 count.</summary>
-    public void GiveItem(int def)
+    public void GiveItem(int def) => GiveItem(Player, def);
+
+    private void GiveItem(PlayerState p, int def)
     {
-        var p = Player;
-        float before = MaxHealth;
+        float before = MaxHealthFor(p);
         p.ItemStacks[def]++;
         foreach (var m in Content.Items[def].Mods)
             if (ContentLoader.TryParseStat(m.Stat, out var s)) p.Stats.Apply(s, m.Add, m.Pct);
         // Max HP increases also heal by the same amount; decreases clamp.
-        float after = MaxHealth;
+        float after = MaxHealthFor(p);
         p.Hp = after >= before ? p.Hp + (after - before) : MathF.Min(p.Hp, after);
     }
 
@@ -173,7 +192,8 @@ public sealed partial class RunWorld
         for (int i = 0; i < Statues.Length; i++)
         {
             if (StatueActive[i]) continue;
-            bool near = Vector2.DistanceSquared(Player.Pos, Statues[i]) < st.Radius * st.Radius;
+            int player = NearestLivingPlayer(Statues[i]);
+            bool near = player >= 0 && Vector2.DistanceSquared(_players[player].Pos, Statues[i]) < st.Radius * st.Radius;
             StatueHold[i] = near ? StatueHold[i] + Dt : MathF.Max(0, StatueHold[i] - Dt * 2);
             if (StatueHold[i] < st.HoldSeconds) continue;
             StatueActive[i] = true;
@@ -184,22 +204,27 @@ public sealed partial class RunWorld
 
     private void StepChests()
     {
-        NearbyChest = -1;
-        var area = CombatArea.Circle(Player.Pos, Rules.Chests.Radius);
-        for (int i = 0; i < Chests.Length; i++)
+        foreach (var p in _players)
         {
-            if (ChestOpen[i] || !area.Contains(Chests[i], out _)) continue;
-            int price = Player.Wallet.NextPrice;
-            if (!Player.Wallet.TryPay()) { NearbyChest = i; continue; }
-            ChestOpen[i] = true;
-            // Items come only from chests: open passively and grant one item rolled by rarity.
-            int item = RollChestItem();
-            if (item >= 0) GiveItem(item);
-            LastChestItem = item;
-            Emit(EventKind.Chest, Chests[i].X, Chests[i].Y, price, a: item);
+            p.NearbyChest = -1;
+            if (!p.Active || p.Hp <= 0) continue;
+            var area = CombatArea.Circle(p.Pos, Rules.Chests.Radius);
+            for (int i = 0; i < Chests.Length; i++)
+            {
+                if (ChestOpen[i] || !area.Contains(Chests[i], out _)) continue;
+                int price = p.Wallet.NextPrice;
+                if (!p.Wallet.TryPay()) { p.NearbyChest = i; continue; }
+                ChestOpen[i] = true;
+                int item = RollChestItem();
+                if (item >= 0) GiveItem(p, item);
+                p.LastChestItem = item;
+                Emit(EventKind.Chest, Chests[i].X, Chests[i].Y, price, a: item);
+            }
         }
+        foreach (var p in _players)
+            if (p.NearbyChest >= 0 && ChestOpen[p.NearbyChest]) p.NearbyChest = -1;
     }
 
     /// <summary>Item granted by the most recent chest (-1 if none yet).</summary>
-    public int LastChestItem { get; private set; } = -1;
+    public int LastChestItem => Player.LastChestItem;
 }

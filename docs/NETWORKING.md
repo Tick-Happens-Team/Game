@@ -11,6 +11,23 @@ Players install the game through the launcher from GitHub Releases. Hosting and 
 
 ## Transport contract
 
+### Local Windows EOS build
+
+Use the official EOS C# SDK 1.19.2.1. Keep its `SDK` folder outside the repository. The build references the SDK source and Win64 shipping binary only when `TickHappensEosSdk` is set. Standard CI and offline builds run without EOS. Public Windows package integration is tracked in roadmap 3.5.
+
+Create `%LOCALAPPDATA%/TickHappens/eos.local.json` or set `TICKHAPPENS_EOS_CONFIG` to a local JSON file with string fields `ProductId`, `SandboxId`, `DeploymentId`, `ClientId`, and `ClientSecret`. Use the credentials for the Windows Peer2Peer game client. Keep the file out of Git and build artifacts. EOS uses the current OS user for Device ID. Use two machines or distinct OS users for a join test.
+
+```powershell
+$env:TICKHAPPENS_EOS_CONFIG = 'D:/local/eos.local.json'
+$sdk = 'D:/local/EOS/SDK'
+dotnet run --project src/TickHappens.Game "-p:TickHappensEosSdk=$sdk" -- --eos-probe
+dotnet run --project src/TickHappens.Game "-p:TickHappensEosSdk=$sdk"
+```
+
+The probe signs in, creates and publishes a room code, and destroys the lobby. In the character menu choose **Online**, then **Create lobby** or **Join by code**. The host can start after at least one compatible peer connects. Join before the host starts the run. The prototype uses the host's selected character for the team. Escape leaves the room. Set `TICKHAPPENS_EOS_FORCE_RELAY=1` on both machines to exercise relay-only connections. By default EOS tries a direct connection first, with relay fallback.
+
+The current transport sends host snapshots at 10 Hz and player input at 30 Hz. Hosts advance the game and clients render snapshots. Motion reconciliation, gameplay-event cosmetics on clients, reconnect, mod installation on join, and peak bandwidth validation are outstanding. Use identical core and enabled mod data on all machines.
+
 ```csharp
 interface ITransport {
     ValueTask<string> HostAsync(RoomOptions o);
@@ -47,6 +64,6 @@ A disconnected client can return within 60 seconds using the same room code. If 
 
 ## Security and release checks
 
-Validate input and rate-limit messages and join attempts. Expire room codes. The host decides damage and loot. Use the minimal EOS Peer2Peer client policy and treat bundled ClientId/Secret as public. Fetch the proprietary SDK only for release CI and pin managed and native components to the same official release. Verify redistribution terms and notices. Forks register their own product. Builds without EOS support single-player, LAN, and tests.
+Validate input and rate-limit messages and join attempts. Expire room codes. The host decides damage and loot. Use the minimal EOS Peer2Peer client policy. Any client credentials shipped with a future player build are visible to players. Keep the local config out of Git. Outside opted-in developer builds, fetch the proprietary SDK only in release CI and pin managed and native components to the same official release. Verify redistribution terms and notices. Forks register their own product. Builds without EOS support single-player and tests. LAN transport is still planned.
 
 Smoke-test the shipped ZIP against the target EOS deployment. Verify connections across independent NAT and CGNAT networks, including ForceRelays. Verify understandable failure when outbound access is blocked and when EOS is unavailable. Check online play with the launcher closed.

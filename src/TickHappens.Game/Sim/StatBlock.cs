@@ -39,6 +39,12 @@ public sealed class StatBlock
         Array.Clear(_dynPct);
     }
 
+    internal void ClearItems()
+    {
+        Array.Clear(_add);
+        Array.Clear(_pct);
+    }
+
     /// <summary>Per-tick modifier (passives that scale with level or the run clock).</summary>
     public void ApplyDynamic(Stat s, float add, float pct)
     {

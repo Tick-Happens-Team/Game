@@ -15,15 +15,15 @@ public sealed partial class RunWorld
     private readonly int[] _pPierce = new int[ProjectileCapacity];
     private readonly DamageKind[] _pKind = new DamageKind[ProjectileCapacity];
     private readonly int[] _pItem = new int[ProjectileCapacity];
+    private readonly byte[] _pOwner = new byte[ProjectileCapacity];
     public readonly bool[] PAlive = new bool[ProjectileCapacity];
     private readonly int[] _pHits = new int[ProjectileCapacity * HitMemory];
     private int _projCursor;
 
     private static DamageKind Kind(string s) => ContentLoader.TryParseDamage(s, out var k) ? k : DamageKind.Physical;
 
-    private void StepWeapons()
+    private void StepWeapons(PlayerState p)
     {
-        var p = Player;
         // Basic attack: auto-aimed projectiles, interval from attack speed (С/А).
         p.AttackTimer -= Dt;
         if (p.AttackTimer <= 0)
@@ -31,7 +31,7 @@ public sealed partial class RunWorld
             var a = p.Attack;
             int count = a.Count + (int)p.Stats[Stat.Amount];
             if (FireBolts(p.Stats[Stat.Damage], Kind(a.DamageType), new DamageSourceRef(p.Id), count, a.Speed, a.Range, a.Pierce))
-                p.AttackTimer = 1f / MathF.Max(0.05f, AttacksPerSecond);
+                p.AttackTimer = 1f / MathF.Max(0.05f, p.Stats[Stat.AttackSpeed] * Rules.Units.AttacksPerUnit);
             else p.AttackTimer = 0; // nothing in range: retry next tick
         }
 
@@ -77,7 +77,7 @@ public sealed partial class RunWorld
     /// <summary>Fires up to <paramref name="count"/> projectiles at the nearest distinct enemies. Returns false when nothing is in range.</summary>
     private bool FireBolts(float damage, DamageKind kind, DamageSourceRef src, int count, float speed, float range, int pierce)
     {
-        var p = Player;
+        var p = _players[src.PlayerId];
         count = Math.Clamp(count, 1, 16);
         Span<int> targets = stackalloc int[count];
         int n = 0;
@@ -115,7 +115,7 @@ public sealed partial class RunWorld
         _projCursor = (slot + 1) % ProjectileCapacity;
         PX[slot] = pos.X; PY[slot] = pos.Y; PVx[slot] = vel.X; PVy[slot] = vel.Y;
         _pDamage[slot] = damage; _pPierce[slot] = Math.Max(1, pierce); _pLife[slot] = life;
-        _pKind[slot] = kind; _pItem[slot] = src.ItemDef;
+        _pKind[slot] = kind; _pItem[slot] = src.ItemDef; _pOwner[slot] = (byte)src.PlayerId;
         PAlive[slot] = true;
         _pHits.AsSpan(slot * HitMemory, HitMemory).Clear();
     }
@@ -151,14 +151,14 @@ public sealed partial class RunWorld
             for (int k = HitMemory - 1; k > 0; k--) hits[k] = hits[k - 1];
             hits[0] = EUid[t];
             _pPierce[i]--;
-            DamageEnemy(t, _pDamage[i], _pKind[i], new DamageSourceRef(Player.Id, _pItem[i]), PX[i] - PVx[i], PY[i] - PVy[i], 60);
+            DamageEnemy(t, _pDamage[i], _pKind[i], new DamageSourceRef(_pOwner[i], _pItem[i]), PX[i] - PVx[i], PY[i] - PVy[i], 60);
             if (_pPierce[i] <= 0) PAlive[i] = false;
         }
     }
 
     private void FirePulse(float damage, DamageKind kind, DamageSourceRef src, float area)
     {
-        var p = Player.Pos;
+        var p = _players[src.PlayerId].Pos;
         var circle = CombatArea.Circle(p, area);
         for (int i = 0; i < _enemyHigh; i++)
             if (EAlive[i] && circle.Contains(new Vector2(EX[i], EY[i]), out _))
@@ -171,7 +171,8 @@ public sealed partial class RunWorld
         hops = Math.Clamp(hops, 1, 16);
         Span<int> chain = stackalloc int[hops];
         int n = 0;
-        var from = Player.Pos;
+        var position = _players[src.PlayerId].Pos;
+        var from = position;
         for (; n < hops; n++)
         {
             int t = Nearest(from, n == 0 ? range : hopRange, chain[..n]);
@@ -181,9 +182,9 @@ public sealed partial class RunWorld
         }
         if (n == 0) return;
         int start = ChainPoints.Count;
-        ChainPoints.Add(Player.Pos + new Vector2(0, -14));
+        ChainPoints.Add(position + new Vector2(0, -14));
         for (int k = 0; k < n; k++) ChainPoints.Add(new Vector2(EX[chain[k]], EY[chain[k]] - 6));
-        Emit(EventKind.Chain, Player.Pos.X, Player.Pos.Y, n, a: start, b: n + 1);
+        Emit(EventKind.Chain, position.X, position.Y, n, a: start, b: n + 1);
         for (int k = 0; k < n; k++) DamageEnemy(chain[k], damage, kind, src, EX[chain[k]], EY[chain[k]] - 1, 10);
     }
 
@@ -200,7 +201,7 @@ public sealed partial class RunWorld
 
     private void FireBlasts(float damage, DamageKind kind, DamageSourceRef src, int count, float range, float area)
     {
-        var p = Player.Pos;
+        var p = _players[src.PlayerId].Pos;
         for (int b = 0; b < Math.Min(count, 8); b++)
         {
             // Sample a few candidates in range and pick the densest spot.
