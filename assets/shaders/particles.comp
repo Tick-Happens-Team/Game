@@ -1,0 +1,17 @@
+#version 430 core
+layout(local_size_x = 256) in;
+struct Particle { vec2 pos; vec2 vel; float life; float maxLife; float drag; float gravity; uint ca; uint cb; float intensity; uint kind; };
+layout(std430, binding = 0) buffer Particles { Particle p[]; };
+uniform float uDt;
+uniform int uCount;
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    if (i >= uint(uCount)) return;
+    Particle q = p[i];
+    if (q.life <= 0.0) return;
+    q.life -= uDt;
+    q.vel.y += q.gravity * uDt;
+    q.vel *= max(0.0, 1.0 - q.drag * uDt);
+    q.pos += q.vel * uDt;
+    p[i] = q;
+}

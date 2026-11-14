@@ -1,0 +1,81 @@
+name: Game CI
+
+on:
+  push:
+    branches: [dev, stable]
+  pull_request:
+    branches: [dev, stable]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Check out Game
+        uses: actions/checkout@v5
+        with:
+          path: Game
+          persist-credentials: false
+
+      - name: Check Assets pin
+        if: vars.ASSETS_COMMIT != ''
+        env:
+          ASSETS_COMMIT: ${{ vars.ASSETS_COMMIT }}
+        run: |
+          if ($env:ASSETS_COMMIT -cnotmatch '^[0-9a-f]{40}$') {
+            throw 'ASSETS_COMMIT must be a full lowercase Git commit SHA.'
+          }
+
+      - name: Check out Assets
+        uses: actions/checkout@v5
+        with:
+          repository: Tick-Happens-Team/Assets
+          ref: ${{ vars.ASSETS_COMMIT || ((github.base_ref || github.ref_name) == 'stable' && 'stable' || 'dev') }}
+          path: Assets
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build
+        working-directory: Game
+        run: dotnet build TickHappens.sln --configuration Release
+
+      - name: Test
+        working-directory: Game
+        run: dotnet test TickHappens.sln --configuration Release --no-build
+
+      - name: Generate and lint the atlas
+        working-directory: Game
+        run: dotnet run --project tools/TickHappens.AssetTool --configuration Release --no-build -- build
+
+      - name: Assemble development benchmark
+        if: github.ref == 'refs/heads/stable'
+        working-directory: Game
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet publish src/TickHappens.VisualBench --configuration Release --runtime win-x64 --self-contained true --output .tmp/benchmark
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          New-Item -ItemType Directory -Path .tmp/benchmark/assets -Force | Out-Null
+          Copy-Item -LiteralPath ../Assets/assets/atlas -Destination .tmp/benchmark/assets -Recurse
+          Copy-Item -LiteralPath LICENSE -Destination .tmp/benchmark/LICENSE-Game
+          Copy-Item -LiteralPath ../Assets/LICENSE.md -Destination .tmp/benchmark/LICENSE-Assets.md
+          if (Test-Path -LiteralPath ../Assets/THIRD_PARTY_NOTICES.md) {
+            Copy-Item -LiteralPath ../Assets/THIRD_PARTY_NOTICES.md -Destination .tmp/benchmark/THIRD_PARTY_ASSETS.md
+          }
+          Copy-Item -LiteralPath src/TickHappens.Engine/Vfx/LICENSE-SpriteFusion-VFX.txt -Destination .tmp/benchmark
+          $assetsCommit = git -C ../Assets rev-parse HEAD
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $assetsCommit | Set-Content .tmp/benchmark/ASSETS_COMMIT -Encoding ascii
+
+      - name: Upload development benchmark
+        if: github.ref == 'refs/heads/stable'
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-benchmark-win-x64
+          path: Game/.tmp/benchmark/
+          if-no-files-found: error
