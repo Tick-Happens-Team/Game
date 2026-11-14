@@ -10,16 +10,16 @@ Install the .NET 10 SDK, keep Game and Assets side by side, and use a GPU with O
 dotnet run --project src/TickHappens.Game
 ```
 
-A full survivors loop is playable: waves grow with the run clock, weapons fire automatically, crystals level you up, and you choose one of three upgrades. Time statues add minutes to the clock (harder waves), chests open on their own when you can pay (10 gold, then ×1.5 per purchase), and the run ends when your HP reaches zero.
+Pick one of six heroes from the owner roster (Октарин, Мечник, Кузнец, Гофлин, Небесный маг, Часовой), each with table stats and a passive. The hero shoots automatically, crystals level you up (HP and damage grow per level), and items come only from chests, which open on their own when you can pay (10 gold, then ×1.5 per purchase) and roll by rarity. Time statues add minutes to the run clock and the horde grows with it. The run ends when your HP reaches zero.
 
 | Control | Action |
 |---|---|
 | WASD / arrows | Move |
 | Space | Dash (short invulnerable burst, cooldown bar under the hero) |
-| 1 / 2 / 3 | Pick a level-up card |
-| P / R / Esc | Pause / new run (after death or while paused) / quit |
+| A / D or arrows, Space / Enter | Choose a hero / start the run on the character screen |
+| P / R / Esc | Pause / back to hero select (after death or while paused) / quit |
 
-Content (character, 4 weapons, 6 items, 3 enemies, waves, rules) is data in `content/core/*.json`, the built-in `core` mod. Autopilot and captures: `--demo [--hold-levelup] --frames N --screenshot PATH --seed S --no-vsync`.
+Content (6 heroes, 6 items, enemies, waves, rules) is data in `content/core/*.json`, the built-in `core` mod; the full plan is the [content roadmap](docs/CONTENT_ROADMAP.md). Autopilot and captures: `--demo --character ID --menu --frames N --screenshot PATH --seed S --no-vsync`.
 
 ## Contributing
 

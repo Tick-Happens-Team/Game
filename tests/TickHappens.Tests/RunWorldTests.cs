@@ -53,16 +53,15 @@ public sealed class RunWorldTests
     }
 
     [Fact]
-    public void ChestOpensPassivelyWhenAffordableAndPriceGrows()
+    public void DashCooldownIsShortenedByCooldownAndDashCooldownStats()
     {
-        var world = new RunWorld(Core());
-        var p = world.Player;
-        p.Wallet.Collect(new GoldDrop(12, p.Id), p.Id);
-        p.Pos = world.Chests[0];
-        world.Step(default);
-        Assert.True(world.ChestOpen[0]);
-        Assert.Equal(2, p.Wallet.Gold);
-        Assert.Equal(15, p.Wallet.NextPrice);
+        var content = Core();
+        int baseTicks = (int)MathF.Round(content.Rules.Dash.Cooldown * RunWorld.TicksPerSecond);
+
+        Assert.Equal(baseTicks, DashCooldownTicks(content, "swordsman", item: null));
+        Assert.Equal((int)MathF.Round(baseTicks * 0.9f), DashCooldownTicks(content, "octarine", item: null));
+        Assert.Equal((int)MathF.Round(baseTicks * 0.9f), DashCooldownTicks(content, "swordsman", item: "snack_bar"));
+        Assert.Equal((int)MathF.Round(baseTicks * 0.81f), DashCooldownTicks(content, "octarine", item: "snack_bar"));
     }
 
     [Fact]
@@ -86,6 +85,14 @@ public sealed class RunWorldTests
         Assert.Equal(23, first.NextPrice);
         Assert.False(first.TryPay());
         Assert.Equal(23, first.NextPrice);
+    }
+
+    private static int DashCooldownTicks(ContentSet content, string character, string? item)
+    {
+        var world = new RunWorld(content, seed: 1, character: character);
+        if (item != null) world.GiveItem(content.ItemIndex(item));
+        world.Step(new RunInput(1, 0, Dash: true));
+        return world.Player.DashCooldownTicks;
     }
 
     private static RunWorld PlayAt(ContentSet content, int fps)

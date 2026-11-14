@@ -6,14 +6,28 @@ namespace TickHappens.Tests;
 public sealed class StatBlockTests
 {
     [Fact]
-    public void ValueIsBasePlusAddTimesOnePlusPct()
+    public void ValueIsBasePlusAddsTimesOnePlusPcts()
     {
         var stats = new StatBlock();
         stats.SetBase(Stat.Might, 2f);
         stats.Apply(Stat.Might, 3f, 0.5f);
-        stats.Apply(Stat.Might, 1f, 0.25f);
+        stats.ApplyDynamic(Stat.Might, 1f, 0.25f);
 
         Assert.Equal((2f + 3f + 1f) * (1f + 0.5f + 0.25f), stats[Stat.Might]);
+    }
+
+    [Fact]
+    public void ClearDynamicKeepsStaticModifiers()
+    {
+        var stats = new StatBlock();
+        stats.SetBase(Stat.MaxHp, 100f);
+        stats.Apply(Stat.MaxHp, 20f, 0.1f);
+        stats.ApplyDynamic(Stat.MaxHp, 5f, 0.2f);
+        Assert.Equal((100f + 20f + 5f) * (1f + 0.1f + 0.2f), stats[Stat.MaxHp]);
+
+        stats.ClearDynamic();
+
+        Assert.Equal((100f + 20f) * (1f + 0.1f), stats[Stat.MaxHp]);
     }
 
     [Fact]
@@ -33,43 +47,30 @@ public sealed class StatBlockTests
     }
 
     [Fact]
-    public void CooldownNeverDropsBelowQuarter()
-    {
-        var stats = new StatBlock();
-        stats.SetBase(Stat.Cooldown, 1f);
-
-        stats.Apply(Stat.Cooldown, 0f, -0.9f);
-        Assert.Equal(0.25f, stats[Stat.Cooldown]);
-
-        stats.Apply(Stat.Cooldown, 0f, -10f);
-        Assert.Equal(0.25f, stats[Stat.Cooldown]);
-    }
-
-    [Fact]
     public void MultipliersDefaultToOne()
     {
         var stats = new StatBlock();
 
-        Assert.Equal(1f, stats[Stat.Might]);
-        Assert.Equal(1f, stats[Stat.Area]);
-        Assert.Equal(1f, stats[Stat.Cooldown]);
+        foreach (var stat in new[]
+                 {
+                     Stat.HpMultiplier, Stat.Might, Stat.PhysicalDamage, Stat.MagicalDamage, Stat.ItemDamage,
+                     Stat.Area, Stat.Cooldown, Stat.GoldGain, Stat.DashCooldown,
+                 })
+            Assert.Equal(1f, stats[stat]);
+
         Assert.Equal(0f, stats[Stat.MaxHp]);
         Assert.Equal(0f, stats[Stat.Armor]);
+        Assert.Equal(0f, stats[Stat.MagicResist]);
     }
 
     [Fact]
-    public void ForCharacterUsesCharacterBaseStats()
+    public void CooldownAndDashCooldownNeverDropBelowQuarter()
     {
-        var character = TestContent.LoadCore().Characters[0];
-        var stats = StatBlock.ForCharacter(character);
+        var stats = new StatBlock();
+        stats.Apply(Stat.Cooldown, 0f, -0.9f);
+        stats.Apply(Stat.DashCooldown, 0f, -10f);
 
-        foreach (var (name, value) in character.Stats)
-        {
-            Assert.True(ContentLoader.TryParseStat(name, out var stat), $"character stat '{name}' is not a known stat");
-            Assert.Equal(value, stats[stat]);
-        }
-
-        Assert.Equal(1f, stats[Stat.Might]);
-        Assert.Equal(1f, stats[Stat.Area]);
+        Assert.Equal(0.25f, stats[Stat.Cooldown]);
+        Assert.Equal(0.25f, stats[Stat.DashCooldown]);
     }
 }

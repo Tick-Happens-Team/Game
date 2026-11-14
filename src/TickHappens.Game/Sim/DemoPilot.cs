@@ -4,13 +4,12 @@ namespace TickHappens.Game.Sim;
 
 /// <summary>
 /// Deterministic autopilot used by --demo, screenshots and long-run tests: kites the crowd,
-/// collects crystals, visits statues after the first minute, and picks the first upgrade card.
+/// collects crystals, visits statues after the first minute, and buys chests it can afford.
 /// </summary>
 public static class DemoPilot
 {
     public static RunInput Decide(RunWorld w)
     {
-        if (w.Phase == RunPhase.LevelUp) return new RunInput(0, 0, Choice: 1 + (w.Player.Level % Math.Max(1, w.Offer.Count)));
         if (w.Phase == RunPhase.Dead) return default;
         var p = w.Player.Pos;
         var steer = Vector2.Zero;
@@ -40,6 +39,10 @@ public static class DemoPilot
         if (w.Minutes > 1)
             for (int i = 0; i < w.Statues.Length; i++)
                 if (!w.StatueActive[i] && Vector2.DistanceSquared(p, w.Statues[i]) < 260 * 260) goal = w.Statues[i];
+        // Visit an affordable chest nearby (items come only from chests).
+        if (w.Player.Wallet.Gold >= w.Player.Wallet.NextPrice)
+            for (int i = 0; i < w.Chests.Length; i++)
+                if (!w.ChestOpen[i] && Vector2.DistanceSquared(p, w.Chests[i]) < 320 * 320) goal = w.Chests[i];
         if (goal is { } g && g != p) steer += Vector2.Normalize(g - p) * 0.9f;
         int x = steer.X > 0.3f ? 1 : steer.X < -0.3f ? -1 : 0;
         int y = steer.Y > 0.3f ? 1 : steer.Y < -0.3f ? -1 : 0;

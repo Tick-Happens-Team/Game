@@ -3,10 +3,10 @@ using TickHappens.Game.Content;
 
 namespace TickHappens.Game.Sim;
 
-/// <summary>Per-tick player input. Movement and dash are the only manual gameplay actions; Choice picks a level-up card (1-3).</summary>
-public readonly record struct RunInput(int X, int Y, bool Dash = false, int Choice = 0);
+/// <summary>Per-tick player input. Movement and dash are the only manual gameplay actions.</summary>
+public readonly record struct RunInput(int X, int Y, bool Dash = false);
 
-public enum RunPhase { Playing, LevelUp, Dead }
+public enum RunPhase { Playing, Dead }
 
 public enum EventKind : byte
 {
@@ -18,7 +18,7 @@ public struct GameEvent
 {
     public EventKind Kind;
     public float X, Y, X2, Y2, Value;
-    /// <summary>Chain: start index into <see cref="RunWorld.ChainPoints"/>; otherwise kind-specific id.</summary>
+    /// <summary>Chain: start index into <see cref="RunWorld.ChainPoints"/>; Hit: damage kind; Chest: item index; otherwise kind-specific.</summary>
     public int A, B;
     /// <summary>Deterministic per-event seed for cosmetic randomness.</summary>
     public uint Seed;
@@ -43,22 +43,11 @@ public struct SimRng(uint seed)
     public int Int(int n) => (int)(NextU() % (uint)n);
 }
 
-public sealed class WeaponState(int def, int level)
+/// <summary>Identifies who dealt damage: the basic attack or an item (for item-damage bonuses and credit).</summary>
+public readonly record struct DamageSourceRef(int PlayerId, int ItemDef = -1)
 {
-    public int Def = def;
-    public int Level = level;
-    public float Timer;
+    public bool FromItem => ItemDef >= 0;
 }
-
-public sealed class ItemState(int def, int level)
-{
-    public int Def = def;
-    public int Level = level;
-}
-
-public enum OfferKind : byte { NewWeapon, WeaponLevel, NewItem, ItemLevel, Heal }
-
-public readonly record struct UpgradeOption(OfferKind Kind, int Def, int NewLevel);
 
 public sealed class PlayerState
 {
@@ -71,8 +60,14 @@ public sealed class PlayerState
     public required StatBlock Stats;
     public required ChestWallet Wallet;
     public required CharacterDef Character;
-    public readonly List<WeaponState> Weapons = [];
-    public readonly List<ItemState> Items = [];
+    public required AttackDef Attack;
+    /// <summary>Copies owned per item definition (items come only from chests and stack).</summary>
+    public required int[] ItemStacks;
+    /// <summary>Cooldown timers of item weapons, per item definition.</summary>
+    public required float[] ItemTimers;
+    public float AttackTimer;
+    /// <summary>Fractional gold carried between pickups so small multipliers (+10% gold) are never rounded away.</summary>
+    public float GoldCarry;
     public int InvulnTicks, DashTicks, DashCooldownTicks;
     public Vector2 DashDir;
     public int Kills;

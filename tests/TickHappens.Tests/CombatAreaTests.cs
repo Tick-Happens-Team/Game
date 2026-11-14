@@ -1,7 +1,8 @@
+using System.Numerics;
+using System.Text.Json.Nodes;
+using TickHappens.Game;
 using TickHappens.Game.Content;
 using TickHappens.Game.Sim;
-using System.Numerics;
-using TickHappens.Game;
 
 namespace TickHappens.Tests;
 
@@ -30,23 +31,45 @@ public sealed class CombatAreaTests
     }
 
     [Fact]
-    public void AreaStatExtendsWeaponRadius()
+    public void AreaStatExtendsItemWeaponRadius()
     {
-        var content = ContentLoader.Load(ContentLoader.FindCore());
-        var world = new RunWorld(content);
-        var p = world.Player;
-        p.Weapons.Clear();
-        p.Weapons.Add(new WeaponState(content.WeaponIndex("tick_pulse"), 1));
-        float baseArea = content.Weapons[content.WeaponIndex("tick_pulse")].Levels[0].Area;
-        int enemy = world.SpawnEnemy(content.EnemyIndex("amberslime"), p.Pos + new System.Numerics.Vector2(baseArea + 4, 0));
-        float hp = world.EHp[enemy];
-        world.Step(default);
-        Assert.Equal(hp, world.EHp[enemy]);
-        p.Stats.Apply(Stat.Area, 0, 0.5f);
-        world.Player.Weapons[0].Timer = 0;
-        world.EX[enemy] = p.Pos.X + baseArea + 4;
-        world.EY[enemy] = p.Pos.Y;
-        world.Step(default);
-        Assert.True(world.EHp[enemy] < hp);
+        string dir = TestContent.CreateScratchCopy();
+        try
+        {
+            TestContent.EditJson(dir, "items.json", root => root.AsArray().Add(JsonNode.Parse("""
+                {
+                  "id": "test_pulse", "name": "Test Pulse", "rarity": "common", "description": "test pulse",
+                  "mods": [],
+                  "weapon": { "kind": "pulse", "damageType": "physical", "damage": 5, "cooldown": 1, "area": 40 }
+                }
+                """)));
+            var content = ContentLoader.Load(dir);
+            var world = new RunWorld(content, seed: 1);
+            int item = content.ItemIndex("test_pulse");
+            Assert.True(item >= 0, "the scratch pulse item must load");
+            float baseArea = content.Items[item].Weapon!.Area;
+            world.GiveItem(item);
+            int enemy = world.SpawnEnemy(content.EnemyIndex("duskslime"),
+                world.Player.Pos + new Vector2(baseArea + 4, 0));
+            float hp = world.EHp[enemy];
+
+            world.ClearEvents();
+            world.Step(default);
+            var pulse = Assert.Single(world.Events, e => e.Kind == EventKind.Pulse);
+            TestWorld.Close(baseArea, pulse.Value);
+            Assert.Equal(hp, world.EHp[enemy]); // just outside the base radius
+
+            world.Player.Stats.Apply(Stat.Area, 0, 0.5f);
+            world.Player.ItemTimers[item] = 0;
+            world.ClearEvents();
+            world.Step(default);
+            var wider = Assert.Single(world.Events, e => e.Kind == EventKind.Pulse);
+            TestWorld.Close(baseArea * 1.5f, wider.Value);
+            Assert.Contains(world.Events, e => e.Kind == EventKind.Hit && e.Value == 5f);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
     }
 }

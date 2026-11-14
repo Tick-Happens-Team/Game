@@ -35,17 +35,21 @@ Use stable lowercase IDs, SemVer versions, a game compatibility range, and an al
 
 ## Content
 
-| Path under `content/` | Data |
+The built-in `core` mod (`Game/content/core/`) uses exactly this format. Validation errors name the file, id and field.
+
+| File under `content/` | Data |
 |---|---|
-| `characters/*.json` | Sprite, stats, starter weapon, passive rule |
-| `weapons/*.json` | Attack pattern, upgrades, VFX recipe |
-| `items/*.json` | StatBlock modifiers |
-| `enemies/*.json` | Sprite, stats, behavior, drops |
-| `waves/*.json` | Wave additions indexed by RunClock |
+| `characters.json` | `id`, `name`, `sprite`, designer `passive` and `growth` text, table `stats` (`maxHp`/`maxHpPerLevel`, `moveSpeed` С/П, `attackSpeed` С/А, `armor` and `magicResist` as fractions, `damage`/`damagePerLevel`), optional basic `attack` override (damage type, speed, range, pierce, count), `passives` |
+| `items.json` | `id`, `name`, `rarity` (common, rare, epic, mythic, legendary), `description`, stat `mods` applied once per copy, optional `weapon` (kind `bolt`, `pulse`, `chain` or `blast`, damage type and parameters) |
+| `enemies.json` | `id`, sprite and animation, optional tint, HP, `speed` in С/П, damage and type, `armor`/`magicResist`, `lifesteal`, radius, XP, gold chance, `boss` flag |
+| `waves.json` | Wave mix by run-clock minute, HP and damage growth per minute, max alive, timed elites |
+| `rules.json` | Arena, XP curve, unit scales (`units`), basic attack defaults, dash, statues, chests with `rarityWeights` (price growth fixed at 1.5) |
 | `sprites/*.png` and `*.sprite.json` | Frames, origin, animations, emission, normals |
 | `sfx/*.ogg` | Sound effects |
 
-Mods compose parameterized engine behaviors. For example, `{"rule":"on_level_up","effect":"add_stat","stat":"armor","value":1}`. Formula expressions use a deterministic AST with no loops or I/O. StyleLint applies to mod sprites, with TH001–TH003 blocking errors. The loader builds the atlas at runtime.
+A passive is a level-scaled stat formula: `{"stat": "armor", "add": 0, "pct": 0, "perLevel": {"add": 0.01}, "per": "runMinute"}`. Its value is `base + perLevel × (level − 1)`; with `"per": "runMinute"` it is multiplied by the run clock in minutes. Stats are `(base + Σadd) × (1 + Σpct)`. Damage passes through might, the type multiplier and, for items, item damage, then the target's armor (physical) or magic resist (magical), capped at 90%. Pure damage ignores defences. Units: px/s = С/П × 3; attacks per second = С/А / 25. Items come only from chests and stack. See [the content roadmap](CONTENT_ROADMAP.md) for the systems that later tiers add.
+
+Mods compose parameterized engine behaviors; new behaviors arrive as engine systems listed in the content roadmap. Formula expressions use a deterministic AST with no loops or I/O. StyleLint applies to mod sprites, with TH001–TH003 blocking errors. The loader builds the atlas at runtime.
 
 ### Combat effect parameters
 

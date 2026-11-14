@@ -1,8 +1,14 @@
 [
-  { "id": "whetstone", "name": "Whetstone", "description": "+10% damage.", "maxLevel": 5, "mods": [ { "stat": "might", "pct": 0.10 } ] },
-  { "id": "hourglass", "name": "Hourglass", "description": "-8% weapon cooldown.", "maxLevel": 5, "mods": [ { "stat": "cooldown", "pct": -0.08 } ] },
-  { "id": "lens", "name": "Lens", "description": "+10% area.", "maxLevel": 5, "mods": [ { "stat": "area", "pct": 0.10 } ] },
-  { "id": "boots", "name": "Boots", "description": "+10% move speed.", "maxLevel": 5, "mods": [ { "stat": "moveSpeed", "pct": 0.10 } ] },
-  { "id": "lodestone", "name": "Lodestone", "description": "+30% pickup range.", "maxLevel": 5, "mods": [ { "stat": "magnet", "pct": 0.30 } ] },
-  { "id": "heartwood", "name": "Heartwood", "description": "+20 max HP, +0.2 regen.", "maxLevel": 5, "mods": [ { "stat": "maxHp", "add": 20 }, { "stat": "regen", "add": 0.2 } ] }
+  { "id": "sneakers", "name": "Чешки", "rarity": "common", "description": "+10% к скорости передвижения.",
+    "mods": [ { "stat": "moveSpeed", "pct": 0.10 } ] },
+  { "id": "sprats", "name": "Банка шпрот", "rarity": "common", "description": "+25 к максимальному здоровью.",
+    "mods": [ { "stat": "maxHp", "add": 25 } ] },
+  { "id": "chocolate", "name": "Шоколад", "rarity": "common", "description": "+3% магического урона.",
+    "mods": [ { "stat": "magicalDamage", "pct": 0.03 } ] },
+  { "id": "snack_bar", "name": "Батончик", "rarity": "common", "description": "Перезарядка рывка короче на 10%.",
+    "mods": [ { "stat": "dashCooldown", "pct": -0.10 } ] },
+  { "id": "expander", "name": "Расширяло", "rarity": "epic", "description": "+15% к радиусу всех предметов и оружия.",
+    "mods": [ { "stat": "area", "pct": 0.15 } ] },
+  { "id": "heavy_shackles", "name": "Тяжкие кандалы", "rarity": "legendary", "description": "-50% скорости передвижения, +30% ко всему исходящему урону.",
+    "mods": [ { "stat": "moveSpeed", "pct": -0.50 }, { "stat": "might", "pct": 0.30 } ] }
 ]
