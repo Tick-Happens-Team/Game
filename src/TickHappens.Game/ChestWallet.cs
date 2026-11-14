@@ -1,8 +1,9 @@
 namespace TickHappens.Game;
 
-public sealed class ChestWallet
+/// <summary>Per-player gold and chest price progression: every purchase multiplies that player's next price by the growth factor (1.5).</summary>
+public sealed class ChestWallet(int startPrice = 10, decimal growth = 1.5m)
 {
-    private decimal _nextPrice = 10;
+    private decimal _nextPrice = startPrice;
 
     public int Gold { get; private set; }
     public int NextPrice => (int)decimal.Ceiling(_nextPrice);
@@ -17,7 +18,7 @@ public sealed class ChestWallet
         int price = NextPrice;
         if (Gold < price) return false;
         Gold -= price;
-        _nextPrice *= 1.5m;
+        _nextPrice *= growth;
         return true;
     }
 }

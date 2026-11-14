@@ -1,0 +1,125 @@
+using TickHappens.Engine.Vfx;
+
+namespace TickHappens.Engine.Ui;
+
+/// <summary>
+/// Built-in 5x7 pixel font (uppercase Latin, digits, punctuation). Lowercase input is drawn uppercase.
+/// Glyphs are authored here as text so the font needs no asset file. Advance is 6 px, line height 9 px.
+/// </summary>
+public static class PixelFont
+{
+    public const int GlyphW = 5, GlyphH = 7, Advance = 6, LineHeight = 9;
+
+    private static readonly Dictionary<char, byte[]> Glyphs = Build();
+
+    public static int Measure(string text, int scale = 1)
+    {
+        int w = 0, best = 0;
+        foreach (char c in text)
+        {
+            if (c == '\n') { best = Math.Max(best, w); w = 0; continue; }
+            w += Advance * scale;
+        }
+        return Math.Max(best, w) - (text.Length > 0 ? scale : 0);
+    }
+
+    /// <summary>Draws text with an optional 1px drop shadow. (x, y) is the top-left in canvas pixels.</summary>
+    public static void Draw(PixelCanvas canvas, string text, int x, int y, uint color, uint shadow = 0, int scale = 1)
+    {
+        if (shadow != 0) DrawRaw(canvas, text, x + scale, y + scale, shadow, scale);
+        DrawRaw(canvas, text, x, y, color, scale);
+    }
+
+    /// <summary>Draws text centered horizontally on cx.</summary>
+    public static void DrawCentered(PixelCanvas canvas, string text, int cx, int y, uint color, uint shadow = 0, int scale = 1) =>
+        Draw(canvas, text, cx - Measure(text, scale) / 2, y, color, shadow, scale);
+
+    private static void DrawRaw(PixelCanvas canvas, string text, int x0, int y0, uint color, int scale)
+    {
+        int x = x0, y = y0;
+        foreach (char raw in text)
+        {
+            if (raw == '\n') { x = x0; y += LineHeight * scale; continue; }
+            char c = char.ToUpperInvariant(raw);
+            if (Glyphs.TryGetValue(c, out var rows))
+                for (int gy = 0; gy < GlyphH; gy++)
+                    for (int gx = 0; gx < GlyphW; gx++)
+                        if ((rows[gy] & (0x10 >> gx)) != 0)
+                            for (int sy = 0; sy < scale; sy++)
+                                for (int sx = 0; sx < scale; sx++)
+                                    canvas.Set(x + gx * scale + sx, y + gy * scale + sy, color);
+            x += Advance * scale;
+        }
+    }
+
+    private static Dictionary<char, byte[]> Build()
+    {
+        // Each glyph: 7 rows of 5 columns ('#' = ink).
+        var src = new Dictionary<char, string>
+        {
+            ['A'] = ".###.|#...#|#...#|#####|#...#|#...#|#...#",
+            ['B'] = "####.|#...#|#...#|####.|#...#|#...#|####.",
+            ['C'] = ".###.|#...#|#....|#....|#....|#...#|.###.",
+            ['D'] = "####.|#...#|#...#|#...#|#...#|#...#|####.",
+            ['E'] = "#####|#....|#....|####.|#....|#....|#####",
+            ['F'] = "#####|#....|#....|####.|#....|#....|#....",
+            ['G'] = ".###.|#...#|#....|#.###|#...#|#...#|.####",
+            ['H'] = "#...#|#...#|#...#|#####|#...#|#...#|#...#",
+            ['I'] = ".###.|..#..|..#..|..#..|..#..|..#..|.###.",
+            ['J'] = "..###|...#.|...#.|...#.|#..#.|#..#.|.##..",
+            ['K'] = "#...#|#..#.|#.#..|##...|#.#..|#..#.|#...#",
+            ['L'] = "#....|#....|#....|#....|#....|#....|#####",
+            ['M'] = "#...#|##.##|#.#.#|#.#.#|#...#|#...#|#...#",
+            ['N'] = "#...#|##..#|#.#.#|#..##|#...#|#...#|#...#",
+            ['O'] = ".###.|#...#|#...#|#...#|#...#|#...#|.###.",
+            ['P'] = "####.|#...#|#...#|####.|#....|#....|#....",
+            ['Q'] = ".###.|#...#|#...#|#...#|#.#.#|#..#.|.##.#",
+            ['R'] = "####.|#...#|#...#|####.|#.#..|#..#.|#...#",
+            ['S'] = ".####|#....|#....|.###.|....#|....#|####.",
+            ['T'] = "#####|..#..|..#..|..#..|..#..|..#..|..#..",
+            ['U'] = "#...#|#...#|#...#|#...#|#...#|#...#|.###.",
+            ['V'] = "#...#|#...#|#...#|#...#|#...#|.#.#.|..#..",
+            ['W'] = "#...#|#...#|#...#|#.#.#|#.#.#|#.#.#|.#.#.",
+            ['X'] = "#...#|#...#|.#.#.|..#..|.#.#.|#...#|#...#",
+            ['Y'] = "#...#|#...#|.#.#.|..#..|..#..|..#..|..#..",
+            ['Z'] = "#####|....#|...#.|..#..|.#...|#....|#####",
+            ['0'] = ".###.|#...#|#..##|#.#.#|##..#|#...#|.###.",
+            ['1'] = "..#..|.##..|..#..|..#..|..#..|..#..|.###.",
+            ['2'] = ".###.|#...#|....#|...#.|..#..|.#...|#####",
+            ['3'] = "####.|....#|....#|.###.|....#|....#|####.",
+            ['4'] = "...#.|..##.|.#.#.|#..#.|#####|...#.|...#.",
+            ['5'] = "#####|#....|####.|....#|....#|#...#|.###.",
+            ['6'] = ".###.|#....|#....|####.|#...#|#...#|.###.",
+            ['7'] = "#####|....#|...#.|..#..|.#...|.#...|.#...",
+            ['8'] = ".###.|#...#|#...#|.###.|#...#|#...#|.###.",
+            ['9'] = ".###.|#...#|#...#|.####|....#|....#|.###.",
+            ['.'] = ".....|.....|.....|.....|.....|.##..|.##..",
+            [','] = ".....|.....|.....|.....|.##..|..#..|.#...",
+            [':'] = ".....|.##..|.##..|.....|.##..|.##..|.....",
+            ['!'] = "..#..|..#..|..#..|..#..|..#..|.....|..#..",
+            ['?'] = ".###.|#...#|....#|...#.|..#..|.....|..#..",
+            ['-'] = ".....|.....|.....|#####|.....|.....|.....",
+            ['+'] = ".....|..#..|..#..|#####|..#..|..#..|.....",
+            ['/'] = "....#|....#|...#.|..#..|.#...|#....|#....",
+            ['%'] = "##..#|##..#|...#.|..#..|.#...|#..##|#..##",
+            ['('] = "...#.|..#..|.#...|.#...|.#...|..#..|...#.",
+            [')'] = ".#...|..#..|...#.|...#.|...#.|..#..|.#...",
+            ['\''] = "..#..|..#..|.#...|.....|.....|.....|.....",
+            ['x'] = ".....|.....|#...#|.#.#.|..#..|.#.#.|#...#",
+            ['['] = ".###.|.#...|.#...|.#...|.#...|.#...|.###.",
+            [']'] = ".###.|...#.|...#.|...#.|...#.|...#.|.###.",
+            ['='] = ".....|.....|#####|.....|#####|.....|.....",
+            ['>'] = ".#...|..#..|...#.|....#|...#.|..#..|.#...",
+            ['<'] = "...#.|..#..|.#...|#....|.#...|..#..|...#.",
+            [' '] = ".....|.....|.....|.....|.....|.....|.....",
+        };
+        var result = new Dictionary<char, byte[]>();
+        foreach (var (c, s) in src)
+        {
+            var rows = s.Split('|');
+            if (rows.Length != GlyphH || rows.Any(r => r.Length != GlyphW)) throw new InvalidOperationException($"bad glyph '{c}'");
+            result[c] = [.. rows.Select(r => (byte)r.Aggregate(0, (acc, ch) => (acc << 1) | (ch == '#' ? 1 : 0)))];
+        }
+        return result;
+    }
+}

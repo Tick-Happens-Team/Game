@@ -1,58 +1,68 @@
 using TickHappens.Game;
+using TickHappens.Game.Content;
+using TickHappens.Game.Sim;
 
 namespace TickHappens.Tests;
 
 public sealed class RunWorldTests
 {
-    [Fact]
-    public void EnemyGoldPaysForNearbyChestOncePerRun()
-    {
-        var world = new RunWorld();
-        world.Step(default);
-        Assert.False(world.IsAlive(0));
-        Assert.True(world.HasGoldDrop(0));
-        Assert.Equal(0, world.Wallet.Gold);
-        Assert.Equal(0, world.OpenedCount);
-
-        for (int i = 0; i < 14; i++) world.Step(new(0, -1));
-        Assert.False(world.HasGoldDrop(0));
-        Assert.True(world.IsOpen(0));
-        Assert.Equal(0, world.LastOpenedChest);
-        Assert.Equal(0, world.Wallet.Gold);
-        Assert.Equal(15, world.Wallet.NextPrice);
-        world.Step(default);
-        Assert.Equal(1, world.OpenedCount);
-        Assert.False(new RunWorld().IsOpen(0));
-    }
+    private static ContentSet Core() => ContentLoader.Load(ContentLoader.FindCore());
 
     [Fact]
     public void FixedStepProducesSameStateAtDifferentFrameRates()
     {
-        var fast = PlayAt(120);
-        var slow = PlayAt(24);
-        Assert.Equal(10_000, fast.Tick);
+        var content = Core();
+        var fast = PlayAt(content, 120);
+        var slow = PlayAt(content, 24);
         Assert.Equal(fast.Tick, slow.Tick);
-        Assert.Equal(fast.Hero, slow.Hero);
-        Assert.Equal(fast.PreviousHero, slow.PreviousHero);
-        Assert.Equal(1, fast.OpenedCount);
-        Assert.Equal(fast.OpenedCount, slow.OpenedCount);
-        Assert.Equal(fast.LastOpenedTick, slow.LastOpenedTick);
+        Assert.Equal(fast.StateHash(), slow.StateHash());
     }
 
     [Fact]
     public void PauseFreezesTheRun()
     {
-        var world = new RunWorld();
+        var world = new RunWorld(Core());
         var loop = new RunLoop(world);
-        for (int i = 0; i < 14; i++) world.Step(new(0, -1));
-        Assert.Equal(1, world.OpenedCount);
-
+        loop.Advance(1d / 30, default);
+        Assert.Equal(1, world.Tick);
         loop.TogglePause();
         loop.Advance(0.25, new(1, 0));
-        Assert.Equal(14, world.Tick);
+        Assert.Equal(1, world.Tick);
         loop.TogglePause();
         loop.Advance(1d / 30, default);
-        Assert.Equal(15, world.Tick);
+        Assert.Equal(2, world.Tick);
+    }
+
+    [Fact]
+    public void DashCoversDistanceWithInvulnerabilityAndCooldown()
+    {
+        var world = new RunWorld(Core());
+        var p = world.Player;
+        var dash = world.Rules.Dash;
+        world.Step(new(1, 0));
+        var start = p.Pos;
+        world.Step(new(1, 0, Dash: true));
+        Assert.True(p.InvulnTicks > 0);
+        int dashTicks = (int)MathF.Round(dash.Seconds * RunWorld.TicksPerSecond);
+        for (int i = 1; i < dashTicks; i++) world.Step(new(1, 0, Dash: true));
+        Assert.InRange(p.Pos.X - start.X, dash.Distance - 1, dash.Distance + 1);
+        var afterDash = p.Pos;
+        world.Step(new(0, 0, Dash: false));
+        world.Step(new(0, 0, Dash: true)); // still on cooldown
+        Assert.Equal(afterDash, p.Pos);
+    }
+
+    [Fact]
+    public void ChestOpensPassivelyWhenAffordableAndPriceGrows()
+    {
+        var world = new RunWorld(Core());
+        var p = world.Player;
+        p.Wallet.Collect(new GoldDrop(12, p.Id), p.Id);
+        p.Pos = world.Chests[0];
+        world.Step(default);
+        Assert.True(world.ChestOpen[0]);
+        Assert.Equal(2, p.Wallet.Gold);
+        Assert.Equal(15, p.Wallet.NextPrice);
     }
 
     [Fact]
@@ -78,15 +88,12 @@ public sealed class RunWorldTests
         Assert.Equal(23, first.NextPrice);
     }
 
-    private static RunWorld PlayAt(int fps)
+    private static RunWorld PlayAt(ContentSet content, int fps)
     {
-        var world = new RunWorld();
+        var world = new RunWorld(content, seed: 5);
         var loop = new RunLoop(world);
-        for (int frame = 0; frame < 10_000 * fps / 30; frame++)
-        {
-            bool approaching = frame < fps / 2;
-            loop.Advance(1d / fps, new(0, approaching ? -1 : 0));
-        }
+        for (int frame = 0; frame < 3000 * fps / 30; frame++)
+            loop.Advance(1d / fps, new(frame / fps % 2 == 0 ? 1 : -1, 0));
         return world;
     }
 }

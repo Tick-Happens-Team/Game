@@ -35,7 +35,7 @@
 | 1.6 | [ ] Bake VFX flipbooks into a VFX atlas | P+ | 0.11 | 200 concurrent explosions use ≤2 ms CPU per frame. |
 | 1.7 | [ ] SDL3 audio streams, mixer, voice pool, SFX caps, buses | P+ | 1.1 | 100 hits per frame without clipping or stalls. |
 | 1.8 | [ ] GPU queries, frame overlay, min/avg/p99 reports | P+ | 1.4 | Bench writes timings to `.tmp/bench/`. |
-| 1.9 | [ ] Bitmap font and UI layer above upscale | P! | 1.4 | Damage numbers and HUD readable at ×2–×6. |
+| 1.9 | [x] Bitmap font and UI layer above upscale | P! | 1.4 | Built-in 5×7 PixelFont and screen-space UiFrame composited after tonemapping. HUD, damage numbers and cards verified in captures at ×2. Cyrillic glyphs pending 6.2. |
 | 1.10 | [ ] Development hot reload of shaders and atlas | P- | 1.4 | Edits to frag or indexed art appear without restart. |
 | 1.11 | [ ] Self-contained win-x64 game ZIP and separate Assets pack | P+ | 1.1, 2.1 | Locally packaged pair runs on clean Windows without .NET SDK. |
 
@@ -43,18 +43,18 @@
 
 | ID | Task | Priority | Depends on | Acceptance |
 |---|---|---|---|---|
-| 2.1 | [~] Game project, struct-of-arrays world, handles, systems, and seeded RNG | P! | 1.3 | Standalone prototype and 10,000-tick movement/chest test. General entity storage, handles, seeded RNG, and state hashes remain. |
-| 2.2 | [ ] Data loader for built-in core mod | P! | 2.1 | Characters, weapons, enemies, and waves load from JSON with clear validation errors. |
-| 2.3 | [~] Movement, enemy collisions, contact damage, HP, and death | P! | 2.1 | Player movement and arena bounds work. Enemy collisions, damage, HP, and death remain. |
-| 2.3a | [ ] Dash/dodge | P+ | 2.3 | Movement and dash/dodge are the only manual gameplay actions. Attacks, items, and interactions fire passively. |
-| 2.4 | [~] Projectile, area, and chain-lightning auto-attacks with VFX | P! | 2.2, 0.12 | Prototype auto-attack uses shared radius geometry and typed hits. Cone and falloff primitives are tested. JSON weapons, projectiles, chain targeting, and VFX remain. |
-| 2.5 | [ ] RunClock and time-based waves, stats, and bosses | P! | 2.2 | Wave composition matches tables at minutes 0, 5, and 10. |
-| 2.6 | [ ] Time statues advance RunClock | P! | 2.5 | Difficulty jumps and HUD reflects it. |
-| 2.7 | [ ] XP drops, magnet, level-up, and upgrade choice | P! | 2.3 | Three upgrade choices update StatBlock. |
-| 2.8 | [ ] Ordered additive and multiplicative StatBlock modifiers and event-based passives | P! | 2.2 | Combination tests cover examples such as +1 armor on level-up. |
-| 2.9 | [~] Chests and loot tables | P+ | 2.8 | Three shared arena chests open automatically when the nearby player can pay. Gold drops belong to the killer or the killing summon’s owner, and prices scale 1.5× per player. Item pools and rewards follow the item system. |
-| 2.10 | [ ] HUD clock, level, HP, XP, and results screen | P+ | 1.9 | Complete run flow. |
-| 2.11 | [ ] Simulation performance | P! | 2.3 | Bench confirms ≤4 ms per tick with 2,000 enemies. |
+| 2.1 | [x] Game project, struct-of-arrays world, handles, systems, and seeded RNG | P! | 1.3 | RunWorld with SoA enemies (free-list slots, uids), projectiles, pickups, xorshift SimRng, StateHash. Same seed gives identical hashes after 3,000 ticks; different render rates give identical state. |
+| 2.2 | [x] Data loader for built-in core mod | P! | 2.1 | content/core JSON for characters, weapons, items, enemies, waves, rules. ContentLoader reports file, id and field for unknown references, stats, wave gaps, duplicates and the fixed 1.5 chest growth. |
+| 2.3 | [x] Movement, enemy collisions, contact damage, HP, and death | P! | 2.1 | Seek plus SpatialGrid separation, contact damage with armor and i-frames, regen, death screen with results and R for a new run. |
+| 2.3a | [x] Dash/dodge | P+ | 2.3 | Space dashes along facing with invulnerability and cooldown bar. Movement and dash are the only manual gameplay actions. |
+| 2.4 | [~] Projectile, area, and chain-lightning auto-attacks with VFX | P! | 2.2, 0.12 | JSON weapons with levels: bolt (pierce, multi-target), pulse, chain (hops), blast (densest spot), with impact, lightning arc, explosion and particle VFX from events. Cursor targeting with the Прицел item remains. |
+| 2.5 | [~] RunClock and time-based waves, stats, and bosses | P! | 2.2 | Run clock = ticks + statue bonus; wave table without gaps, HP/damage scaling per minute, timed elites. Bosses with patterns remain (5.3). Tests cover HpScale following the clock, not the level. |
+| 2.6 | [x] Time statues advance RunClock | P! | 2.5 | Standing near a statue for 1 s adds 2 minutes, HUD shows the bonus and a notice; tests verify BonusSeconds and HpScale. |
+| 2.7 | [x] XP drops, magnet, level-up, and upgrade choice | P! | 2.3 | Crystals with magnet pull, XP curve, three cards (new weapon/item or next level) chosen with 1–3; extra levels queue. |
+| 2.8 | [x] Ordered additive and multiplicative StatBlock modifiers and event-based passives | P! | 2.2 | (base + Σadd) × (1 + Σpct), cooldown floor, order-independent; levelUp passive (+1 armor per level) tested. |
+| 2.9 | [~] Chests and loot tables | P+ | 2.8 | Chests open passively when affordable, grant a random upgrade, killer-owned gold, 1.5× price per player. Rarity/loot tables from the owner content list remain. |
+| 2.10 | [x] HUD clock, level, HP, XP, and results screen | P+ | 1.9 | XP bar, level, run clock with statue bonus, gold and chest price, kills, loadout, HP and dash bars, notices, level-up cards, pause and death results. |
+| 2.11 | [~] Simulation performance | P! | 2.3 | Release demo renders ~1,000 FPS with ~490 enemies on the developer PC. A per-tick timing report at 2,000 enemies remains (with 1.8). |
 
 ## P3. Co-op for 2–4 players
 

@@ -1,0 +1,11 @@
+[
+  {
+    "id": "clockwarden",
+    "name": "Clockwarden",
+    "sprite": "hero_clockwarden_r",
+    "description": "Gains +1 armor on every level up.",
+    "stats": { "maxHp": 100, "moveSpeed": 78, "armor": 0, "magnet": 30, "regen": 0.2 },
+    "weapon": "chrono_bolt",
+    "passives": [ { "on": "levelUp", "stat": "armor", "add": 1 } ]
+  }
+]

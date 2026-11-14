@@ -17,7 +17,10 @@ Veldrid was dropped over maintenance concerns. raylib-cs offered insufficient co
 ## Projects
 
 - `TickHappens.Engine` owns SDL3, OpenGL resources, SpriteBatch, PixelRenderer, GPU particles, VFX, images, palettes, atlases, and SpatialGrid.
-- `TickHappens.Game` runs the single-player prototype. RunWorld owns movement and chest state, RunLoop advances the world at 30 Hz, and RunView renders interpolated movement.
+- `TickHappens.Game` runs the single-player game.
+  - `Content/` loads and validates the data-driven `core` mod (`content/core/*.json`): characters, weapons, items, enemies, waves, rules.
+  - `Sim/` is the deterministic 30 Hz simulation. `RunWorld` owns the run clock (ticks + statue bonus), waves and elites, struct-of-arrays enemies with free-list slots, projectiles, pickups with owner-only gold, weapons (`bolt`, `pulse`, `chain`, `blast`), `StatBlock` ((base + Σadd) × (1 + Σpct)), level-up offers, chests and statues. It emits `GameEvent`s for cosmetics and never reads clocks or GL. `DemoPilot` drives `--demo` and long-run tests.
+  - `RunLoop` advances the world at 30 Hz; `RunView` renders interpolated state and turns events into local VFX (portable Sprite Fusion ports, GPU particles) under a CPU-effect budget; `Hud` draws the UI layer with the built-in pixel font.
 - `TickHappens.VisualBench` exercises rendering and crowds. See the [Game README](../README.md) for arguments.
 - `TickHappens.AssetTool`, `TickHappens.Distribution`, `TickHappens.ReleaseTool`, and `TickHappens.Tests` cover asset generation, package contracts, release tooling, and tests. ReleaseTool is still a scaffold.
 - Planned projects cover network transports and snapshots and mod validation and installation.
@@ -26,7 +29,7 @@ Game depends on Engine. Net depends on the game protocol and Engine. The engine 
 
 ## Render pipeline
 
-Rendering uses 640×360 art pixels and two pixels of padding on each side for fractional camera movement.
+Rendering uses 640×360 art pixels and two pixels of padding on each side for fractional camera movement. A screen-space UI layer (`PixelRenderer.UiFrame`, built-in 5×7 `PixelFont`) is composited after tonemapping without the camera offset, so HUD text stays crisp at every integer scale.
 
 1. The RGBA8 MRT G-buffer stores albedo, normals, and emission. SpriteBatch draws up to 65,536 instanced quads per flush with one atlas and an alpha test using `texelFetch`. Draw terrain first and actors in Y order. Instance flags handle X mirroring and emission. `tint.a < 1` supplies a white hit flash.
 2. CPU effects draw camera-relative color and light to PixelFrame and upload two textures.
