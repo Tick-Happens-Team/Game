@@ -1,0 +1,7 @@
+# Built-in content of TickHappens. Same format as community mods (see docs/MODDING.md).
+schema = 1
+id = "core"
+name = "TickHappens Core"
+version = "0.1.0"
+license = "MIT"
+multiplayer = "required"

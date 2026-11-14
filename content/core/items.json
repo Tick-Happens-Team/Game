@@ -1,0 +1,8 @@
+[
+  { "id": "whetstone", "name": "Whetstone", "description": "+10% damage.", "maxLevel": 5, "mods": [ { "stat": "might", "pct": 0.10 } ] },
+  { "id": "hourglass", "name": "Hourglass", "description": "-8% weapon cooldown.", "maxLevel": 5, "mods": [ { "stat": "cooldown", "pct": -0.08 } ] },
+  { "id": "lens", "name": "Lens", "description": "+10% area.", "maxLevel": 5, "mods": [ { "stat": "area", "pct": 0.10 } ] },
+  { "id": "boots", "name": "Boots", "description": "+10% move speed.", "maxLevel": 5, "mods": [ { "stat": "moveSpeed", "pct": 0.10 } ] },
+  { "id": "lodestone", "name": "Lodestone", "description": "+30% pickup range.", "maxLevel": 5, "mods": [ { "stat": "magnet", "pct": 0.30 } ] },
+  { "id": "heartwood", "name": "Heartwood", "description": "+20 max HP, +0.2 regen.", "maxLevel": 5, "mods": [ { "stat": "maxHp", "add": 20 }, { "stat": "regen", "add": 0.2 } ] }
+]

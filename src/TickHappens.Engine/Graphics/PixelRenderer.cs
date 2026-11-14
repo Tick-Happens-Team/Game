@@ -41,7 +41,7 @@ public sealed unsafe class PixelRenderer : IDisposable
     private readonly GL _gl;
     private readonly RenderTarget _gbuf, _lit;
     private readonly RenderTarget[] _bloom = new RenderTarget[BloomLevels];
-    private readonly Texture2D _vfxColor, _vfxLight;
+    private readonly Texture2D _vfxColor, _vfxLight, _ui;
     private readonly ShaderProgram _light, _down, _up, _final;
     private readonly uint _emptyVao;
     private readonly float[] _lightData = new float[MaxLights * 12];
@@ -55,6 +55,10 @@ public sealed unsafe class PixelRenderer : IDisposable
     public int OriginX { get; private set; }
     public int OriginY { get; private set; }
     public PixelFrame VfxFrame { get; }
+    /// <summary>Screen-space UI layer at art resolution (view size, no margin, no camera offset); cleared in BeginFrame, drawn last, unlit, no bloom.</summary>
+    public PixelFrame UiFrame { get; }
+    public int ViewW { get; private set; } = BaseW;
+    public int ViewH { get; private set; } = BaseH;
     public RenderTarget GBuffer => _gbuf;
     public RenderTarget Lit => _lit;
     public int LightCount { get; private set; }
@@ -81,6 +85,8 @@ public sealed unsafe class PixelRenderer : IDisposable
         _vfxColor = new Texture2D(gl, TargetW, TargetH);
         _vfxLight = new Texture2D(gl, TargetW, TargetH);
         VfxFrame = new PixelFrame(TargetW, TargetH);
+        _ui = new Texture2D(gl, BaseW, BaseH);
+        UiFrame = new PixelFrame(BaseW, BaseH);
     }
 
     /// <summary>Chooses the integer scale and target size for the window and positions the camera (world px, view center).</summary>
@@ -102,6 +108,13 @@ public sealed unsafe class PixelRenderer : IDisposable
             _vfxLight.Resize(tw, th);
             VfxFrame.Resize(tw, th);
         }
+        if (viewW != ViewW || viewH != ViewH)
+        {
+            ViewW = viewW;
+            ViewH = viewH;
+            _ui.Resize(viewW, viewH);
+            UiFrame.Resize(viewW, viewH);
+        }
         float left = camCenterX - viewW / 2f, top = camCenterY - viewH / 2f;
         OriginX = (int)MathF.Floor(left) - Margin;
         OriginY = (int)MathF.Floor(top) - Margin;
@@ -109,6 +122,7 @@ public sealed unsafe class PixelRenderer : IDisposable
         _fracY = top - MathF.Floor(top);
         VfxFrame.Ox = OriginX;
         VfxFrame.Oy = OriginY;
+        Array.Clear(UiFrame.Color);
 
         _gbuf.Bind();
         _gl.ClearColor(0, 0, 0, 0);
@@ -121,6 +135,10 @@ public sealed unsafe class PixelRenderer : IDisposable
         _vfxColor.Upload(VfxFrame.Color);
         _vfxLight.Upload(VfxFrame.Light);
     }
+
+    /// <summary>Converts a world position to UI-layer pixels (for labels that follow world objects).</summary>
+    public (int X, int Y) WorldToUi(float x, float y) =>
+        ((int)MathF.Floor(x - OriginX - Margin - _fracX), (int)MathF.Floor(y - OriginY - Margin - _fracY));
 
     /// <summary>Lighting pass: writes the HDR lit scene. Lights are in world pixels.</summary>
     public void Light(ReadOnlySpan<PointLight> lights, float time)
@@ -165,6 +183,8 @@ public sealed unsafe class PixelRenderer : IDisposable
 
     public void Finish()
     {
+        // Upload first: Texture2D.Upload binds to whatever unit is active, which must not clobber the final pass bindings.
+        _ui.Upload(UiFrame.Color);
         // Bloom: progressive downsample with soft threshold on the first level, then additive upsample.
         if (Settings.Bloom)
         {
@@ -202,6 +222,8 @@ public sealed unsafe class PixelRenderer : IDisposable
         _bloom[0].Colors[0].Bind(1);
         _final.Set("uScene", 0);
         _final.Set("uBloom", 1);
+        _ui.Bind(2);
+        _final.Set("uUi", 2);
         _final.Set("uBloomStrength", Settings.Bloom ? Settings.BloomStrength : 0f);
         _final.Set("uScale", Scale);
         _final.Set("uWindow", _windowW, _windowH);
@@ -238,6 +260,7 @@ public sealed unsafe class PixelRenderer : IDisposable
         foreach (var b in _bloom) b.Dispose();
         _vfxColor.Dispose();
         _vfxLight.Dispose();
+        _ui.Dispose();
         _light.Dispose();
         _down.Dispose();
         _up.Dispose();

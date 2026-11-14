@@ -5,5 +5,6 @@
   <ItemGroup>
     <ProjectReference Include="..\TickHappens.Engine\TickHappens.Engine.csproj" />
     <None Include="..\..\assets\**\*" LinkBase="assets" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\content\**\*" LinkBase="content" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

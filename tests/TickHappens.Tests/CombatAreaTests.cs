@@ -1,3 +1,5 @@
+using TickHappens.Game.Content;
+using TickHappens.Game.Sim;
 using System.Numerics;
 using TickHappens.Game;
 
@@ -28,31 +30,23 @@ public sealed class CombatAreaTests
     }
 
     [Fact]
-    public void RadiusModifierExtendsAutoAttackAndTypedDamageCanRequireMultipleHits()
+    public void AreaStatExtendsWeaponRadius()
     {
-        var world = new RunWorld
-        {
-            Stats = CombatStats.Base with { RadiusMultiplier = 0.7f, PhysicalDamageMultiplier = 0.5f },
-        };
+        var content = ContentLoader.Load(ContentLoader.FindCore());
+        var world = new RunWorld(content);
+        var p = world.Player;
+        p.Weapons.Clear();
+        p.Weapons.Add(new WeaponState(content.WeaponIndex("tick_pulse"), 1));
+        float baseArea = content.Weapons[content.WeaponIndex("tick_pulse")].Levels[0].Area;
+        int enemy = world.SpawnEnemy(content.EnemyIndex("amberslime"), p.Pos + new System.Numerics.Vector2(baseArea + 4, 0));
+        float hp = world.EHp[enemy];
         world.Step(default);
-        Assert.True(world.IsAlive(0));
-        world.Stats = world.Stats with { RadiusMultiplier = 0.7f * 1.15f };
+        Assert.Equal(hp, world.EHp[enemy]);
+        p.Stats.Apply(Stat.Area, 0, 0.5f);
+        world.Player.Weapons[0].Timer = 0;
+        world.EX[enemy] = p.Pos.X + baseArea + 4;
+        world.EY[enemy] = p.Pos.Y;
         world.Step(default);
-        Assert.True(world.IsAlive(0));
-        for (int i = 0; i < 15; i++) world.Step(default);
-        Assert.False(world.IsAlive(0));
-        Assert.True(world.HasGoldDrop(0));
-    }
-
-    [Fact]
-    public void SummonKillCreditSurvivesLaterHits()
-    {
-        var world = new RunWorld();
-        world.ApplyDamage(0, new(new(0, SummonOwnerId: 1), DamageType.Magical, 15));
-        world.ApplyDamage(0, new(new(0), DamageType.Pure, 15));
-        for (int i = 0; i < 14; i++) world.Step(new(0, -1));
-        Assert.True(world.HasGoldDrop(0));
-        Assert.Equal(0, world.Wallet.Gold);
-        Assert.False(world.IsOpen(0));
+        Assert.True(world.EHp[enemy] < hp);
     }
 }

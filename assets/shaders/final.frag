@@ -4,6 +4,7 @@
 out vec4 oColor;
 uniform sampler2D uScene;
 uniform sampler2D uBloom;
+uniform sampler2D uUi;        // screen-space UI at art resolution, top row first
 uniform float uBloomStrength;
 uniform int uScale;
 uniform vec2 uWindow;
@@ -29,5 +30,9 @@ void main() {
         vec2 q = gl_FragCoord.xy / uWindow - 0.5;
         c *= 1.0 - 0.28 * dot(q, q);
     }
+    // UI: integer-scaled, no camera offset, composited after tonemapping so text stays exact.
+    ivec2 ui = ivec2(floor(w / float(uScale)));
+    vec4 u = texelFetch(uUi, ui, 0);
+    c = mix(c, u.rgb, u.a);
     oColor = vec4(c, 1.0);
 }

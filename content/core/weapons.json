@@ -1,0 +1,46 @@
+[
+  {
+    "id": "chrono_bolt", "name": "Chrono Bolt", "kind": "bolt", "damageType": "magical",
+    "description": "Fires bolts at the nearest enemy.",
+    "levels": [
+      { "damage": 10, "cooldown": 0.9, "count": 1, "speed": 230, "pierce": 1, "range": 220 },
+      { "damage": 12, "cooldown": 0.85, "count": 2, "speed": 230, "pierce": 1, "range": 220 },
+      { "damage": 14, "cooldown": 0.8, "count": 2, "speed": 250, "pierce": 2, "range": 240 },
+      { "damage": 16, "cooldown": 0.75, "count": 3, "speed": 250, "pierce": 2, "range": 240 },
+      { "damage": 20, "cooldown": 0.65, "count": 4, "speed": 270, "pierce": 3, "range": 260 }
+    ]
+  },
+  {
+    "id": "tick_pulse", "name": "Tick Pulse", "kind": "pulse", "damageType": "physical",
+    "description": "Damages every enemy around you.",
+    "levels": [
+      { "damage": 7, "cooldown": 1.3, "area": 34 },
+      { "damage": 9, "cooldown": 1.2, "area": 38 },
+      { "damage": 11, "cooldown": 1.1, "area": 42 },
+      { "damage": 13, "cooldown": 1.0, "area": 48 },
+      { "damage": 17, "cooldown": 0.9, "area": 54 }
+    ]
+  },
+  {
+    "id": "arc_chain", "name": "Arc Chain", "kind": "chain", "damageType": "magical",
+    "description": "Lightning jumps between enemies.",
+    "levels": [
+      { "damage": 14, "cooldown": 1.8, "count": 3, "range": 160, "area": 70 },
+      { "damage": 16, "cooldown": 1.7, "count": 4, "range": 160, "area": 75 },
+      { "damage": 19, "cooldown": 1.6, "count": 5, "range": 170, "area": 80 },
+      { "damage": 22, "cooldown": 1.5, "count": 6, "range": 180, "area": 85 },
+      { "damage": 28, "cooldown": 1.3, "count": 8, "range": 190, "area": 90 }
+    ]
+  },
+  {
+    "id": "gear_bomb", "name": "Gear Bomb", "kind": "blast", "damageType": "physical",
+    "description": "Explodes in the thickest crowd.",
+    "levels": [
+      { "damage": 22, "cooldown": 3.0, "count": 1, "range": 200, "area": 30 },
+      { "damage": 26, "cooldown": 2.8, "count": 1, "range": 200, "area": 34 },
+      { "damage": 30, "cooldown": 2.6, "count": 2, "range": 210, "area": 36 },
+      { "damage": 36, "cooldown": 2.4, "count": 2, "range": 220, "area": 40 },
+      { "damage": 46, "cooldown": 2.1, "count": 3, "range": 230, "area": 44 }
+    ]
+  }
+]

@@ -10,7 +10,16 @@ Install the .NET 10 SDK, keep Game and Assets side by side, and use a GPU with O
 dotnet run --project src/TickHappens.Game
 ```
 
-Move with WASD or the arrow keys. The hero attacks automatically. Walk over dropped gold to collect it, then approach a chest to buy and open it automatically. The prototype starts at 10 gold per chest. Each purchase multiplies the player's next price by 1.5, rounding up only when charging whole coins. The window title shows the balance, next price, and run timer. Press **P** to pause, **R** to restart, or **Esc** to quit. Item rewards, dash/dodge, and expanded combat are planned on the [roadmap](ROADMAP.md).
+A full survivors loop is playable: waves grow with the run clock, weapons fire automatically, crystals level you up, and you choose one of three upgrades. Time statues add minutes to the clock (harder waves), chests open on their own when you can pay (10 gold, then ×1.5 per purchase), and the run ends when your HP reaches zero.
+
+| Control | Action |
+|---|---|
+| WASD / arrows | Move |
+| Space | Dash (short invulnerable burst, cooldown bar under the hero) |
+| 1 / 2 / 3 | Pick a level-up card |
+| P / R / Esc | Pause / new run (after death or while paused) / quit |
+
+Content (character, 4 weapons, 6 items, 3 enemies, waves, rules) is data in `content/core/*.json`, the built-in `core` mod. Autopilot and captures: `--demo [--hold-levelup] --frames N --screenshot PATH --seed S --no-vsync`.
 
 ## Contributing
 
