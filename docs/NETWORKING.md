@@ -33,7 +33,8 @@ LoopbackTransport supports single-process tests and bots. LiteNetLibTransport su
 | Enemies | Host sends 15–20 Hz delta snapshots with IDs, spawn types, 16-bit positions, and HP buckets. Spawn and death events carry a seed reliably. |
 | Damage | Host batches `Hit{target, amount, crit, sourceWeapon}` events. Clients draw VFX and numbers. |
 | XP | Deterministic death drops from event seeds. Host confirms pickups. Shared versus individual XP remains open. |
-| Chests and items | Host rolls loot and sends reliable results |
+| Gold | Host assigns each enemy death drop to the killer or the owner of the killing summon. Only that player can collect it automatically in range. |
+| Chests and items | Host charges the nearby player's wallet, opens the shared chest once, and increases that player's next price by 1.5×. Host rolls loot and sends reliable results. |
 | Particles, VFX, and audio | Clients generate them locally from events |
 
 At 1,000 enemies and roughly five bytes per enemy at 20 Hz, estimated traffic is 100 KB/s per client. The budget is 150 KB/s.

@@ -13,7 +13,7 @@ internal sealed class RunView : IDisposable
     private readonly ShaderProgram _shader;
     private readonly SpriteBatch _batch;
     private readonly Texture2D _albedo, _normals, _emission;
-    private readonly AtlasSprite _hero, _chest, _grass, _stone;
+    private readonly AtlasSprite _hero, _chest, _grass, _stone, _slime;
     private readonly int _openFrame;
 
     public RunView(GL gl, AtlasData atlas)
@@ -22,6 +22,7 @@ internal sealed class RunView : IDisposable
         _chest = atlas.Sprites["prop_chest"];
         _grass = atlas.Sprites["tile_grass"];
         _stone = atlas.Sprites["tile_stone"];
+        _slime = atlas.Sprites["enemy_amberslime_r"];
         _openFrame = _chest.FrameNames.IndexOf("open");
         if (_openFrame < 0)
             throw new InvalidDataException("The atlas is missing the open chest frame. Run TickHappens.AssetTool -- build.");
@@ -49,12 +50,18 @@ internal sealed class RunView : IDisposable
         DrawTerrain(ox, oy, tw, th);
 
         // A small fixed set of props. Sort with the hero by their ground pivots.
-        Span<int> order = stackalloc int[world.Chests.Length + 1];
+        Span<int> order = stackalloc int[world.Chests.Length + world.Enemies.Length + 1];
         Span<float> depth = stackalloc float[order.Length];
         for (int i = 0; i < world.Chests.Length; i++)
         {
             order[i] = i;
             depth[i] = world.Chests[i].Y;
+        }
+        for (int i = 0; i < world.Enemies.Length; i++)
+        {
+            int slot = world.Chests.Length + i;
+            order[slot] = slot;
+            depth[slot] = world.Enemies[i].Y;
         }
         order[^1] = -1;
         depth[^1] = hero.Y;
@@ -68,6 +75,16 @@ internal sealed class RunView : IDisposable
                 _batch.Draw(_hero, frame, hero.X - ox, hero.Y - oy, world.FacingLeft);
                 continue;
             }
+            if (id >= world.Chests.Length)
+            {
+                int enemy = id - world.Chests.Length;
+                if (!world.IsAlive(enemy)) continue;
+                var position = world.Enemies[enemy];
+                var animation = _slime.Anims["idle"];
+                int frame = animation.Frames[(int)(time * animation.Fps) % animation.Frames.Count];
+                _batch.Draw(_slime, frame, position.X - ox, position.Y - oy);
+                continue;
+            }
             var chest = world.Chests[id];
             _batch.Draw(_chest, world.IsOpen(id) ? _openFrame : 0, chest.X - ox, chest.Y - oy);
         }
@@ -76,10 +93,17 @@ internal sealed class RunView : IDisposable
         var vfx = _renderer.VfxFrame;
         vfx.Clear();
         var canvas = PixelCanvas.ColorOf(vfx);
+        for (int i = 0; i < world.Enemies.Length; i++)
+        {
+            if (!world.HasGoldDrop(i)) continue;
+            var position = world.Enemies[i];
+            canvas.Disc(position.X, position.Y - 3, 3, 0xFF22465E);
+            canvas.Disc(position.X, position.Y - 4, 2, 0xFF6BE2FF);
+        }
         if (world.NearbyChest >= 0)
         {
             var chest = world.Chests[world.NearbyChest];
-            // Downward marker points to the chest the interaction will select.
+            // Point to the chest when the player needs more gold.
             canvas.Line(chest.X - 3, chest.Y - 19, chest.X, chest.Y - 16, 0xFF6BE2FF);
             canvas.Line(chest.X + 3, chest.Y - 19, chest.X, chest.Y - 16, 0xFF6BE2FF);
         }
