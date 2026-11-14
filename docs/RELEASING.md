@@ -12,6 +12,8 @@ Open pull requests from topic branches into `dev`, the default branch for Game a
 
 Until the launcher is available, run the prototype directly from the Game checkout using the [README](../README.md). Keep a compatible Assets checkout beside Game or select it with `TICKHAPPENS_ASSETS_ROOT`. Asset generation runs locally on files. As part of the release rollout, Game will pin the full Assets commit and expected package tag in a lock file. Stable release builds will require an available package from the Assets/stable history.
 
+Game and Assets automatically squash-merge ready same-repository PRs into `dev` when an organization owner authors the PR and an owner triggers a successful CI run for its current head. Keep cross-repository PRs in draft until their dependencies are merged. Update the owner account IDs in both `admin-auto-merge.yml` workflows when organization ownership changes.
+
 The current workflows build and test both branches. Assets publishes an atlas ZIP and SHA-256 checksum from stable. Game uploads a self-contained Windows visual benchmark as an Actions artifact from stable. The signed launcher and game release described below requires the playable game and launcher.
 
 ## Publication

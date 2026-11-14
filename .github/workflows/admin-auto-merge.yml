@@ -1,0 +1,44 @@
+name: Auto-merge administrator PRs
+
+on:
+  workflow_run:
+    workflows: ["Game CI"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    # Organization owner account IDs. Update this list when ownership changes.
+    if: >-
+      ${{ github.event.workflow_run.event == 'pull_request' &&
+          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.head_repository.full_name == github.repository &&
+          contains(fromJSON('[156020274, 330476880, 233434312]'), github.event.workflow_run.actor.id) }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Merge the checked commit
+        # Never check out PR code or consume artifacts with this token.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ADMIN_IDS: '[156020274, 330476880, 233434312]'
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          pr=$(jq -r '
+            .workflow_run.pull_requests |
+            if length == 1 and .[0].base.ref == "dev" then .[0].number else empty end
+          ' "$GITHUB_EVENT_PATH")
+          if [[ -z "$pr" ]]; then exit 0; fi
+
+          details=$(gh api "repos/$GH_REPO/pulls/$pr")
+          if ! jq -e --arg head "$HEAD_SHA" --arg repo "$GH_REPO" --argjson admins "$ADMIN_IDS" '
+            .user.id as $author |
+            .state == "open" and (.draft | not) and .base.ref == "dev" and
+            .head.repo.full_name == $repo and .head.sha == $head and
+            ($admins | index($author) != null)
+          ' <<< "$details" > /dev/null; then exit 0; fi
+
+          gh pr merge "$pr" --squash --match-head-commit "$HEAD_SHA"
