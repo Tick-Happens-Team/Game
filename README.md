@@ -57,4 +57,5 @@ Options include `--demo --frames N --screenshot PATH --enemies N --no-vsync --ma
 - [Releases and launcher](docs/RELEASING.md)
 - [Networking](docs/NETWORKING.md)
 - [Modding and Workshop](docs/MODDING.md)
+- [Content roadmap: characters and items](docs/CONTENT_ROADMAP.md)
 - [License and third-party notices](LICENSE.md)

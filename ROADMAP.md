@@ -83,7 +83,7 @@
 
 ## P5. Content and progression
 
-Depends on P2 and the owner's content list. Content is data-driven, with stat application tests for each item and character.
+Depends on P2 and the owner's content list. The [content roadmap](docs/CONTENT_ROADMAP.md) orders the 16 characters and 56 items by ease of implementation, lists the engine systems S0–S14 they need, groups them into milestones M1–M7, and records open questions for the owner. Content is data-driven, with stat application tests for each item and character.
 
 - [ ] 5.1 Characters with unique passives.
 - [ ] 5.2 Weapons, items, evolutions, and combinations.
