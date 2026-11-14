@@ -22,16 +22,18 @@ public sealed class RunWorld
     private readonly bool[] _opened = new bool[ChestPositions.Length];
     private static readonly Vector2[] EnemyPositions =
         [new(510, 485), new(453, 540), new(414, 526), new(574, 546), new(601, 576)];
-    private readonly bool[] _defeated = new bool[EnemyPositions.Length];
+    private readonly float[] _enemyHealth = [15, 15, 15, 15, 15];
     private readonly GoldDrop?[] _drops = new GoldDrop?[EnemyPositions.Length];
     private int _nextAttackTick;
 
     public ChestWallet Wallet { get; } = new();
+    public CombatStats Stats { get; set; } = CombatStats.Base;
     public int Tick { get; private set; }
     public Vector2 Hero { get; private set; } = new(512, 512);
     public Vector2 PreviousHero { get; private set; } = new(512, 512);
     public bool Walking { get; private set; }
     public bool FacingLeft { get; private set; }
+    public Vector2 Facing { get; private set; } = Vector2.UnitY;
     public int OpenedCount { get; private set; }
     public int NearbyChest { get; private set; } = -1;
     public int LastOpenedChest { get; private set; } = -1;
@@ -39,7 +41,7 @@ public sealed class RunWorld
     public ReadOnlySpan<Vector2> Chests => ChestPositions;
     public ReadOnlySpan<Vector2> Enemies => EnemyPositions;
     public bool IsOpen(int chest) => _opened[chest];
-    public bool IsAlive(int enemy) => !_defeated[enemy];
+    public bool IsAlive(int enemy) => _enemyHealth[enemy] > 0;
     public bool HasGoldDrop(int enemy) => _drops[enemy].HasValue;
 
     public void Step(RunInput input)
@@ -48,26 +50,30 @@ public sealed class RunWorld
         PreviousHero = Hero;
         var direction = new Vector2(Math.Sign(input.X), Math.Sign(input.Y));
         if (direction != Vector2.Zero)
-            Hero = Vector2.Clamp(Hero + Vector2.Normalize(direction) * StepDistance, new(12), new(ArenaSize - 12));
+        {
+            Facing = Vector2.Normalize(direction);
+            Hero = Vector2.Clamp(Hero + Facing * StepDistance, new(12), new(ArenaSize - 12));
+        }
         Walking = Hero != PreviousHero;
         if (direction.X != 0) FacingLeft = direction.X < 0;
 
         AttackNearestEnemy();
+        var pickupArea = CombatArea.Circle(Hero, 16);
         for (int i = 0; i < _drops.Length; i++)
         {
             if (_drops[i] is not { } drop || drop.OwnerId != LocalPlayerId ||
-                Vector2.DistanceSquared(Hero, EnemyPositions[i]) > 16 * 16) continue;
+                !pickupArea.Contains(EnemyPositions[i], out _)) continue;
             Wallet.Collect(drop, LocalPlayerId);
             _drops[i] = null;
         }
 
         NearbyChest = -1;
-        float bestDistance = Reach * Reach;
+        var chestArea = CombatArea.Circle(Hero, Reach);
+        float bestDistance = float.PositiveInfinity;
         for (int i = 0; i < ChestPositions.Length; i++)
         {
             if (_opened[i]) continue;
-            float distance = Vector2.DistanceSquared(Hero, ChestPositions[i]);
-            if (distance > bestDistance || (distance == bestDistance && NearbyChest >= 0)) continue;
+            if (!chestArea.Contains(ChestPositions[i], out float distance) || distance >= bestDistance) continue;
             bestDistance = distance;
             NearbyChest = i;
         }
@@ -86,19 +92,25 @@ public sealed class RunWorld
     {
         if (Tick < _nextAttackTick) return;
         int target = -1;
-        float nearest = AttackRange * AttackRange;
+        var area = CombatArea.Circle(Hero, Stats.EffectRadius(AttackRange));
+        float nearest = float.PositiveInfinity;
         for (int i = 0; i < EnemyPositions.Length; i++)
         {
-            if (_defeated[i]) continue;
-            float distance = Vector2.DistanceSquared(Hero, EnemyPositions[i]);
-            if (distance > nearest || (distance == nearest && target >= 0)) continue;
+            if (!IsAlive(i) || !area.Contains(EnemyPositions[i], out float distance) || distance >= nearest) continue;
             nearest = distance;
             target = i;
         }
         if (target < 0) return;
 
-        _defeated[target] = true;
-        _drops[target] = GoldDrop.FromKill(10, LocalPlayerId);
+        ApplyDamage(target, new(new(LocalPlayerId), DamageType.Physical, Stats.OutgoingDamage(15, DamageType.Physical)));
         _nextAttackTick = Tick + TicksPerSecond / 2;
+    }
+
+    public void ApplyDamage(int target, DamageHit hit)
+    {
+        if (!float.IsFinite(hit.Amount) || hit.Amount < 0) throw new ArgumentOutOfRangeException(nameof(hit));
+        if (!IsAlive(target)) return;
+        _enemyHealth[target] = Math.Max(0, _enemyHealth[target] - hit.Amount);
+        if (!IsAlive(target)) _drops[target] = new(10, hit.Source.CreditPlayerId);
     }
 }

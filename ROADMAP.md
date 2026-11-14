@@ -47,7 +47,7 @@
 | 2.2 | [ ] Data loader for built-in core mod | P! | 2.1 | Characters, weapons, enemies, and waves load from JSON with clear validation errors. |
 | 2.3 | [~] Movement, enemy collisions, contact damage, HP, and death | P! | 2.1 | Player movement and arena bounds work. Enemy collisions, damage, HP, and death remain. |
 | 2.3a | [ ] Dash/dodge | P+ | 2.3 | Movement and dash/dodge are the only manual gameplay actions. Attacks, items, and interactions fire passively. |
-| 2.4 | [ ] Projectile, area, and chain-lightning auto-attacks with VFX | P! | 2.2, 0.12 | JSON-defined weapons and upgrades work. |
+| 2.4 | [~] Projectile, area, and chain-lightning auto-attacks with VFX | P! | 2.2, 0.12 | Prototype auto-attack uses shared radius geometry and typed hits. Cone and falloff primitives are tested. JSON weapons, projectiles, chain targeting, and VFX remain. |
 | 2.5 | [ ] RunClock and time-based waves, stats, and bosses | P! | 2.2 | Wave composition matches tables at minutes 0, 5, and 10. |
 | 2.6 | [ ] Time statues advance RunClock | P! | 2.5 | Difficulty jumps and HUD reflects it. |
 | 2.7 | [ ] XP drops, magnet, level-up, and upgrade choice | P! | 2.3 | Three upgrade choices update StatBlock. |
