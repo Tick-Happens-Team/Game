@@ -47,6 +47,23 @@ Use stable lowercase IDs, SemVer versions, a game compatibility range, and an al
 
 Mods compose parameterized engine behaviors. For example, `{"rule":"on_level_up","effect":"add_stat","stat":"armor","value":1}`. Formula expressions use a deterministic AST with no loops or I/O. StyleLint applies to mod sprites, with TH001–TH003 blocking errors. The loader builds the atlas at runtime.
 
+### Combat effect parameters
+
+The prototype measures distances in world pixels between ground pivots. Circle and cone boundaries are inclusive. Cone angle is the full opening angle and facing follows the last movement direction. Linear radial falloff goes from full strength at the center to zero at the edge. Use the resolved radius multiplier for item and weapon areas. Chest reach and gold pickup use separate distances. The balance sheet values remain design inputs until the playable scale is confirmed.
+
+| Design examples | Runtime parameters and behavior |
+|---|---|
+| Деревяшка, АУРА, Тотем, Маска мотивации | Radius, origin, ally/enemy filter, tick interval, and optional distance falloff. Aura bonuses need to expire on exit. |
+| Огнемет, Вентилятор, Меч | Cone radius and full angle. Use facing or its reverse as the direction. |
+| Трезубец, Магический снаряд, Электро перчатки | Projectile travel distance and speed are separate from hit and bounce radius. A bounce searches from its last impact, with an explicit hop limit and repeat-target rule. |
+| Газировка, Сосулька, Галактическая винтовка | Delayed effects carry a location or target and a due tick. Specify whether to reselect a missing target. |
+| Ракета, Добивалка, Щит, Крапива, Общее сердце, Звезда Давида | Typed hit, kill, received damage, heal, and gold-spend events. Give secondary effects explicit proc and reflection rules to prevent loops. |
+| Садовый гном, Орёл смерти, Приманка | Summon owner, lifetime, and attack cadence. Keep owner credit on the final hit for enemy gold. |
+| Джетпак, Банка с ветром, Батончик, Подушка пердушка | Dash duration, charges, cooldown, and dash-triggered passive effects. |
+| Прицел | A key enables cursor targeting for supported effects. Effect timing remains automatic. Key binding and activation lifetime are pending. |
+
+The current code supplies area geometry, directional facing, resolved radius and typed damage multipliers, and hit attribution. The remaining behaviors in the table are requirements for the content loader and combat systems. Quantize authored durations to simulation ticks and use seeded rolls for random targets and proc chances.
+
 ## Catalog and client
 
 1. PR validation checks schemas, SPDX allowlist (including CC0-1.0, CC-BY-4.0, CC-BY-SA-4.0, MIT, MPL-2.0), path and size limits, PNG dimensions up to 4096×4096, unique IDs, dependency resolution, sprite lint, and provenance. Require DCO sign-off and human review.
