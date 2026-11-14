@@ -94,7 +94,7 @@ public enum Key
 {
     A = 4, D = 7, E = 8, N = 17, P = 19, Q = 20, R = 21, S = 22, W = 26,
     D1 = 30, D2 = 31, D3 = 32, D4 = 33, D5 = 34, D6 = 35,
-    Escape = 41, Tab = 43, Space = 44,
+    Return = 40, Escape = 41, Tab = 43, Space = 44,
     F1 = 58, F2 = 59, F3 = 60, F4 = 61, F5 = 62, F12 = 69,
     Right = 79, Left = 80, Down = 81, Up = 82,
 }

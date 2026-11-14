@@ -25,11 +25,8 @@ public sealed partial class RunWorld
     public float Minutes => RunSeconds / 60f;
     public uint Seed { get; }
     public PlayerState Player { get; }
-    public IReadOnlyList<UpgradeOption> Offer => _offer;
-    public int PendingLevels { get; private set; }
 
     private SimRng _rng;
-    private readonly List<UpgradeOption> _offer = [];
     private readonly List<GameEvent> _events = [];
     public readonly List<Vector2> ChainPoints = [];
 
@@ -46,6 +43,7 @@ public sealed partial class RunWorld
     public int AliveEnemies { get; private set; }
     public int EnemyHighWater => _enemyHigh;
     private readonly SpatialGrid _grid;
+    private readonly DamageKind[] _enemyKind;
     private float _spawnAcc;
     private int _nextElite;
 
@@ -60,14 +58,26 @@ public sealed partial class RunWorld
         Player = new PlayerState
         {
             Character = ch,
-            Stats = StatBlock.ForCharacter(ch),
+            Stats = new StatBlock(),
+            Attack = ch.Attack ?? Rules.BasicAttack,
             Wallet = new ChestWallet(Rules.Chests.StartPrice, Rules.Chests.PriceGrowth),
+            ItemStacks = new int[content.Items.Count],
+            ItemTimers = new float[content.Items.Count],
             Pos = new Vector2(arena / 2f, arena / 2f),
         };
         Player.Prev = Player.Pos;
-        Player.Hp = Player.Stats[Stat.MaxHp];
+        var st = Player.Stats;
+        var cs = ch.Stats;
+        st.SetBase(Stat.MoveSpeed, cs.MoveSpeed);
+        st.SetBase(Stat.AttackSpeed, cs.AttackSpeed);
+        st.SetBase(Stat.Armor, cs.Armor);
+        st.SetBase(Stat.MagicResist, cs.MagicResist);
+        st.SetBase(Stat.Regen, cs.Regen);
+        st.SetBase(Stat.Magnet, cs.Magnet);
+        ApplyLevelStats();
+        UpdateDynamicStats();
+        Player.Hp = MaxHealth;
         Player.XpNext = XpForLevel(1);
-        Player.Weapons.Add(new WeaponState(content.WeaponIndex(ch.Weapon), 1));
 
         EnemyCapacity = content.Waves.MaxAlive + 64;
         EX = new float[EnemyCapacity]; EY = new float[EnemyCapacity];
@@ -82,6 +92,7 @@ public sealed partial class RunWorld
         Array.Fill(EX, -1e6f);
         Array.Fill(EY, -1e6f);
         _grid = new SpatialGrid(0, 0, arena, arena, 24);
+        _enemyKind = [.. content.Enemies.Select(en => ContentLoader.TryParseDamage(en.DamageType, out var k) ? k : DamageKind.Physical)];
         InitPickups();
         PlaceStatuesAndChests();
     }
@@ -100,15 +111,40 @@ public sealed partial class RunWorld
 
     public float XpForLevel(int level) => MathF.Round(Rules.XpBase * MathF.Pow(Rules.XpGrowth, level - 1));
 
+    /// <summary>Final max HP: (maxHp from table and items) × hpMultiplier.</summary>
+    public float MaxHealth => Player.Stats[Stat.MaxHp] * Player.Stats[Stat.HpMultiplier];
+    public float MoveSpeedPx => Player.Stats[Stat.MoveSpeed] * Rules.Units.MoveSpeedScale;
+    public float AttacksPerSecond => Player.Stats[Stat.AttackSpeed] * Rules.Units.AttacksPerUnit;
+
+    /// <summary>Table stats that grow per level: max HP and basic attack damage ("base/+per level").</summary>
+    private void ApplyLevelStats()
+    {
+        var cs = Player.Character.Stats;
+        int l = Player.Level - 1;
+        Player.Stats.SetBase(Stat.MaxHp, cs.MaxHp + cs.MaxHpPerLevel * l);
+        Player.Stats.SetBase(Stat.Damage, cs.Damage + cs.DamagePerLevel * l);
+    }
+
+    /// <summary>Recomputes passives: value = base + perLevel × (level − 1), × run minutes when "per": "runMinute".</summary>
+    private void UpdateDynamicStats()
+    {
+        var p = Player;
+        p.Stats.ClearDynamic();
+        int l = p.Level - 1;
+        foreach (var pas in p.Character.Passives)
+        {
+            if (!ContentLoader.TryParseStat(pas.Stat, out var s)) continue;
+            float add = pas.Add + (pas.PerLevel?.Add ?? 0) * l, pct = pas.Pct + (pas.PerLevel?.Pct ?? 0) * l;
+            if (pas.Per == "runMinute") { add *= Minutes; pct *= Minutes; }
+            p.Stats.ApplyDynamic(s, add, pct);
+        }
+    }
+
     public void Step(RunInput input)
     {
         if (Phase == RunPhase.Dead) return;
-        if (Phase == RunPhase.LevelUp)
-        {
-            if (input.Choice >= 1 && input.Choice <= _offer.Count) ChooseUpgrade(input.Choice - 1);
-            return;
-        }
         Tick++;
+        UpdateDynamicStats();
         StepPlayer(input);
         SpawnEnemies();
         StepEnemies();
@@ -122,7 +158,6 @@ public sealed partial class RunWorld
             Player.Hp = 0;
             Phase = RunPhase.Dead;
         }
-        else if (PendingLevels > 0 && Phase == RunPhase.Playing) OpenOffer();
     }
 
     // ---------------------------------------------------------------- player
@@ -145,7 +180,8 @@ public sealed partial class RunWorld
         if (dashPressed && p.DashCooldownTicks == 0 && p.DashTicks == 0)
         {
             p.DashTicks = Math.Max(1, (int)MathF.Round(dash.Seconds * TicksPerSecond));
-            p.DashCooldownTicks = (int)MathF.Round(dash.Cooldown * TicksPerSecond);
+            // The dash is an ability: both the dash and the general cooldown multipliers apply.
+            p.DashCooldownTicks = (int)MathF.Round(dash.Cooldown * p.Stats[Stat.DashCooldown] * p.Stats[Stat.Cooldown] * TicksPerSecond);
             p.DashDir = p.Facing;
             if (dash.Invulnerable) p.InvulnTicks = Math.Max(p.InvulnTicks, p.DashTicks + 2);
             Emit(EventKind.Dash, p.Pos.X, p.Pos.Y, x2: p.DashDir.X, y2: p.DashDir.Y);
@@ -157,23 +193,32 @@ public sealed partial class RunWorld
             // Exact distance: split it over the whole number of dash ticks.
             move = p.DashDir * (dash.Distance / Math.Max(1, (int)MathF.Round(dash.Seconds * TicksPerSecond)));
         }
-        else move = dir * p.Stats[Stat.MoveSpeed] * Dt;
+        else move = dir * MoveSpeedPx * Dt;
         float a = Rules.ArenaSize;
         p.Pos = Vector2.Clamp(p.Pos + move, new Vector2(12), new Vector2(a - 12));
         p.Walking = p.Pos != p.Prev;
-        float maxHp = p.Stats[Stat.MaxHp];
-        p.Hp = MathF.Min(maxHp, p.Hp + p.Stats[Stat.Regen] * Dt);
+        p.Hp = MathF.Min(MaxHealth, p.Hp + p.Stats[Stat.Regen] * Dt);
     }
 
-    private void HurtPlayer(float amount, float fromX, float fromY)
+    /// <summary>Fraction of damage blocked: armor for physical, magic resist for magical, nothing for pure (capped).</summary>
+    public float Resist(DamageKind kind, float armor, float magicResist) => MathF.Min(Rules.Units.ResistCap, kind switch
+    {
+        DamageKind.Physical => armor,
+        DamageKind.Magical => magicResist,
+        _ => 0,
+    });
+
+    /// <summary>Damages the player after defences; returns the damage actually dealt (0 while invulnerable).</summary>
+    private float HurtPlayer(float amount, DamageKind kind, float fromX, float fromY)
     {
         var p = Player;
-        if (p.InvulnTicks > 0 || Phase != RunPhase.Playing) return;
-        float dmg = MathF.Max(1, amount - p.Stats[Stat.Armor]);
+        if (p.InvulnTicks > 0 || Phase != RunPhase.Playing) return 0;
+        float dmg = amount * (1 - Resist(kind, p.Stats[Stat.Armor], p.Stats[Stat.MagicResist]));
         p.Hp -= dmg;
         p.InvulnTicks = (int)MathF.Round(Rules.InvulnerableSeconds * TicksPerSecond);
         p.HurtTick = Tick;
         Emit(EventKind.PlayerHurt, p.Pos.X, p.Pos.Y, dmg, x2: fromX, y2: fromY);
+        return dmg;
     }
 
     // ---------------------------------------------------------------- enemies
@@ -283,14 +328,20 @@ public sealed partial class RunWorld
             var d = Content.Enemies[EDef[i]];
             float dx = p.X - EX[i], dy = p.Y - EY[i], dist = MathF.Sqrt(dx * dx + dy * dy);
             float vx = 0, vy = 0;
-            if (dist > 0.5f) { vx = dx / dist * d.Speed; vy = dy / dist * d.Speed; }
+            float speed = d.Speed * Rules.Units.MoveSpeedScale;
+            if (dist > 0.5f) { vx = dx / dist * speed; vy = dy / dist * speed; }
             var sep = new Separation(this, i, d.Radius);
             _grid.Query(EX[i], EY[i], d.Radius * 2 + 2, ref sep);
             EX[i] = Math.Clamp(EX[i] + (vx + EKx[i]) * Dt + sep.Px * 0.5f, 4, arena - 4);
             EY[i] = Math.Clamp(EY[i] + (vy + EKy[i]) * Dt + sep.Py * 0.5f, 4, arena - 4);
             EKx[i] *= 0.82f;
             EKy[i] *= 0.82f;
-            if (dist < d.Radius + PlayerRadius) HurtPlayer(EDamage[i], EX[i], EY[i]);
+            if (dist < d.Radius + PlayerRadius)
+            {
+                float dealt = HurtPlayer(EDamage[i], _enemyKind[EDef[i]], EX[i], EY[i]);
+                // Enemy lifesteal (Вампиризм) heals the attacker by its share of the damage dealt.
+                if (dealt > 0 && d.Lifesteal > 0) EHp[i] = MathF.Min(EMaxHp[i], EHp[i] + dealt * d.Lifesteal);
+            }
             // Enemies left far behind are recycled closer to the action (keeps pressure constant).
             if (dist > 700) { Kill(i, credit: -1); }
         }
@@ -298,19 +349,39 @@ public sealed partial class RunWorld
 
     public Vector2 EnemyPos(int i, float alpha) => new(_prevX[i] + (EX[i] - _prevX[i]) * alpha, _prevY[i] + (EY[i] - _prevY[i]) * alpha);
 
-    /// <summary>Applies damage to an enemy, with knockback away from (fromX, fromY). Credits gold to the player.</summary>
-    public void DamageEnemy(int i, float amount, int playerId, float fromX, float fromY, float knock = 40)
+    /// <summary>Outgoing multiplier for a hit: might × damage-type bonus × item bonus (for item sources).</summary>
+    public float OutgoingMultiplier(DamageKind kind, bool fromItem)
     {
-        if (!EAlive[i] || amount <= 0) return;
+        var s = Player.Stats;
+        float m = s[Stat.Might] * kind switch
+        {
+            DamageKind.Physical => s[Stat.PhysicalDamage],
+            DamageKind.Magical => s[Stat.MagicalDamage],
+            _ => 1,
+        };
+        return fromItem ? m * s[Stat.ItemDamage] : m;
+    }
+
+    /// <summary>
+    /// Damage pipeline: raw × outgoing multipliers × (1 − target resistance of that type), then knockback away from (fromX, fromY).
+    /// Kills credit gold to <paramref name="source"/>'s player.
+    /// </summary>
+    public void DamageEnemy(int i, float raw, DamageKind kind, DamageSourceRef source, float fromX, float fromY, float knock = 40)
+    {
+        if (!EAlive[i] || raw <= 0) return;
+        var def = Content.Enemies[EDef[i]];
+        float amount = raw * OutgoingMultiplier(kind, source.FromItem) * (1 - Resist(kind, def.Armor, def.MagicResist));
+        int playerId = source.PlayerId;
+        if (amount <= 0) return;
         EHp[i] -= amount;
         EFlash[i] = 3;
         float dx = EX[i] - fromX, dy = EY[i] - fromY, d = MathF.Sqrt(dx * dx + dy * dy);
-        if (d > 0.01f && Content.Enemies[EDef[i]].Hp < 100)
+        if (d > 0.01f && !def.Boss && def.Hp < 100)
         {
             EKx[i] += dx / d * knock;
             EKy[i] += dy / d * knock;
         }
-        Emit(EventKind.Hit, EX[i], EY[i], amount, a: i);
+        Emit(EventKind.Hit, EX[i], EY[i], amount, a: (int)kind);
         if (EHp[i] <= 0) Kill(i, playerId);
     }
 

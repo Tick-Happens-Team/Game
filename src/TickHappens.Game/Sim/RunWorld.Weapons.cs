@@ -13,31 +13,45 @@ public sealed partial class RunWorld
     public readonly float[] PVx = new float[ProjectileCapacity], PVy = new float[ProjectileCapacity];
     private readonly float[] _pDamage = new float[ProjectileCapacity], _pLife = new float[ProjectileCapacity];
     private readonly int[] _pPierce = new int[ProjectileCapacity];
+    private readonly DamageKind[] _pKind = new DamageKind[ProjectileCapacity];
+    private readonly int[] _pItem = new int[ProjectileCapacity];
     public readonly bool[] PAlive = new bool[ProjectileCapacity];
     private readonly int[] _pHits = new int[ProjectileCapacity * HitMemory];
     private int _projCursor;
 
-    public WeaponLevel LevelOf(WeaponState w) => Content.Weapons[w.Def].Levels[w.Level - 1];
+    private static DamageKind Kind(string s) => ContentLoader.TryParseDamage(s, out var k) ? k : DamageKind.Physical;
 
     private void StepWeapons()
     {
         var p = Player;
-        foreach (var w in p.Weapons)
+        // Basic attack: auto-aimed projectiles, interval from attack speed (С/А).
+        p.AttackTimer -= Dt;
+        if (p.AttackTimer <= 0)
         {
-            w.Timer -= Dt;
-            if (w.Timer > 0) continue;
-            var def = Content.Weapons[w.Def];
-            var lv = LevelOf(w);
-            w.Timer = lv.Cooldown * p.Stats[Stat.Cooldown];
-            float damage = lv.Damage * p.Stats[Stat.Might];
-            int extra = (int)p.Stats[Stat.Amount];
-            float area = lv.Area * p.Stats[Stat.Area];
-            switch (def.Kind)
+            var a = p.Attack;
+            int count = a.Count + (int)p.Stats[Stat.Amount];
+            if (FireBolts(p.Stats[Stat.Damage], Kind(a.DamageType), new DamageSourceRef(p.Id), count, a.Speed, a.Range, a.Pierce))
+                p.AttackTimer = 1f / MathF.Max(0.05f, AttacksPerSecond);
+            else p.AttackTimer = 0; // nothing in range: retry next tick
+        }
+
+        // Item weapons: each owned weapon item fires on its own cooldown; extra copies add +1 count.
+        for (int i = 0; i < p.ItemStacks.Length; i++)
+        {
+            if (p.ItemStacks[i] == 0 || Content.Items[i].Weapon is not { } w) continue;
+            p.ItemTimers[i] -= Dt;
+            if (p.ItemTimers[i] > 0) continue;
+            p.ItemTimers[i] = w.Cooldown * p.Stats[Stat.Cooldown];
+            var src = new DamageSourceRef(p.Id, i);
+            var kind = Kind(w.DamageType);
+            int count = w.Count + p.ItemStacks[i] - 1 + (int)p.Stats[Stat.Amount];
+            float area = w.Area * p.Stats[Stat.Area];
+            switch (w.Kind)
             {
-                case "bolt": FireBolts(lv, damage, lv.Count + extra); break;
-                case "pulse": FirePulse(damage, area); break;
-                case "chain": FireChain(lv, damage, lv.Count + extra, area); break;
-                case "blast": FireBlasts(lv, damage, lv.Count + extra, area); break;
+                case "bolt": FireBolts(w.Damage, kind, src, count, w.Speed, w.Range, w.Pierce); break;
+                case "pulse": FirePulse(w.Damage, kind, src, area); break;
+                case "chain": FireChain(w.Damage, kind, src, count, w.Range, area); break;
+                case "blast": FireBlasts(w.Damage, kind, src, count, w.Range, area); break;
             }
         }
     }
@@ -60,33 +74,36 @@ public sealed partial class RunWorld
         return best;
     }
 
-    private void FireBolts(WeaponLevel lv, float damage, int count)
+    /// <summary>Fires up to <paramref name="count"/> projectiles at the nearest distinct enemies. Returns false when nothing is in range.</summary>
+    private bool FireBolts(float damage, DamageKind kind, DamageSourceRef src, int count, float speed, float range, int pierce)
     {
         var p = Player;
-        Span<int> targets = stackalloc int[Math.Min(count, 16)];
+        count = Math.Clamp(count, 1, 16);
+        Span<int> targets = stackalloc int[count];
         int n = 0;
-        for (; n < targets.Length; n++)
+        for (; n < count; n++)
         {
-            int t = Nearest(p.Pos, lv.Range, targets[..n]);
+            int t = Nearest(p.Pos, range, targets[..n]);
             if (t < 0) break;
             targets[n] = t;
         }
-        if (n == 0) return;
-        for (int k = 0; k < Math.Min(count, 16); k++)
+        if (n == 0) return false;
+        for (int k = 0; k < count; k++)
         {
             int t = targets[k % n];
-            var dir = new Vector2(EX[t], EY[t]) - p.Pos;
+            var dir = new Vector2(EX[t], EY[t] - 6) - (p.Pos + new Vector2(0, -10));
             if (dir.LengthSquared() < 0.01f) dir = p.Facing;
             dir = Vector2.Normalize(dir);
             if (k >= n) dir = Rotate(dir, (k - n + 1) * 0.18f * (k % 2 == 0 ? 1 : -1));
-            SpawnProjectile(p.Pos + new Vector2(0, -10), dir * lv.Speed, damage, lv.Pierce, lv.Range / lv.Speed);
+            SpawnProjectile(p.Pos + new Vector2(0, -10), dir * speed, damage, kind, src, pierce, range / speed);
         }
-        Emit(EventKind.Bolt, p.Pos.X, p.Pos.Y - 10, n);
+        Emit(EventKind.Bolt, p.Pos.X, p.Pos.Y - 10, n, a: src.ItemDef);
+        return true;
     }
 
     private static Vector2 Rotate(Vector2 v, float a) => new(v.X * MathF.Cos(a) - v.Y * MathF.Sin(a), v.X * MathF.Sin(a) + v.Y * MathF.Cos(a));
 
-    private void SpawnProjectile(Vector2 pos, Vector2 vel, float damage, int pierce, float life)
+    private void SpawnProjectile(Vector2 pos, Vector2 vel, float damage, DamageKind kind, DamageSourceRef src, int pierce, float life)
     {
         int slot = -1;
         for (int k = 0; k < ProjectileCapacity; k++)
@@ -98,6 +115,7 @@ public sealed partial class RunWorld
         _projCursor = (slot + 1) % ProjectileCapacity;
         PX[slot] = pos.X; PY[slot] = pos.Y; PVx[slot] = vel.X; PVy[slot] = vel.Y;
         _pDamage[slot] = damage; _pPierce[slot] = Math.Max(1, pierce); _pLife[slot] = life;
+        _pKind[slot] = kind; _pItem[slot] = src.ItemDef;
         PAlive[slot] = true;
         _pHits.AsSpan(slot * HitMemory, HitMemory).Clear();
     }
@@ -133,30 +151,30 @@ public sealed partial class RunWorld
             for (int k = HitMemory - 1; k > 0; k--) hits[k] = hits[k - 1];
             hits[0] = EUid[t];
             _pPierce[i]--;
-            DamageEnemy(t, _pDamage[i], Player.Id, PX[i] - PVx[i], PY[i] - PVy[i], 60);
+            DamageEnemy(t, _pDamage[i], _pKind[i], new DamageSourceRef(Player.Id, _pItem[i]), PX[i] - PVx[i], PY[i] - PVy[i], 60);
             if (_pPierce[i] <= 0) PAlive[i] = false;
         }
     }
 
-    private void FirePulse(float damage, float area)
+    private void FirePulse(float damage, DamageKind kind, DamageSourceRef src, float area)
     {
         var p = Player.Pos;
         var circle = CombatArea.Circle(p, area);
         for (int i = 0; i < _enemyHigh; i++)
             if (EAlive[i] && circle.Contains(new Vector2(EX[i], EY[i]), out _))
-                DamageEnemy(i, damage, Player.Id, p.X, p.Y, 90);
+                DamageEnemy(i, damage, kind, src, p.X, p.Y, 90);
         Emit(EventKind.Pulse, p.X, p.Y, area);
     }
 
-    private void FireChain(WeaponLevel lv, float damage, int hops, float hopRange)
+    private void FireChain(float damage, DamageKind kind, DamageSourceRef src, int hops, float range, float hopRange)
     {
-        hops = Math.Min(hops, 16);
+        hops = Math.Clamp(hops, 1, 16);
         Span<int> chain = stackalloc int[hops];
         int n = 0;
         var from = Player.Pos;
         for (; n < hops; n++)
         {
-            int t = Nearest(from, n == 0 ? lv.Range : hopRange, chain[..n]);
+            int t = Nearest(from, n == 0 ? range : hopRange, chain[..n]);
             if (t < 0) break;
             chain[n] = t;
             from = new Vector2(EX[t], EY[t]);
@@ -166,7 +184,7 @@ public sealed partial class RunWorld
         ChainPoints.Add(Player.Pos + new Vector2(0, -14));
         for (int k = 0; k < n; k++) ChainPoints.Add(new Vector2(EX[chain[k]], EY[chain[k]] - 6));
         Emit(EventKind.Chain, Player.Pos.X, Player.Pos.Y, n, a: start, b: n + 1);
-        for (int k = 0; k < n; k++) DamageEnemy(chain[k], damage, Player.Id, EX[chain[k]], EY[chain[k]] - 1, 10);
+        for (int k = 0; k < n; k++) DamageEnemy(chain[k], damage, kind, src, EX[chain[k]], EY[chain[k]] - 1, 10);
     }
 
     private struct CountNear(RunWorld w, float x, float y, float r) : Engine.Spatial.IGridVisitor
@@ -180,7 +198,7 @@ public sealed partial class RunWorld
         }
     }
 
-    private void FireBlasts(WeaponLevel lv, float damage, int count, float area)
+    private void FireBlasts(float damage, DamageKind kind, DamageSourceRef src, int count, float range, float area)
     {
         var p = Player.Pos;
         for (int b = 0; b < Math.Min(count, 8); b++)
@@ -189,7 +207,7 @@ public sealed partial class RunWorld
             int best = -1, bestCount = 0;
             for (int s = 0; s < 8; s++)
             {
-                int i = SampleAliveNear(p, lv.Range);
+                int i = SampleAliveNear(p, range);
                 if (i < 0) break;
                 var c = new CountNear(this, EX[i], EY[i], area);
                 _grid.Query(EX[i], EY[i], area, ref c);
@@ -202,7 +220,7 @@ public sealed partial class RunWorld
             {
                 if (!EAlive[i]) continue;
                 float w = circle.WeightAt(new Vector2(EX[i], EY[i]));
-                if (w > 0) DamageEnemy(i, damage * (0.5f + 0.5f * w), Player.Id, cx, cy, 120);
+                if (w > 0) DamageEnemy(i, damage * (0.5f + 0.5f * w), kind, src, cx, cy, 120);
             }
             Emit(EventKind.Blast, cx, cy, area);
         }

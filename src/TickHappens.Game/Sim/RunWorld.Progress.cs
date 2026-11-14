@@ -89,7 +89,7 @@ public sealed partial class RunWorld
             {
                 GAlive[i] = false;
                 if (GKind[i] == PickupKind.Xp) GainXp(GValue[i]);
-                else p.Wallet.Collect(new GoldDrop(GValue[i], GOwner[i]), p.Id);
+                else CollectGold(GValue[i], GOwner[i]);
                 Emit(EventKind.Pickup, GX[i], GY[i], GValue[i], a: (int)GKind[i]);
                 continue;
             }
@@ -100,6 +100,18 @@ public sealed partial class RunWorld
         }
     }
 
+    /// <summary>Adds owned gold through the gold multiplier, carrying fractions so small bonuses are never lost.</summary>
+    private void CollectGold(int amount, int owner)
+    {
+        var p = Player;
+        if (owner != p.Id) return;
+        float total = amount * p.Stats[Stat.GoldGain] + p.GoldCarry;
+        int whole = (int)MathF.Floor(total);
+        p.GoldCarry = total - whole;
+        if (whole > 0) p.Wallet.Collect(new GoldDrop(whole, owner), p.Id);
+    }
+
+    /// <summary>Levels apply automatically: table growth (HP, damage) and level-scaled passives. Max HP growth also heals.</summary>
     public void GainXp(float amount)
     {
         var p = Player;
@@ -107,113 +119,51 @@ public sealed partial class RunWorld
         while (p.Xp >= p.XpNext)
         {
             p.Xp -= p.XpNext;
+            float before = MaxHealth;
             p.Level++;
             p.XpNext = XpForLevel(p.Level);
-            PendingLevels++;
-            ApplyPassives("levelUp");
+            ApplyLevelStats();
+            UpdateDynamicStats();
+            p.Hp += MathF.Max(0, MaxHealth - before);
             Emit(EventKind.LevelUp, p.Pos.X, p.Pos.Y, p.Level);
         }
     }
 
-    private void ApplyPassives(string trigger)
-    {
-        foreach (var pas in Player.Character.Passives)
-            if (pas.On == trigger && ContentLoader.TryParseStat(pas.Stat, out var s))
-                Player.Stats.Apply(s, pas.Add, pas.Pct);
-    }
-
-    // ---------------------------------------------------------------- upgrades
-    /// <summary>All upgrades currently available to the player (owned weapon/item levels, new ones while slots remain).</summary>
-    public List<UpgradeOption> AvailableUpgrades()
+    // ---------------------------------------------------------------- items
+    /// <summary>Gives the player one more copy of an item: its stat mods apply once per copy; weapon copies add +1 count.</summary>
+    public void GiveItem(int def)
     {
         var p = Player;
-        var list = new List<UpgradeOption>();
-        foreach (var w in p.Weapons)
-            if (w.Level < Content.Weapons[w.Def].Levels.Count) list.Add(new(OfferKind.WeaponLevel, w.Def, w.Level + 1));
-        foreach (var it in p.Items)
-            if (it.Level < Content.Items[it.Def].MaxLevel) list.Add(new(OfferKind.ItemLevel, it.Def, it.Level + 1));
-        if (p.Weapons.Count < Rules.MaxWeapons)
-            for (int i = 0; i < Content.Weapons.Count; i++)
-                if (!p.Weapons.Exists(w => w.Def == i)) list.Add(new(OfferKind.NewWeapon, i, 1));
-        if (p.Items.Count < Rules.MaxItems)
-            for (int i = 0; i < Content.Items.Count; i++)
-                if (!p.Items.Exists(x => x.Def == i)) list.Add(new(OfferKind.NewItem, i, 1));
-        return list;
-    }
-
-    private void OpenOffer()
-    {
-        PendingLevels--;
-        _offer.Clear();
-        var pool = AvailableUpgrades();
-        for (int k = 0; k < 3 && pool.Count > 0; k++)
-        {
-            int i = _rng.Int(pool.Count);
-            _offer.Add(pool[i]);
-            pool.RemoveAt(i);
-        }
-        if (_offer.Count == 0) _offer.Add(new UpgradeOption(OfferKind.Heal, 0, 0));
-        Phase = RunPhase.LevelUp;
-    }
-
-    public void ChooseUpgrade(int index)
-    {
-        if (Phase != RunPhase.LevelUp || index < 0 || index >= _offer.Count) return;
-        Apply(_offer[index]);
-        _offer.Clear();
-        Phase = RunPhase.Playing;
-        if (PendingLevels > 0) OpenOffer();
-    }
-
-    public void Apply(UpgradeOption o)
-    {
-        var p = Player;
-        switch (o.Kind)
-        {
-            case OfferKind.NewWeapon: p.Weapons.Add(new WeaponState(o.Def, 1)); break;
-            case OfferKind.WeaponLevel: p.Weapons.Find(w => w.Def == o.Def)!.Level = o.NewLevel; break;
-            case OfferKind.NewItem:
-                p.Items.Add(new ItemState(o.Def, 1));
-                ApplyItemLevel(o.Def);
-                break;
-            case OfferKind.ItemLevel:
-                p.Items.Find(x => x.Def == o.Def)!.Level = o.NewLevel;
-                ApplyItemLevel(o.Def);
-                break;
-            case OfferKind.Heal: p.Hp = MathF.Min(p.Stats[Stat.MaxHp], p.Hp + 30); break;
-        }
-    }
-
-    private void ApplyItemLevel(int def)
-    {
-        var p = Player;
-        float maxBefore = p.Stats[Stat.MaxHp];
+        float before = MaxHealth;
+        p.ItemStacks[def]++;
         foreach (var m in Content.Items[def].Mods)
             if (ContentLoader.TryParseStat(m.Stat, out var s)) p.Stats.Apply(s, m.Add, m.Pct);
-        // Max HP increases also heal by the same amount.
-        p.Hp += MathF.Max(0, p.Stats[Stat.MaxHp] - maxBefore);
+        // Max HP increases also heal by the same amount; decreases clamp.
+        float after = MaxHealth;
+        p.Hp = after >= before ? p.Hp + (after - before) : MathF.Min(p.Hp, after);
     }
 
-    public string Describe(UpgradeOption o) => o.Kind switch
+    /// <summary>Rolls a chest item: pick a rarity by weight among rarities that have items, then a uniform item of it.</summary>
+    public int RollChestItem()
     {
-        OfferKind.NewWeapon => $"{Content.Weapons[o.Def].Name}|NEW WEAPON|{Content.Weapons[o.Def].Description}",
-        OfferKind.WeaponLevel => $"{Content.Weapons[o.Def].Name}|LEVEL {o.NewLevel}|{WeaponDelta(o.Def, o.NewLevel)}",
-        OfferKind.NewItem => $"{Content.Items[o.Def].Name}|NEW ITEM|{Content.Items[o.Def].Description}",
-        OfferKind.ItemLevel => $"{Content.Items[o.Def].Name}|LEVEL {o.NewLevel}|{Content.Items[o.Def].Description}",
-        _ => "Rest|HEAL|Restore 30 HP.",
-    };
-
-    private string WeaponDelta(int def, int level)
-    {
-        var a = Content.Weapons[def].Levels[level - 2];
-        var b = Content.Weapons[def].Levels[level - 1];
-        var parts = new List<string>();
-        if (b.Damage != a.Damage) parts.Add($"DMG {a.Damage}>{b.Damage}");
-        if (b.Count != a.Count) parts.Add($"COUNT {a.Count}>{b.Count}");
-        if (b.Area != a.Area) parts.Add($"AREA {a.Area}>{b.Area}");
-        if (b.Cooldown != a.Cooldown) parts.Add($"CD {a.Cooldown}>{b.Cooldown}");
-        if (b.Pierce != a.Pierce) parts.Add($"PIERCE {a.Pierce}>{b.Pierce}");
-        return string.Join(" ", parts);
+        var weights = Rules.Chests.RarityWeights;
+        float total = 0;
+        foreach (var r in ContentSet.Rarities)
+            if (Content.Items.Exists(i => i.Rarity == r)) total += weights.GetValueOrDefault(r);
+        if (total <= 0) return -1;
+        float roll = _rng.Next() * total;
+        string rarity = ContentSet.Rarities[^1];
+        foreach (var r in ContentSet.Rarities)
+        {
+            if (!Content.Items.Exists(i => i.Rarity == r)) continue;
+            roll -= weights.GetValueOrDefault(r);
+            if (roll <= 0) { rarity = r; break; }
+        }
+        int n = Content.Items.Count(i => i.Rarity == rarity);
+        int pick = _rng.Int(Math.Max(1, n));
+        for (int i = 0; i < Content.Items.Count; i++)
+            if (Content.Items[i].Rarity == rarity && pick-- == 0) return i;
+        return -1;
     }
 
     // ---------------------------------------------------------------- statues and chests
@@ -242,14 +192,14 @@ public sealed partial class RunWorld
             int price = Player.Wallet.NextPrice;
             if (!Player.Wallet.TryPay()) { NearbyChest = i; continue; }
             ChestOpen[i] = true;
-            // Chests open passively and grant a random upgrade (or a heal when everything is maxed).
-            var pool = AvailableUpgrades();
-            var reward = pool.Count > 0 ? pool[_rng.Int(pool.Count)] : new UpgradeOption(OfferKind.Heal, 0, 0);
-            Apply(reward);
-            LastChestReward = reward;
-            Emit(EventKind.Chest, Chests[i].X, Chests[i].Y, price, a: i);
+            // Items come only from chests: open passively and grant one item rolled by rarity.
+            int item = RollChestItem();
+            if (item >= 0) GiveItem(item);
+            LastChestItem = item;
+            Emit(EventKind.Chest, Chests[i].X, Chests[i].Y, price, a: item);
         }
     }
 
-    public UpgradeOption? LastChestReward { get; private set; }
+    /// <summary>Item granted by the most recent chest (-1 if none yet).</summary>
+    public int LastChestItem { get; private set; } = -1;
 }

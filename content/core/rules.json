@@ -1,11 +1,43 @@
 {
   "arenaSize": 2048,
-  "maxWeapons": 4,
-  "maxItems": 4,
   "xpBase": 5,
   "xpGrowth": 1.18,
   "invulnerableSeconds": 0.5,
-  "dash": { "distance": 46, "seconds": 0.16, "cooldown": 1.6, "invulnerable": true },
-  "statue": { "count": 5, "minutes": 2, "radius": 14, "holdSeconds": 1.0 },
-  "chests": { "count": 6, "radius": 18, "startPrice": 10, "priceGrowth": 1.5 }
+  "units": {
+    "moveSpeedScale": 3,
+    "attacksPerUnit": 0.04,
+    "resistCap": 0.9
+  },
+  "basicAttack": {
+    "damageType": "physical",
+    "speed": 230,
+    "range": 220,
+    "pierce": 1,
+    "count": 1
+  },
+  "dash": {
+    "distance": 46,
+    "seconds": 0.16,
+    "cooldown": 1.6,
+    "invulnerable": true
+  },
+  "statue": {
+    "count": 5,
+    "minutes": 2,
+    "radius": 14,
+    "holdSeconds": 1.0
+  },
+  "chests": {
+    "count": 24,
+    "radius": 18,
+    "startPrice": 10,
+    "priceGrowth": 1.5,
+    "rarityWeights": {
+      "common": 55,
+      "rare": 25,
+      "epic": 12,
+      "mythic": 6,
+      "legendary": 2
+    }
+  }
 }

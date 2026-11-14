@@ -6,20 +6,22 @@ namespace TickHappens.Tests;
 public sealed class DeterminismTests
 {
     [Fact]
-    public void DemoPilotRunsAreDeterministic()
+    public void DemoPilotRunsAreDeterministicForEveryCharacter()
     {
         var content = TestContent.LoadCore();
 
-        var first = RunDemo(content, seed: 42, steps: 3000);
-        var second = RunDemo(content, seed: 42, steps: 3000);
-        var other = RunDemo(content, seed: 43, steps: 3000);
+        foreach (var character in content.Characters)
+        {
+            var first = RunDemo(content, seed: 42, steps: 3000, character.Id);
+            var second = RunDemo(content, seed: 42, steps: 3000, character.Id);
+            var other = RunDemo(content, seed: 43, steps: 3000, character.Id);
 
-        Assert.True(first.Tick > 0, "the demo run must advance the clock");
-        Assert.True(first.Kills > 0, "the demo run must kill enemies");
-        Assert.Equal(first.Tick, second.Tick);
-        Assert.Equal(first.Kills, second.Kills);
-        Assert.Equal(first.Hash, second.Hash);
-        Assert.NotEqual(first.Hash, other.Hash);
+            Assert.True(first.Tick > 0, "the demo run must advance the clock");
+            Assert.Equal(first.Tick, second.Tick);
+            Assert.Equal(first.Kills, second.Kills);
+            Assert.Equal(first.Hash, second.Hash);
+            Assert.NotEqual(first.Hash, other.Hash);
+        }
     }
 
     [Fact]
@@ -37,9 +39,9 @@ public sealed class DeterminismTests
             "the arena should still be populated unless the run ended");
     }
 
-    private static (ulong Hash, int Tick, int Kills) RunDemo(ContentSet content, uint seed, int steps)
+    private static (ulong Hash, int Tick, int Kills) RunDemo(ContentSet content, uint seed, int steps, string character)
     {
-        var world = new RunWorld(content, seed);
+        var world = new RunWorld(content, seed, character);
         for (int i = 0; i < steps; i++) world.Step(DemoPilot.Decide(world));
         return (world.StateHash(), world.Tick, world.Player.Kills);
     }

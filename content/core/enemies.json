@@ -1,5 +1,43 @@
 [
-  { "id": "gloombat", "sprite": "enemy_gloombat_r", "anim": "fly", "hp": 8, "speed": 46, "damage": 6, "radius": 5, "xp": 1, "gold": 1, "goldChance": 0.25 },
-  { "id": "amberslime", "sprite": "enemy_amberslime_r", "anim": "idle", "hp": 26, "speed": 24, "damage": 10, "radius": 6, "xp": 3, "gold": 2, "goldChance": 0.4 },
-  { "id": "duskslime", "sprite": "enemy_amberslime_r", "anim": "hop", "tint": "c8a0ff", "hp": 240, "speed": 30, "damage": 18, "radius": 7, "xp": 20, "gold": 15, "goldChance": 1.0 }
+  {
+    "id": "gloombat",
+    "sprite": "enemy_gloombat_r",
+    "anim": "fly",
+    "hp": 8,
+    "speed": 15.3,
+    "damage": 6,
+    "radius": 5,
+    "xp": 1,
+    "gold": 1,
+    "goldChance": 0.5,
+    "lifesteal": 0
+  },
+  {
+    "id": "amberslime",
+    "sprite": "enemy_amberslime_r",
+    "anim": "idle",
+    "hp": 26,
+    "speed": 8.0,
+    "damage": 10,
+    "radius": 6,
+    "xp": 3,
+    "gold": 2,
+    "goldChance": 0.7,
+    "lifesteal": 0.0
+  },
+  {
+    "id": "duskslime",
+    "sprite": "enemy_amberslime_r",
+    "anim": "hop",
+    "tint": "c8a0ff",
+    "hp": 240,
+    "speed": 10.0,
+    "damage": 18,
+    "radius": 7,
+    "xp": 20,
+    "gold": 15,
+    "goldChance": 1.0,
+    "lifesteal": 0.15,
+    "boss": false
+  }
 ]

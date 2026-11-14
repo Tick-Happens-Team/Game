@@ -3,19 +3,43 @@ using System.Text.Json.Serialization;
 
 namespace TickHappens.Game.Content;
 
-/// <summary>Stats that items, passives and characters modify. JSON uses the camelCase names.</summary>
+/// <summary>Stats that characters, passives and items modify. JSON uses the camelCase names.</summary>
 public enum Stat
 {
-    MaxHp, Armor, MoveSpeed, Regen, Magnet,
-    /// <summary>Damage multiplier (1 = base).</summary>
+    /// <summary>Max HP before <see cref="HpMultiplier"/>; grows per level from the character table.</summary>
+    MaxHp,
+    /// <summary>Final max HP multiplier (Небесный маг: ×0.35). Default 1.</summary>
+    HpMultiplier,
+    /// <summary>Physical damage reduction as a fraction (0.05 = 5%), capped at 90%.</summary>
+    Armor,
+    /// <summary>Magical damage reduction as a fraction, capped at 90%.</summary>
+    MagicResist,
+    /// <summary>Movement speed in table units (С/П); px/s = value × rules.units.moveSpeedScale.</summary>
+    MoveSpeed,
+    /// <summary>Attack speed in table units (С/А); attacks/s = value × rules.units.attacksPerUnit.</summary>
+    AttackSpeed,
+    /// <summary>Basic attack damage; grows per level from the character table.</summary>
+    Damage,
+    Regen, Magnet,
+    /// <summary>Multiplier on all outgoing damage. Default 1.</summary>
     Might,
-    /// <summary>Area multiplier for weapon radii.</summary>
+    /// <summary>Multipliers by damage type. Default 1.</summary>
+    PhysicalDamage, MagicalDamage,
+    /// <summary>Multiplier on damage dealt by items (not the basic attack). Default 1.</summary>
+    ItemDamage,
+    /// <summary>Area multiplier for item radii. Default 1.</summary>
     Area,
-    /// <summary>Cooldown multiplier (lower is faster).</summary>
+    /// <summary>Cooldown multiplier for items and abilities, the dash included (lower is faster). Default 1.</summary>
     Cooldown,
-    /// <summary>Extra projectiles / targets added to every weapon.</summary>
+    /// <summary>Extra projectiles / targets added to attacks.</summary>
     Amount,
+    /// <summary>Multiplier on collected gold. Default 1.</summary>
+    GoldGain,
+    /// <summary>Dash cooldown multiplier. Default 1.</summary>
+    DashCooldown,
 }
+
+public enum DamageKind { Physical, Magical, Pure }
 
 public sealed class StatMod
 {
@@ -24,13 +48,48 @@ public sealed class StatMod
     [JsonPropertyName("pct")] public float Pct { get; set; }
 }
 
+public sealed class Growth
+{
+    [JsonPropertyName("add")] public float Add { get; set; }
+    [JsonPropertyName("pct")] public float Pct { get; set; }
+}
+
+/// <summary>
+/// A character passive as a level-scaled stat formula:
+/// value(level) = base + perLevel × (level − 1), optionally multiplied by the run clock in minutes ("per": "runMinute").
+/// </summary>
 public sealed class PassiveDef
 {
-    /// <summary>Event that triggers the passive: "levelUp".</summary>
-    [JsonPropertyName("on")] public string On { get; set; } = "";
     [JsonPropertyName("stat")] public string Stat { get; set; } = "";
     [JsonPropertyName("add")] public float Add { get; set; }
     [JsonPropertyName("pct")] public float Pct { get; set; }
+    [JsonPropertyName("perLevel")] public Growth? PerLevel { get; set; }
+    /// <summary>null or "runMinute" (scaled by the game run clock, statues included).</summary>
+    [JsonPropertyName("per")] public string? Per { get; set; }
+}
+
+public sealed class CharacterStats
+{
+    [JsonPropertyName("maxHp")] public float MaxHp { get; set; } = 100;
+    [JsonPropertyName("maxHpPerLevel")] public float MaxHpPerLevel { get; set; }
+    [JsonPropertyName("moveSpeed")] public float MoveSpeed { get; set; } = 25;
+    [JsonPropertyName("attackSpeed")] public float AttackSpeed { get; set; } = 25;
+    [JsonPropertyName("armor")] public float Armor { get; set; }
+    [JsonPropertyName("magicResist")] public float MagicResist { get; set; }
+    [JsonPropertyName("damage")] public float Damage { get; set; } = 10;
+    [JsonPropertyName("damagePerLevel")] public float DamagePerLevel { get; set; }
+    [JsonPropertyName("regen")] public float Regen { get; set; }
+    [JsonPropertyName("magnet")] public float Magnet { get; set; } = 30;
+}
+
+/// <summary>Basic attack: auto-aimed projectiles, visually the same for every hero.</summary>
+public sealed class AttackDef
+{
+    [JsonPropertyName("damageType")] public string DamageType { get; set; } = "physical";
+    [JsonPropertyName("speed")] public float Speed { get; set; } = 230;
+    [JsonPropertyName("range")] public float Range { get; set; } = 220;
+    [JsonPropertyName("pierce")] public int Pierce { get; set; } = 1;
+    [JsonPropertyName("count")] public int Count { get; set; } = 1;
 }
 
 public sealed class CharacterDef
@@ -38,42 +97,41 @@ public sealed class CharacterDef
     [JsonPropertyName("id")] public string Id { get; set; } = "";
     [JsonPropertyName("name")] public string Name { get; set; } = "";
     [JsonPropertyName("sprite")] public string Sprite { get; set; } = "";
-    [JsonPropertyName("description")] public string Description { get; set; } = "";
-    [JsonPropertyName("stats")] public Dictionary<string, float> Stats { get; set; } = [];
-    [JsonPropertyName("weapon")] public string Weapon { get; set; } = "";
+    /// <summary>Passive as written by the designer (shown on the character screen).</summary>
+    [JsonPropertyName("passive")] public string Passive { get; set; } = "";
+    /// <summary>Passive growth per level as written by the designer.</summary>
+    [JsonPropertyName("growth")] public string Growth { get; set; } = "";
+    [JsonPropertyName("stats")] public CharacterStats Stats { get; set; } = new();
+    /// <summary>Optional basic attack override; defaults come from rules.basicAttack.</summary>
+    [JsonPropertyName("attack")] public AttackDef? Attack { get; set; }
     [JsonPropertyName("passives")] public List<PassiveDef> Passives { get; set; } = [];
 }
 
-public sealed class WeaponLevel
+/// <summary>Active behaviour of an item that attacks on its own (engine kinds: bolt, pulse, chain, blast).</summary>
+public sealed class ItemWeapon
 {
+    [JsonPropertyName("kind")] public string Kind { get; set; } = "";
+    [JsonPropertyName("damageType")] public string DamageType { get; set; } = "physical";
     [JsonPropertyName("damage")] public float Damage { get; set; }
     [JsonPropertyName("cooldown")] public float Cooldown { get; set; } = 1;
     [JsonPropertyName("count")] public int Count { get; set; } = 1;
-    [JsonPropertyName("speed")] public float Speed { get; set; }
+    [JsonPropertyName("speed")] public float Speed { get; set; } = 230;
     [JsonPropertyName("pierce")] public int Pierce { get; set; } = 1;
     [JsonPropertyName("range")] public float Range { get; set; } = 200;
     [JsonPropertyName("area")] public float Area { get; set; }
-}
-
-public sealed class WeaponDef
-{
-    [JsonPropertyName("id")] public string Id { get; set; } = "";
-    [JsonPropertyName("name")] public string Name { get; set; } = "";
-    /// <summary>bolt | pulse | chain | blast</summary>
-    [JsonPropertyName("kind")] public string Kind { get; set; } = "";
-    [JsonPropertyName("damageType")] public string DamageType { get; set; } = "physical";
-    [JsonPropertyName("description")] public string Description { get; set; } = "";
-    [JsonPropertyName("levels")] public List<WeaponLevel> Levels { get; set; } = [];
 }
 
 public sealed class ItemDef
 {
     [JsonPropertyName("id")] public string Id { get; set; } = "";
     [JsonPropertyName("name")] public string Name { get; set; } = "";
+    /// <summary>common | rare | epic | mythic | legendary</summary>
+    [JsonPropertyName("rarity")] public string Rarity { get; set; } = "common";
     [JsonPropertyName("description")] public string Description { get; set; } = "";
-    [JsonPropertyName("maxLevel")] public int MaxLevel { get; set; } = 5;
-    /// <summary>Applied once per item level.</summary>
+    /// <summary>Applied once per copy owned (copies stack).</summary>
     [JsonPropertyName("mods")] public List<StatMod> Mods { get; set; } = [];
+    /// <summary>Optional attack behaviour; extra copies add +1 count.</summary>
+    [JsonPropertyName("weapon")] public ItemWeapon? Weapon { get; set; }
 }
 
 public sealed class EnemyDef
@@ -84,12 +142,20 @@ public sealed class EnemyDef
     /// <summary>Optional RRGGBB tint multiplied into the sprite (elite variants).</summary>
     [JsonPropertyName("tint")] public string? Tint { get; set; }
     [JsonPropertyName("hp")] public float Hp { get; set; }
+    /// <summary>Movement speed in table units (С/П); px/s = value × rules.units.moveSpeedScale.</summary>
     [JsonPropertyName("speed")] public float Speed { get; set; }
     [JsonPropertyName("damage")] public float Damage { get; set; }
+    [JsonPropertyName("damageType")] public string DamageType { get; set; } = "physical";
+    /// <summary>Share of damage dealt to a player that heals this enemy (Вампиризм).</summary>
+    [JsonPropertyName("lifesteal")] public float Lifesteal { get; set; }
+    [JsonPropertyName("armor")] public float Armor { get; set; }
+    [JsonPropertyName("magicResist")] public float MagicResist { get; set; }
     [JsonPropertyName("radius")] public float Radius { get; set; } = 6;
     [JsonPropertyName("xp")] public int Xp { get; set; } = 1;
     [JsonPropertyName("gold")] public int Gold { get; set; }
     [JsonPropertyName("goldChance")] public float GoldChance { get; set; }
+    /// <summary>Bosses are excluded from execute effects.</summary>
+    [JsonPropertyName("boss")] public bool Boss { get; set; }
 }
 
 public sealed class WaveDef
@@ -138,16 +204,29 @@ public sealed class ChestRules
     [JsonPropertyName("radius")] public float Radius { get; set; } = 18;
     [JsonPropertyName("startPrice")] public int StartPrice { get; set; } = 10;
     [JsonPropertyName("priceGrowth")] public decimal PriceGrowth { get; set; } = 1.5m;
+    /// <summary>Loot weight per rarity; rarities without items are skipped when rolling.</summary>
+    [JsonPropertyName("rarityWeights")] public Dictionary<string, float> RarityWeights { get; set; } = [];
+}
+
+/// <summary>Conversion from designer table units to engine units.</summary>
+public sealed class UnitRules
+{
+    /// <summary>px/s per С/П point (25 → 75 px/s).</summary>
+    [JsonPropertyName("moveSpeedScale")] public float MoveSpeedScale { get; set; } = 3;
+    /// <summary>Attacks per second per С/А point (25 → 1 attack/s).</summary>
+    [JsonPropertyName("attacksPerUnit")] public float AttacksPerUnit { get; set; } = 0.04f;
+    /// <summary>Upper bound for armor and magic resist.</summary>
+    [JsonPropertyName("resistCap")] public float ResistCap { get; set; } = 0.9f;
 }
 
 public sealed class RunRules
 {
     [JsonPropertyName("arenaSize")] public int ArenaSize { get; set; } = 2048;
-    [JsonPropertyName("maxWeapons")] public int MaxWeapons { get; set; } = 4;
-    [JsonPropertyName("maxItems")] public int MaxItems { get; set; } = 4;
     [JsonPropertyName("xpBase")] public float XpBase { get; set; } = 5;
     [JsonPropertyName("xpGrowth")] public float XpGrowth { get; set; } = 1.18f;
     [JsonPropertyName("invulnerableSeconds")] public float InvulnerableSeconds { get; set; } = 0.5f;
+    [JsonPropertyName("units")] public UnitRules Units { get; set; } = new();
+    [JsonPropertyName("basicAttack")] public AttackDef BasicAttack { get; set; } = new();
     [JsonPropertyName("dash")] public DashRules Dash { get; set; } = new();
     [JsonPropertyName("statue")] public StatueRules Statue { get; set; } = new();
     [JsonPropertyName("chests")] public ChestRules Chests { get; set; } = new();
@@ -156,14 +235,15 @@ public sealed class RunRules
 /// <summary>All content of a run, loaded from a mod directory (built-in "core" for now).</summary>
 public sealed class ContentSet
 {
+    public static readonly string[] Rarities = ["common", "rare", "epic", "mythic", "legendary"];
+
     public required List<CharacterDef> Characters { get; init; }
-    public required List<WeaponDef> Weapons { get; init; }
     public required List<ItemDef> Items { get; init; }
     public required List<EnemyDef> Enemies { get; init; }
     public required WaveTable Waves { get; init; }
     public required RunRules Rules { get; init; }
 
-    public int WeaponIndex(string id) => Weapons.FindIndex(w => w.Id == id);
+    public int CharacterIndex(string id) => Characters.FindIndex(c => c.Id == id);
     public int ItemIndex(string id) => Items.FindIndex(i => i.Id == id);
     public int EnemyIndex(string id) => Enemies.FindIndex(e => e.Id == id);
 

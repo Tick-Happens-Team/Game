@@ -21,7 +21,8 @@ internal sealed class RunView : IDisposable
     private readonly SpriteBatch _batch;
     private readonly GpuParticles _particles;
     private readonly Texture2D _albedo, _normals, _emission;
-    private readonly AtlasSprite _hero, _chest, _grass, _stone, _gem, _statue;
+    private readonly AtlasSprite _chest, _grass, _stone, _gem, _statue;
+    private readonly AtlasSprite[] _heroSprites;
     private readonly AtlasSprite[] _enemySprites;
     private readonly SpriteAnim[] _enemyAnims;
     private readonly uint[] _enemyTint;
@@ -39,7 +40,7 @@ internal sealed class RunView : IDisposable
     {
         AtlasSprite S(string id) => atlas.Sprites.TryGetValue(id, out var s) ? s
             : throw new InvalidDataException($"atlas has no sprite '{id}'. Rebuild Assets with TickHappens.AssetTool -- build.");
-        _hero = S(content.Characters[0].Sprite);
+        _heroSprites = [.. content.Characters.Select(c => S(c.Sprite))];
         _chest = S("prop_chest");
         _grass = S("tile_grass");
         _stone = S("tile_stone");
@@ -90,7 +91,7 @@ internal sealed class RunView : IDisposable
             switch (e.Kind)
             {
                 case EventKind.Hit:
-                    _hud.DamageNumber(e.X, e.Y - 14, e.Value);
+                    _hud.DamageNumber(e.X, e.Y - 14, e.Value, (DamageKind)e.A);
                     if (impacts++ < MaxImpactsPerFrame && _effects.Count < MaxCpuEffects && _cosmetic.NextSingle() < 0.35f)
                         _effects.Add(new ImpactEffect(new ImpactOptions { X = e.X * 2, Y = (e.Y - 6) * 2, Size = 0.45f, Seed = _fxSeed++ }));
                     break;
@@ -122,17 +123,22 @@ internal sealed class RunView : IDisposable
                     if (_effects.Count < MaxCpuEffects)
                         _effects.Add(new SparkleEffect(new SparkleOptions { X = e.X * 2, Y = (e.Y - 26) * 2, Size = 12, Seed = _fxSeed++ }));
                     RingBurst(e.X, e.Y - 10, 26, 0xFFDEF08Fu, 0xFFC0C43Fu);
+                    _hud.Notice($"УРОВЕНЬ {e.Value:0}", 0xFFDEF08Fu);
                     break;
                 case EventKind.Statue:
                     _effects.Add(new SparkleEffect(new SparkleOptions { X = e.X * 2, Y = (e.Y - 24) * 2, Seed = _fxSeed++ }));
                     Burst(e.X, e.Y - 20, 160, 160, 0xFF6BE2FFu, 0xFF3DC2FFu, 2.4f);
-                    _hud.Notice($"TIME +{e.Value:0}:00  -  THE HORDE GROWS", 0xFF6BE2FFu);
+                    _hud.Notice($"ЧАСЫ +{e.Value:0}:00  -  ОРДА КРЕПНЕТ", 0xFF6BE2FFu);
                     Shake(0.5f);
                     break;
                 case EventKind.Chest:
                     _effects.Add(new SparkleEffect(new SparkleOptions { X = e.X * 2, Y = (e.Y - 12) * 2, Size = 10, Seed = _fxSeed++ }));
                     Burst(e.X, e.Y - 8, 60, 120, 0xFF6BE2FFu, 0xFF2A8AFFu, 2f);
-                    if (world.LastChestReward is { } r) _hud.Notice("CHEST: " + world.Describe(r).Split('|')[0].ToUpperInvariant() + " " + world.Describe(r).Split('|')[1], 0xFF6BE2FFu);
+                    if (e.A >= 0)
+                    {
+                        var item = world.Content.Items[e.A];
+                        _hud.Notice($"СУНДУК: {item.Name} ({Hud.RarityName(item.Rarity)}) - {item.Description}", Hud.RarityColor(item.Rarity));
+                    }
                     break;
                 case EventKind.PlayerHurt:
                     Shake(0.35f);
@@ -148,7 +154,7 @@ internal sealed class RunView : IDisposable
                         });
                     break;
                 case EventKind.Elite:
-                    _hud.Notice("AN ELITE APPROACHES", 0xFFE070C0u);
+                    _hud.Notice("ПРИБЛИЖАЕТСЯ ЭЛИТА", 0xFFE070C0u);
                     break;
                 case EventKind.Pickup:
                     if (e.A == (int)PickupKind.Gold) Burst(e.X, e.Y, 4, 40, 0xFF6BE2FFu, 0xFF2A8AFFu, 1.2f);
@@ -188,7 +194,8 @@ internal sealed class RunView : IDisposable
         }
     }
 
-    public void Draw(int width, int height, RunWorld world, float alpha, bool paused, float frameDt)
+    /// <summary>Draws a frame; with <paramref name="menuSelection"/> ≥ 0 the character select screen is drawn over the scene.</summary>
+    public void Draw(int width, int height, RunWorld world, float alpha, bool paused, float frameDt, int menuSelection = -1)
     {
         _time += paused ? 0 : frameDt;
         var p = world.Player;
@@ -239,9 +246,10 @@ internal sealed class RunView : IDisposable
             {
                 bool blink = p.InvulnTicks > 0 && p.DashTicks == 0 && (world.Tick / 2) % 2 == 0;
                 if (blink || world.Phase == RunPhase.Dead) continue;
-                var anim = _hero.Anims[p.Walking ? "walk" : "idle"];
+                var sprite = _heroSprites[world.Content.CharacterIndex(p.Character.Id)];
+                var anim = sprite.Anims[p.Walking && sprite.Anims.ContainsKey("walk") ? "walk" : "idle"];
                 int frame = anim.Frames[(int)(_time * anim.Fps) % anim.Frames.Count];
-                _batch.Draw(_hero, frame, hero.X - ox, hero.Y - oy, p.FacingLeft);
+                _batch.Draw(sprite, frame, hero.X - ox, hero.Y - oy, p.FacingLeft);
             }
             else if (id <= ChestBase)
             {
@@ -322,7 +330,8 @@ internal sealed class RunView : IDisposable
         _renderer.BindLit();
         _particles.Draw(ox, oy, tw, th, _time);
 
-        _hud.Draw(_renderer, world, hero, frameDt, paused);
+        if (menuSelection >= 0) _hud.DrawMenu(_renderer, world.Content, menuSelection);
+        else _hud.Draw(_renderer, world, hero, frameDt, paused);
         _renderer.Finish();
     }
 

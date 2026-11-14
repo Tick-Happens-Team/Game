@@ -1,17 +1,15 @@
 ---
 name: add-content
-description: Add or change characters, weapons, items, enemies, waves or run rules in the built-in core mod (data-driven JSON). Use when the owner provides content lists.
+description: Add or change characters, items, enemies, waves or run rules in the built-in core mod (data-driven JSON). Use when the owner provides or changes content tables.
 ---
 
-Content lives in `Game/content/core/*.json` (format = mod format, see docs/MODDING.md). Model: `src/TickHappens.Game/Content/ContentDefs.cs`; validation: `ContentLoader.cs`.
+Content lives in `Game/content/core/*.json`; the format is the mod format (docs/MODDING.md → Content). Model: `src/TickHappens.Game/Content/ContentDefs.cs`; validation: `ContentLoader.cs`. The ordered plan, owner decisions and open questions are in `docs/CONTENT_ROADMAP.md` — read it first and tick the status column when an entry is verified.
 
-- `characters.json`: id, name, sprite (atlas id), stats {maxHp, moveSpeed, armor, regen, magnet, might, area, cooldown, amount}, weapon (starting weapon id), passives [{on: "levelUp", stat, add|pct}].
-- `weapons.json`: id, name, kind (`bolt` projectile | `pulse` aura | `chain` lightning | `blast` explosion), damageType (physical/magical/pure), description, levels [{damage, cooldown, count, speed, pierce, range, area}].
-- `items.json`: id, name, description, maxLevel, mods [{stat, add|pct}] applied once per level.
-- `enemies.json`: id, sprite, anim, tint (RRGGBB, optional), hp, speed, damage, radius, xp, gold, goldChance.
-- `waves.json`: hpPerMinute, damagePerMinute, maxAlive, waves [{from, to (minutes of run clock), perSecond, mix {enemyId: weight}}] without gaps, elites [{at, enemy, count}].
-- `rules.json`: arena, slots, XP curve, dash, statues (count, minutes, radius, holdSeconds), chests (priceGrowth is fixed at 1.5 by design).
+Owner table → JSON:
+- Characters: ХП `base/+lvl` → `maxHp`/`maxHpPerLevel`; С/П → `moveSpeed`; С/А → `attackSpeed`; Броня/М/З % → `armor`/`magicResist` as fractions (5% → 0.05); Урон `base/+lvl` → `damage`/`damagePerLevel`; passive text → `passive`, «Прирост с уровнем» → `growth`; behaviour → `passives` [{stat, add, pct, perLevel{add,pct}, per:"runMinute"}].
+- Items: rarity Обычный/Редкий/Эпический/Мифический/Легендарный → common/rare/epic/mythic/legendary; stat effects → `mods`; attacking items → `weapon` (bolt/pulse/chain/blast) or a new engine kind (S6).
+- Enemies: С/П → `speed` (same units), Вампиризм → `lifesteal`, М/З/Броня → fractions, БОСС → `boss: true`.
 
-Rules: attacks/items/pickups/chests are passive; only movement, dash and cursor targeting (item "Прицел", not implemented yet) are manual. Gold belongs to the killer. Difficulty is driven by the run clock, never the player level.
+Rules: items come only from chests and stack; attacks, items, pickups and chests are passive (manual: movement, dash, cursor targeting via Прицел later). Gold belongs to the killer. Difficulty follows the run clock, never the player level. Units: px/s = С/П × 3, attacks/s = С/А / 25, defences capped at 90%.
 
-Steps: edit JSON → `build-test` (ContentLoader errors name the file, id and field) → `play-capture` with `--demo` → check the HUD/cards. A new weapon *kind* or stat needs C# in `Sim/RunWorld.Weapons.cs` / `StatBlock` plus a test. A new sprite needs an Assets recipe (`art-recipe` skill).
+Steps: edit JSON → `build-test` (errors name file, id and field) → `play-capture` with `--demo --character ID` and `--menu` → check the HUD and the character screen. A new stat, trigger or behaviour needs C# (StatBlock/RunWorld) plus tests. A new sprite needs an Assets recipe (`art-recipe` skill), merged in Assets before the Game PR.

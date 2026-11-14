@@ -1,18 +1,73 @@
 {
   "hpPerMinute": 0.18,
-  "damagePerMinute": 0.10,
+  "damagePerMinute": 0.1,
   "maxAlive": 900,
   "waves": [
-    { "from": 0, "to": 1, "perSecond": 2.4, "mix": { "gloombat": 1 } },
-    { "from": 1, "to": 3, "perSecond": 5.0, "mix": { "gloombat": 3, "amberslime": 1 } },
-    { "from": 3, "to": 6, "perSecond": 9.0, "mix": { "gloombat": 2, "amberslime": 2 } },
-    { "from": 6, "to": 10, "perSecond": 14.0, "mix": { "gloombat": 3, "amberslime": 3 } },
-    { "from": 10, "to": 999, "perSecond": 22.0, "mix": { "gloombat": 2, "amberslime": 3 } }
+    {
+      "from": 0,
+      "to": 1,
+      "perSecond": 1.4,
+      "mix": {
+        "gloombat": 1
+      }
+    },
+    {
+      "from": 1,
+      "to": 3,
+      "perSecond": 2.8,
+      "mix": {
+        "gloombat": 3,
+        "amberslime": 1
+      }
+    },
+    {
+      "from": 3,
+      "to": 6,
+      "perSecond": 5.0,
+      "mix": {
+        "gloombat": 2,
+        "amberslime": 2
+      }
+    },
+    {
+      "from": 6,
+      "to": 10,
+      "perSecond": 8.0,
+      "mix": {
+        "gloombat": 3,
+        "amberslime": 3
+      }
+    },
+    {
+      "from": 10,
+      "to": 999,
+      "perSecond": 12.0,
+      "mix": {
+        "gloombat": 2,
+        "amberslime": 3
+      }
+    }
   ],
   "elites": [
-    { "at": 2.5, "enemy": "duskslime", "count": 1 },
-    { "at": 5, "enemy": "duskslime", "count": 2 },
-    { "at": 8, "enemy": "duskslime", "count": 4 },
-    { "at": 12, "enemy": "duskslime", "count": 6 }
+    {
+      "at": 2.5,
+      "enemy": "duskslime",
+      "count": 1
+    },
+    {
+      "at": 5,
+      "enemy": "duskslime",
+      "count": 2
+    },
+    {
+      "at": 8,
+      "enemy": "duskslime",
+      "count": 4
+    },
+    {
+      "at": 12,
+      "enemy": "duskslime",
+      "count": 6
+    }
   ]
 }
