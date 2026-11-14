@@ -24,7 +24,7 @@ public static class ContentLoader
         throw new DirectoryNotFoundException("content/core not found next to the game or in the repository");
     }
 
-    public static ContentSet Load(string dir)
+    public static ContentSet Load(string dir, string? modsRoot = null, string? profilePath = null)
     {
         var errors = new List<string>();
         T Read<T>(string file) where T : new()
@@ -43,9 +43,38 @@ public static class ContentLoader
             Waves = Read<WaveTable>("waves.json"),
             Rules = Read<RunRules>("rules.json"),
         };
+        if (modsRoot is not null && profilePath is not null && File.Exists(profilePath))
+            LoadItemMods(set, modsRoot, profilePath, errors);
         Validate(set, errors);
         if (errors.Count > 0) throw new ContentException(errors);
         return set;
+    }
+
+    private static void LoadItemMods(ContentSet set, string root, string profile, List<string> errors)
+    {
+        try
+        {
+            var enabled = JsonSerializer.Deserialize<string[]>(File.ReadAllText(profile)) ?? [];
+            foreach (string id in enabled.Distinct(StringComparer.Ordinal))
+            {
+                if (string.IsNullOrEmpty(id) || id.Length > 64 ||
+                    !id.All(c => c is >= 'a' and <= 'z' or >= '0' and <= '9' or '-' or '_') || id == "core")
+                {
+                    errors.Add("Mod folder names must use lowercase ASCII letters, digits, hyphens or underscores.");
+                    continue;
+                }
+                var items = JsonSerializer.Deserialize<List<ItemDef>>(
+                    File.ReadAllText(Path.Combine(root, id, "items.json")), ContentSet.Json) ?? [];
+                if (items.Any(item => !item.Id.StartsWith(id + ":", StringComparison.Ordinal) || item.Id.Length <= id.Length + 1))
+                    errors.Add($"{id}: item IDs must use the mod's namespace.");
+                else
+                    set.Items.AddRange(items);
+            }
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException)
+        {
+            errors.Add($"Local mod profile: {error.Message}");
+        }
     }
 
     public static bool TryParseStat(string name, out Stat stat) =>

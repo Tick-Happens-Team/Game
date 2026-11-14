@@ -37,7 +37,7 @@
 | 1.8 | [ ] GPU queries, frame overlay, min/avg/p99 reports | P+ | 1.4 | Bench writes timings to `.tmp/bench/`. |
 | 1.9 | [x] Bitmap font and UI layer above upscale | P! | 1.4 | Built-in 5×7 PixelFont and screen-space UiFrame composited after tonemapping. HUD, damage numbers and cards verified in captures at ×2. Cyrillic glyphs pending 6.2. |
 | 1.10 | [ ] Development hot reload of shaders and atlas | P- | 1.4 | Edits to frag or indexed art appear without restart. |
-| 1.11 | [ ] Self-contained win-x64 game ZIP and separate Assets pack | P+ | 1.1, 2.1 | Locally packaged pair runs on clean Windows without .NET SDK. |
+| 1.11 | [~] Self-contained win-x64 game ZIP and separate Assets pack | P+ | 1.1, 2.1 | Signed local packages install and run from a separate directory. Clean Windows acceptance remains. |
 
 ## P2. Single-player prototype
 
@@ -100,6 +100,6 @@ Depends on P2 and the owner's content list. The [content roadmap](docs/CONTENT_R
 - [ ] 6.6 End-to-end acceptance after 3.5, 4.4, 6.4, and 6.9. Install successive Releases on clean Windows, play offline and through CGNAT, and install a compatible Workshop mod.
 - [~] 6.7 Public Game, Assets, and Mods repositories in Tick-Happens-Team, with dev/stable for Game and Assets and main for Mods. Complete release tag rules, the signing environment, and Mods Pages alongside their publishing workflows.
 - [~] 6.8 Local Game/Assets split and checkout selection are in place. Pin the exact Assets revision for CI and publish the migration after 6.7.
-- [ ] 6.9 Finish Distribution and ReleaseTool and implement the launcher after 1.11. Test clean install, one-package updates, tampering, interrupted updates, repeat installs, rollback, and offline launch.
+- [~] 6.9 Windows launcher, signed release packaging, game and launcher updates, and local item mod selection. Complete protected signing and publication, player-facing rollback, and clean Windows release acceptance.
 
 See [release design](docs/RELEASING.md) for the publication and update contracts.

@@ -21,6 +21,10 @@ A full survivors loop is playable: waves grow with the run clock, weapons fire a
 
 Content (character, 4 weapons, 6 items, 3 enemies, waves, rules) is data in `content/core/*.json`, the built-in `core` mod. Autopilot and captures: `--demo [--hold-levelup] --frames N --screenshot PATH --seed S --no-vsync`.
 
+## Windows launcher
+
+The Windows launcher and signed-release tooling are described in the [release guide](docs/RELEASING.md). A signed release supplies the one-time launcher download. The source launch command above also works for development.
+
 ## Contributing
 
 Submit changes through a pull request into `dev`. See the [repository workflow](docs/RELEASING.md) for CI, coordinated Assets changes, and promotion to `stable`.
