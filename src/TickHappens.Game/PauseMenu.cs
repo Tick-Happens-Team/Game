@@ -69,16 +69,16 @@ internal sealed class PauseMenu(bool online = false)
         return false;
 
         bool Click(int row) => window.LeftClick is { } point &&
-            Math.Abs(point.X * renderer.ViewW - renderer.ViewW / 2) < ButtonWidth / 2 &&
-            point.Y * renderer.ViewH - renderer.ViewH / 2 >= row &&
-            point.Y * renderer.ViewH - renderer.ViewH / 2 < row + ButtonHeight;
+            Math.Abs(point.X * renderer.UiW - renderer.UiW / 2) < ButtonWidth / 2 &&
+            point.Y * renderer.UiH - renderer.UiH / 2 >= row &&
+            point.Y * renderer.UiH - renderer.UiH / 2 < row + ButtonHeight;
     }
 
     public void Draw(PixelRenderer renderer, bool canEnd = true)
     {
         if (!IsOpen) return;
         var ui = PixelCanvas.ColorOf(renderer.UiFrame);
-        int x = renderer.ViewW / 2, y = renderer.ViewH / 2;
+        int x = renderer.UiW / 2, y = renderer.UiH / 2;
         Fill(x - 103, y - 44, 206, 88, Background);
         string heading = _page switch
         {

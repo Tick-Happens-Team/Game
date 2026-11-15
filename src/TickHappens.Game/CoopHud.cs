@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using TickHappens.Engine.Graphics;
 using TickHappens.Engine.Platform;
 using TickHappens.Engine.Ui;
@@ -47,7 +47,7 @@ internal sealed class CoopHud(OnlineGame game)
     public void Draw(PixelRenderer renderer, RunWorld world, Vector2[] positions)
     {
         var ui = PixelCanvas.ColorOf(renderer.UiFrame);
-        int w = renderer.ViewW, h = renderer.ViewH;
+        int w = renderer.UiW, h = renderer.UiH;
         if (!game.Interrupted)
         {
             string ping = game.LocalPing is int ms ? Localizer.Format("online.ping", Localizer.Format("online.ms", ms))
@@ -79,7 +79,7 @@ internal sealed class CoopHud(OnlineGame game)
     private static void DrawArrow(PixelRenderer renderer, PixelCanvas ui, Vector2 position, int slot)
     {
         var (x, y) = renderer.WorldToUi(position.X, position.Y);
-        int w = renderer.ViewW, h = renderer.ViewH;
+        int w = renderer.UiW, h = renderer.UiH;
         if (x >= 0 && x < w && y >= 0 && y < h) return;
         var center = new Vector2(w / 2f, h / 2f);
         var delta = new Vector2(x, y) - center;
