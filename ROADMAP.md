@@ -50,10 +50,10 @@
 | 2.4 | [~] Projectile, area, and chain-lightning auto-attacks with VFX | P! | 2.2, 0.12 | JSON weapons with levels: bolt (pierce, multi-target), pulse, chain (hops), blast (densest spot), with impact, lightning arc, explosion and particle VFX from events. Cursor targeting with the Scope item remains. |
 | 2.5 | [~] RunClock and time-based waves, stats, and bosses | P! | 2.2 | Run clock = ticks + statue bonus; wave table without gaps, HP/damage scaling per minute, timed elites. Bosses with patterns remain (5.3). Tests cover HpScale following the clock, not the level. |
 | 2.6 | [x] Time statues advance RunClock | P! | 2.5 | Standing near a statue for 1 s adds 2 minutes, HUD shows the bonus and a notice; tests verify BonusSeconds and HpScale. |
-| 2.7 | [x] XP drops, magnet, level-up, and upgrade choice | P! | 2.3 | Crystals with magnet pull and XP curve. Owner decision: level-ups apply table growth automatically and items come only from chests, so level-up cards were removed. |
+| 2.7 | [x] XP drops, magnet, level-up, and upgrade choice | P! | 2.3 | Crystals with magnet pull and XP curve. Owner decision: level-ups apply table growth automatically and level-up cards were removed. The prototype awards items from chests; cursed boss drops are planned in P5. |
 | 2.8 | [x] Ordered additive and multiplicative StatBlock modifiers and event-based passives | P! | 2.2 | (base + Σadd) × (1 + Σpct), cooldown floor, order-independent; levelUp passive (+1 armor per level) tested. |
 | 2.9 | [x] Chests and loot tables | P+ | 2.8 | Chests open passively when affordable and grant one item rolled by rarity weights (rules.json); copies stack. Killer-owned gold with the gold multiplier, 1.5× price per player. |
-| 2.10 | [x] HUD clock, level, HP, XP, and results screen | P+ | 1.9 | XP bar, level, run clock with statue bonus, gold and chest price, kills, loadout, HP and dash bars, notices, level-up cards, pause and death results. |
+| 2.10 | [x] HUD clock, level, HP, XP, and results screen | P+ | 1.9 | XP bar, level, run clock with statue bonus, gold and chest price, kills, loadout, HP and dash bars, notices, pause and death results. |
 | 2.11 | [~] Simulation performance | P! | 2.3 | Release demo renders ~1,000 FPS with ~490 enemies on the developer PC. A per-tick timing report at 2,000 enemies remains (with 1.8). |
 
 ## P3. Co-op for 2–4 players
@@ -83,11 +83,11 @@
 
 ## P5. Content and progression
 
-Depends on P2 and the owner's content list. The [content roadmap](docs/CONTENT_ROADMAP.md) orders the 16 characters, 56 items and 18 enemies by ease of implementation, lists the engine systems (S0–S14 for heroes and items, E0–E7 for enemies) they need, groups them into milestones, and records owner decisions and open questions. Content is data-driven, with stat application tests for each item and character.
+Depends on P2. The owner's [Google Sheet](https://docs.google.com/spreadsheets/d/1q4DUxTFMWcSg_zevYYDIWf2DWFH_v2YpFHKe_LTDcOM/edit) is the source of truth for content design. The [content roadmap](docs/CONTENT_ROADMAP.md) orders the 17 characters, 61 items and 23 enemies by ease of implementation, lists the engine systems (S0–S14 for heroes and items, E0–E7 for enemies) they need, groups them into milestones, and records owner decisions and open questions. Content is data-driven, with stat application tests for each item and character.
 
-- [~] 5.1 Characters with unique passives: six C1 heroes (Octarine, Swordsman, Smith, Goflin, Celestial Mage, Watchman) playable with table stats, passives, sprites and a character select screen; ten remain (content roadmap C2–C4).
-- [~] 5.2 Weapons, items, evolutions, and combinations: chest loot by rarity with stacking items; six I1 stat items playable; I2–I6 and Scope remain.
-- [ ] 5.3 Enemies and bosses based on run time: 18 owner enemies in tiers E1–E5 (see the content roadmap).
+- [~] 5.1 Characters with unique passives: six C1 heroes (Octarine, Swordsman, Smith, Goflin, Celestial Mage, Watchman) playable with table stats, passives, sprites and a character select screen; eleven remain (content roadmap C2–C4).
+- [~] 5.2 Weapons, items, evolutions, and combinations: chest loot by rarity with stacking items; six I1 stat items playable; I2–I6, Scope, and five cursed boss drops (I7) remain. Chest rarity chances still need to match the sheet.
+- [ ] 5.3 Enemies and bosses based on run time: 23 owner enemies, including five bosses, in tiers E1–E5 (see the content roadmap).
 - [ ] 5.4 Balance using local run logs under .tmp/.
 - [ ] 5.5 Metaprogression pending owner decision.
 
