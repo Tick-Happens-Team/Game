@@ -321,26 +321,47 @@ internal sealed partial class Hud(GameSettings settings)
         Frame(ui, bx, by, StartW, StartH, Teal, startHover ? PanelLit : Panel);
         PixelFont.DrawCentered(ui, Localizer.Get("menu.start"), bx + StartW / 2, by + 5, startHover ? White : Teal, Ink);
 
-        // Info panel: name, table stats, passive and growth.
-        var c = content.Characters[selected];
+        string language = Localizer.Format("menu.language", Localizer.Get("language." + Localizer.Language));
+        PixelFont.Draw(ui, language, w - 14 - PixelFont.Measure(language), 14, Grey, Ink);
+        PixelFont.DrawCentered(ui, Localizer.Get("menu.help"), w / 2, h - 16, Teal, Ink);
+        DrawHeroInfo(renderer, ui, content.Characters[selected], PanelX(w), RosterY,
+            minHeight: h - RosterY - 74, mouse: mouse);
+    }
+
+    internal static int HeroInfoWidth => PanelW;
+
+    internal static void DrawHeroInfo(PixelRenderer renderer, PixelCanvas ui, CharacterDef c, int x, int y,
+        int minHeight = 0, int? bottom = null, (float X, float Y)? mouse = null)
+    {
         var s = c.Stats;
-        int px0 = PanelX(w), py0 = RosterY, ph = h - py0 - 74;
+        const int textWidth = PanelW - 20;
+        var passive = HeroText("passive", c.Passive);
+        var growth = HeroText("growth", c.Growth);
+        string[] HeroText(string field, string fallback) =>
+            Wrap(Localizer.Content("characters", c.Id, field, fallback), textWidth / PixelFont.Advance).ToArray();
+
+        const int statHeight = 15, statRows = 3;
+        const int sectionTop = 36 + statRows * (statHeight + 2) + 8;
+        int ph = Math.Max(minHeight, sectionTop + 2 * (PixelFont.LineHeight + 1) + 6
+            + (passive.Length + growth.Length) * PixelFont.LineHeight + 10);
+        int w = renderer.UiW, h = renderer.UiH;
+        int px0 = Math.Clamp(x, 0, Math.Max(0, w - PanelW));
+        int py0 = Math.Clamp(bottom is int edge ? edge - ph : y, 0, Math.Max(0, h - ph));
         Frame(ui, px0, py0, PanelW, ph, Teal, Panel);
         int tx = px0 + 10, ty = py0 + 10;
         PixelFont.Draw(ui, CharacterName(c), tx, ty, White, Ink, 2);
-        for (int x = tx; x < px0 + PanelW - 10; x++) ui.Set(x, ty + 18, TealDark);
+        for (int i = tx; i < px0 + PanelW - 10; i++) ui.Set(i, ty + 18, TealDark);
         int ly = ty + 26;
         int statStride = (PanelW - 20) / 2;
-        const int statHeight = 15;
         string? statHint = null;
         void StatCell(int column, int row, string icon, uint accent, string label, string value)
         {
-            int x = tx + column * statStride, y = ly + row * (statHeight + 2);
-            bool hover = mouse is { } m && m.X * w >= x && m.X * w < x + statStride - 3 &&
-                m.Y * h >= y && m.Y * h < y + statHeight;
-            Frame(ui, x, y, statStride - 3, statHeight, hover ? accent : PanelEdge, hover ? PanelLit : Ink);
-            DrawIcon(ui, x + 5, y + 4, icon, accent, White);
-            PixelFont.Draw(ui, value, x + 20, y + 4, White, Ink);
+            int cellX = tx + column * statStride, cellY = ly + row * (statHeight + 2);
+            bool hover = mouse is { } m && m.X * w >= cellX && m.X * w < cellX + statStride - 3 &&
+                m.Y * h >= cellY && m.Y * h < cellY + statHeight;
+            Frame(ui, cellX, cellY, statStride - 3, statHeight, hover ? accent : PanelEdge, hover ? PanelLit : Ink);
+            DrawIcon(ui, cellX + 5, cellY + 4, icon, accent, White);
+            PixelFont.Draw(ui, value, cellX + 20, cellY + 4, White, Ink);
             if (hover) statHint = label;
         }
 
@@ -351,10 +372,10 @@ internal sealed partial class Hud(GameSettings settings)
         StatCell(0, 2, ShieldIcon, 0xFFFFBB94u, "menu.armor", Pct(s.Armor));
         StatCell(1, 2, WardIcon, 0xFFFFA9DBu, "menu.magicResist", Pct(s.MagicResist));
 
-        int ix = px0 + 10, iy = ly + 3 * (statHeight + 2) + 8, iw = PanelW - 20;
+        int ix = tx, iy = py0 + sectionTop;
         PixelFont.Draw(ui, Localizer.Get("menu.passive"), ix, iy, Teal, Ink);
         iy += PixelFont.LineHeight + 1;
-        foreach (var line in Wrap(Localizer.Content("characters", c.Id, "passive", c.Passive), iw / PixelFont.Advance))
+        foreach (var line in passive)
         {
             PixelFont.Draw(ui, line, ix, iy, White, Ink);
             iy += PixelFont.LineHeight;
@@ -362,23 +383,20 @@ internal sealed partial class Hud(GameSettings settings)
         iy += 6;
         PixelFont.Draw(ui, Localizer.Get("menu.growth"), ix, iy, Teal, Ink);
         iy += PixelFont.LineHeight + 1;
-        foreach (var line in Wrap(Localizer.Content("characters", c.Id, "growth", c.Growth), iw / PixelFont.Advance))
+        foreach (var line in growth)
         {
             PixelFont.Draw(ui, line, ix, iy, Grey, Ink);
             iy += PixelFont.LineHeight;
         }
 
-        string language = Localizer.Format("menu.language", Localizer.Get("language." + Localizer.Language));
-        PixelFont.Draw(ui, language, w - 14 - PixelFont.Measure(language), 14, Grey, Ink);
-        PixelFont.DrawCentered(ui, Localizer.Get("menu.help"), w / 2, h - 16, Teal, Ink);
         if (statHint is not null && mouse is { } pointer)
         {
             string label = Localizer.Get(statHint);
             int width = PixelFont.Measure(label) + 12;
-            int x = Math.Clamp((int)(pointer.X * w) + 10, 0, Math.Max(0, w - width));
-            int y = (int)(pointer.Y * h) + 12;
-            Frame(ui, x, y, width, 15, Teal, Ink);
-            PixelFont.Draw(ui, label, x + 6, y + 4, White, Ink);
+            int hintX = Math.Clamp((int)(pointer.X * w) + 10, 0, Math.Max(0, w - width));
+            int hintY = (int)(pointer.Y * h) + 12;
+            Frame(ui, hintX, hintY, width, 15, Teal, Ink);
+            PixelFont.Draw(ui, label, hintX + 6, hintY + 4, White, Ink);
         }
     }
 
