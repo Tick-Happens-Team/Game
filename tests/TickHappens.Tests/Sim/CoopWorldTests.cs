@@ -9,7 +9,7 @@ namespace TickHappens.Tests;
 public sealed class CoopWorldTests
 {
     [Fact]
-    public void AllyRevivalRequiresContinuousStationaryHelpAndReplicates()
+    public void AllyRevivalRequiresContinuousPresenceInRadiusAndReplicates()
     {
         var content = TestContent.LoadCore();
         var host = new RunWorld(content, playerCount: 2);
@@ -27,9 +27,14 @@ public sealed class CoopWorldTests
         host.StepCoop(inputs);
         Assert.Equal(1, fallen.RevivalTicks);
         host.StepCoop([new RunInput(1, 0), default]);
+        Assert.True(host.Player.Walking);
+        Assert.Equal(2, fallen.RevivalTicks);
+        host.Player.Pos = corpse - new Vector2(RunWorld.RevivalRadius + 1, 0);
+        host.StepCoop(inputs);
         Assert.Equal(0, fallen.RevivalTicks);
         Assert.Equal(corpse, fallen.Pos);
 
+        host.Player.Pos = corpse - new Vector2(RunWorld.RevivalRadius, 0);
         for (int i = 0; i < RunWorld.RevivalHoldTicks - 1; i++) host.StepCoop(inputs);
         Assert.Equal(0, fallen.Hp);
         Assert.Equal(RunWorld.RevivalHoldTicks - 1, fallen.RevivalTicks);
@@ -38,7 +43,7 @@ public sealed class CoopWorldTests
         Assert.True(client.TryApplySnapshot(snapshot.AsSpan(0, host.WriteSnapshot(snapshot))));
         Assert.Equal(fallen.RevivalTicks, client.Player.RevivalTicks);
 
-        host.StepCoop(inputs);
+        host.StepCoop([new RunInput(1, 0), default]);
         TestWorld.Close(0.15f * (fallen.Character.Stats.MaxHp + 125), fallen.Hp);
         Assert.Equal(0, fallen.RevivalTicks);
         Assert.Equal(corpse, fallen.Pos);

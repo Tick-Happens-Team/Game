@@ -18,7 +18,7 @@ public sealed partial class RunWorld
             bool assisted = false;
             foreach (var ally in _players)
             {
-                if (!ally.Active || ally.Hp <= 0 || ally.Walking ||
+                if (!ally.Active || ally.Hp <= 0 ||
                     Vector2.DistanceSquared(ally.Pos, fallen.Pos) > RevivalRadius * RevivalRadius) continue;
                 assisted = true;
                 break;
