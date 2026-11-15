@@ -88,6 +88,10 @@ public sealed unsafe class PixelRenderer : IDisposable
     private float _fracX, _fracY;
     private int _windowW, _windowH;
 
+    private int _visionX, _visionY;
+    private float _visionFacingX, _visionFacingY, _visionCos, _visionInvFade;
+    private bool _visionEnabled;
+
     public PixelRenderer(GL gl, string shaderDir)
     {
         _gl = gl;
@@ -149,6 +153,7 @@ public sealed unsafe class PixelRenderer : IDisposable
         VfxFrame.Ox = OriginX;
         VfxFrame.Oy = OriginY;
         Array.Clear(UiFrame.Color);
+        _visionEnabled = false;
 
         _gbuf.Bind();
         _gl.ClearColor(0, 0, 0, 0);
@@ -165,6 +170,18 @@ public sealed unsafe class PixelRenderer : IDisposable
     /// <summary>Converts a world position to UI-layer pixels (for labels that follow world objects).</summary>
     public (int X, int Y) WorldToUi(float x, float y) =>
         ((int)MathF.Floor((x - OriginX - Margin - _fracX) * Scale / UiScale), (int)MathF.Floor((y - OriginY - Margin - _fracY) * Scale / UiScale));
+
+    /// <summary>Dims the scene outside a view cone while keeping the immediate area and UI visible.</summary>
+    public void SetVisionCone(float x, float y, float facingX, float facingY, float halfAngle)
+    {
+        (_visionX, _visionY) = WorldToUi(x, y);
+        _visionFacingX = facingX;
+        _visionFacingY = facingY;
+        _visionCos = MathF.Cos(halfAngle);
+        _visionInvFade = 1 / Math.Max(0.00001f,
+            _visionCos - MathF.Cos(Math.Min(MathF.PI, halfAngle + MathF.PI / 18f)));
+        _visionEnabled = true;
+    }
 
     /// <summary>Lighting pass: writes the HDR lit scene. Lights are in world pixels.</summary>
     public void Light(ReadOnlySpan<PointLight> lights, float time)
@@ -281,6 +298,12 @@ public sealed unsafe class PixelRenderer : IDisposable
         _final.Set("uOffset", Margin + _fracX, Margin + _fracY);
         _final.Set("uRawView", Settings.DebugView);
         _final.Set("uUiScale", UiScale);
+        _final.Set("uVisionScale", _visionEnabled ? UiScale / (float)Scale : 0f);
+        if (_visionEnabled)
+        {
+            _final.Set("uVisionPose", _visionX, _visionY, _visionFacingX, _visionFacingY);
+            _final.Set("uVisionEdge", _visionCos, _visionInvFade);
+        }
         var g = Settings;
         _final.Set("uGrade", g.Contrast, g.Saturation, g.Lift, g.Split);
         _final.Set("uShadowTint", g.ShadowTintR, g.ShadowTintG, g.ShadowTintB);

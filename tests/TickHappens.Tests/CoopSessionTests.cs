@@ -100,7 +100,7 @@ public sealed class CoopSessionTests
         host.PeerJoined += _ => throw new InvalidOperationException("Unexpected player join.");
         host.InputReceived += (_, _, _) => throw new InvalidOperationException("Unexpected input.");
 
-        clientWire.Send("host", [CoopSession.ProtocolVersion, 4, 1, 0, 0, 0, 5], false);
+        clientWire.Send("host", [CoopSession.ProtocolVersion, 4, 0, 0, 0, 0, 1, 0, 0, 0, 5], false);
         client.Join();
         loopback.Flush();
 
@@ -124,10 +124,44 @@ public sealed class CoopSessionTests
         loopback.Pending.Clear();
         client.SubmitInput(new RunInput(0, 1));
         loopback.Pending.Add(loopback.Pending[0]);
-        clientWire.Send("host", [CoopSession.ProtocolVersion, 4, 3, 0, 0, 0, 5, 5, 255], false);
+        clientWire.Send("host", [CoopSession.ProtocolVersion, 4, 0, 0, 0, 0, 3, 0, 0, 0, 5, 5, 255], false);
         loopback.Flush();
 
         Assert.Equal([(1, 1, new RunInput(-1, 0, true)), (1, 2, new RunInput(0, 1))], inputs);
+    }
+
+    [Fact]
+    public void RestartAcceptsLowTicksAndRejectsPacketsFromThePreviousRun()
+    {
+        var wire = new Loopback();
+        using var host = new CoopSession(wire.Connect("host"), Digest);
+        using var guest = new CoopSession(wire.Connect("guest"), Digest, "host");
+        guest.Join();
+        wire.Flush();
+
+        var ticks = new List<int>();
+        int inputs = 0;
+        guest.SnapshotReceived += (tick, _) => ticks.Add(tick);
+        host.InputReceived += (_, _, _) => inputs++;
+        host.SetRunActive(true);
+        host.BroadcastSnapshot(80, [1]);
+        wire.Flush();
+        guest.SubmitInput(default);
+        host.BroadcastSnapshot(81, [1]);
+        var late = wire.Pending.ToArray();
+        wire.Pending.Clear();
+
+        host.SetRunActive(false);
+        host.SetRunActive(true);
+        wire.Flush();
+        wire.Pending.AddRange(late);
+        guest.SubmitInput(default);
+        host.BroadcastSnapshot(1, [2]);
+        wire.Flush();
+
+        Assert.Equal([80, 1], ticks);
+        Assert.Equal(1, inputs);
+        Assert.Equal(2, host.PlayerCount);
     }
 
     [Fact]

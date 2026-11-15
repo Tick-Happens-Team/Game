@@ -70,11 +70,11 @@ Stats are copied from the owner's table. Growth means the per-level value of the
 | # | Character | HP | Regen (HP/s) | Move speed | Attack speed | Armor | Magic resist | Damage | Passive → implementation | Growth | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 1 | Octarine | 150/+5 | 2 | 25 | 25 | 5% | 10% | 15/+2.75 | −10% cooldown on all abilities and items → `cooldown` pct | 0.15% | [~] |
-| 2 | Swordsman | 300/+5 | 2 | 18 | 20 | 10% | 3% | 20/+1 | armor rises every level → levelUp passive (exists, switches to %) | 1% | [~] |
+| 2 | Swordsman | 300/+5 | 3 | 18 | 20 | 10% | 3% | 20/+1 | armor rises every level → levelUp passive | 1% | [x] |
 | 3 | Smith | 250/+2 | 2.75 | 30 | 25 | 5% | 4% | 15/+1.5 | +15% item damage → `itemDamage` multiplier (needs S2 source tags) | 1% | [~] |
 | 4 | Goflin | 200/+4 | 2 | 35 | 30 | 4% | 6% | 5/+0.5 | +10% gold → `goldGain` (S13) | 0.75% | [~] |
 | 5 | Celestial Mage | 200/+1 | 1 | 28 | 28 | 25% | 25% | 10/+0.25 | +25% magical damage, max HP always −65% → `magicDamage` pct and `maxHp` final multiplier 0.35 | 2.25% | [~] |
-| 6 | Watchman | 225/+1.5 | 5 | 40 | 55 | 5% | 5% | 3.75/+0.35 | +0.75 damage per minute of play → stat bound to run time (Q8) | +1 percentage point crit chance | [~] |
+| 6 | Watchman | 225/+1.5 | 5 | 40 | 55 | 5% | 5% | 3.75/+0.35 | +0.75 damage per minute of play → stat bound to run time (Q8) | +1 percentage point crit chance | [x] |
 
 ### Tier C2: simple triggers (S2, S4, S5)
 
@@ -82,15 +82,15 @@ Stats are copied from the owner's table. Growth means the per-level value of the
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 7 | Vampire | 175/+5 | 2 | 35 | 30 | 5% | 0% | 15/+1.5 | 10% lifesteal from damage dealt → S4 | 1.05% | [x] |
 | 8 | Miner | 300/+3 | 4.75 | 25 | 20 | 6% | 4% | 10/+1 | after taking 50 damage, explodes for 5 in radius 50 → `onDamageTaken` accumulator plus blast VFX | +2.5 damage and +2.5 radius | [x] |
-| 9 | Cybernetic Cube | 150/+5 | 2 | 25 | 30 | 10% | 10% | 0/+0.1 | each level: a random stat +1..5, and damage the same way → seeded roll on `onLevelUp` | roll min/max +0.25..2.5 per level | [x] |
-| 10 | Masochist | 190/+4 | 0.5 | 20 | 35 | 1% | 1% | 13.5/+2.15 | lower HP gives more regen, move speed, attack speed and damage → stats computed from missing HP | conversion +0.15% per level | [x] |
+| 9 | Cybernetic Cube | 100/+5 | 2 | 25 | 30 | 10% | 10% | 0/+0.1 | each level increases one random stat by 1–5% → seeded roll on `onLevelUp` | fixed roll range | [x] |
+| 10 | Masochist | 100/+4 | 1 | 20 | 35 | 1% | 1% | 13.5/+2.15 | lower HP gives more regen and move speed → stats computed from missing HP | conversion +0.15% per level | [x] |
 
 ### Tier C3: new world mechanics (S6, S8, S9, death override)
 
 | # | Character | HP | Regen (HP/s) | Move speed | Attack speed | Armor | Magic resist | Damage | Passive → implementation | Growth | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 11 | Skater | 200/+3 | 2 | 25 | 25 | 5% | 5% | 20/+1 | +25% move speed; leaves a fire trail (5 dps, lasts 3 s) → S8 trail hazard | +1% move speed, +3 trail dps | [x] |
-| 12 | Diver | 200/+5.5 | 7 | 10 | 15 | 7% | 7% | 25/+1 | low base move speed that cannot be increased; armor grows with distance travelled; reflection grows per level → move-speed lock, odometer stat, S9 reflect | 0.25% | [x] |
+| 12 | Diver | 200/+5.5 | 7 | 10 | 15 | 7% | 7% | 15/+1 | low base move speed that cannot be increased; armor grows with distance travelled; reflection grows per level → move-speed lock, odometer stat, S9 reflect | 0.25% | [x] |
 | 13 | Pig | 200/+4 | 1.75 | 30 | 20 | 7.5% | 8% | 5/+8.25 | becomes a ghost for 5 s after death → death-override state (Q7) | +0.25 s | [x] |
 
 ### Tier C4: allies and summons (S11, S12; co-op for full value)
@@ -102,7 +102,7 @@ Stats are copied from the owner's table. Growth means the per-level value of the
 | 16 | Necromancer | 200/+5 | 1 | 30 | 25 | 0% | 15% | 15/+1 | killed enemies leave souls; every 30 s spends them: 1–20 souls → healing ghost, 21–50 → warrior ghost (HP and damage = souls), 51+ → big area ghost (HP and damage = souls); during the cooldown each soul adds +0.5% damage → soul counter (`onKill`), three summon AIs (S11), ally heal (S12) | +0.1% damage per soul per level | [x] |
 | 17 | Иллюзионист | 175/+3 | 2 | 30 | 30 | 5% | 15% | 15/+1.5 | every 15 s creates a copy with 30% of the hero's max HP; it lasts 8 s, draws enemies, and repeats the hero's attacks at 25% damage; at most one copy → timed summon with decoy aggro and mirrored attacks (S5, S11) | +0.25 percentage points of illusion damage per level | [x] |
 
-The new heroes use these defaults where the sheet leaves values open. Cube starts at 0 damage and earns its first upgrade after 15 seconds if it has not levelled through XP. Diver gains one percentage point of armor per 100 pixels travelled and can still dash. Masochist converts the missing-health fraction into a proportional bonus to each of the four stats, up to +100% at level 1. Skater fire patches share a damage tick, so overlapping patches from the same owner do not multiply damage. Necromancer summons use the shared companion cap. Pig keeps moving and attacking during the ghost interval with damage immunity.
+The new heroes use these defaults where the sheet leaves values open. Cube starts at 0 damage and earns its first upgrade after 15 seconds if it has not levelled through XP. Diver gains one percentage point of armor per 100 pixels travelled and can still dash. Masochist converts the missing-health fraction into a proportional bonus to regeneration and movement speed, up to +100% at level 1. Skater fire patches share a damage tick, so overlapping patches from the same owner do not multiply damage. Necromancer summons use the shared companion cap. Pig keeps moving and attacking during the ghost interval with damage immunity.
 
 ## 5. Items ordered by ease
 
@@ -320,7 +320,7 @@ Art for every character, enemy and summon goes through recipes (`art-recipe` ski
 | Items | Standard items come from chests on the map; cursed items drop from their listed bosses. Copies of standard items stack, and mods apply once per copy. Level-ups give automatic stat growth; there are no level-up cards. |
 | Ally auras | Work on the owner too, including solo play. |
 | Pig | After death becomes an invulnerable ghost re-skin for 5 s (+0.25 s per level), like Wraith King's reincarnation, then dies. |
-| Watchman | Counts minutes on the game run clock, statues included. Target damage bonus is 0.75 × run minutes; the sheet now gives +1 percentage point crit chance per level. The current build uses (0.75 + 0.25 × (level − 1)) × run minutes and has no crit growth. |
+| Watchman | Counts minutes on the game run clock, statues included. Damage bonus is 0.75 × run minutes. Each level grants +1 percentage point of physical and magical crit chance. |
 | Garlic | Caps enemy lifesteal at 20%. |
 | Octarine | Developer's choice: the cooldown reduction also applies to the dash. |
 

@@ -330,12 +330,28 @@ internal sealed partial class Hud(GameSettings settings)
         PixelFont.Draw(ui, CharacterName(c), tx, ty, White, Ink, 2);
         for (int x = tx; x < px0 + PanelW - 10; x++) ui.Set(x, ty + 18, TealDark);
         int ly = ty + 26;
-        PixelFont.Draw(ui, Localizer.Format("menu.health", F(s.MaxHp), F(s.MaxHpPerLevel)), tx, ly, White, Ink);
-        PixelFont.Draw(ui, Localizer.Format("menu.damage", F(s.Damage), F(s.DamagePerLevel)), tx, ly + PixelFont.LineHeight + 2, White, Ink);
-        PixelFont.Draw(ui, Localizer.Format("menu.speed", F(s.MoveSpeed), F(s.AttackSpeed)), tx, ly + 2 * (PixelFont.LineHeight + 2), White, Ink);
-        PixelFont.Draw(ui, Localizer.Format("menu.resist", Pct(s.Armor), Pct(s.MagicResist)), tx, ly + 3 * (PixelFont.LineHeight + 2), White, Ink);
+        int statStride = (PanelW - 20) / 2;
+        const int statHeight = 15;
+        string? statHint = null;
+        void StatCell(int column, int row, string icon, uint accent, string label, string value)
+        {
+            int x = tx + column * statStride, y = ly + row * (statHeight + 2);
+            bool hover = mouse is { } m && m.X * w >= x && m.X * w < x + statStride - 3 &&
+                m.Y * h >= y && m.Y * h < y + statHeight;
+            Frame(ui, x, y, statStride - 3, statHeight, hover ? accent : PanelEdge, hover ? PanelLit : Ink);
+            DrawIcon(ui, x + 5, y + 4, icon, accent, White);
+            PixelFont.Draw(ui, value, x + 20, y + 4, White, Ink);
+            if (hover) statHint = label;
+        }
 
-        int ix = px0 + 10, iy = ly + 4 * (PixelFont.LineHeight + 2) + 8, iw = PanelW - 20;
+        StatCell(0, 0, HeartIcon, Rose, "menu.health", $"{F(s.MaxHp)} / +{F(s.MaxHpPerLevel)}");
+        StatCell(1, 0, BladeIcon, Gold, "menu.damage", $"{F(s.Damage)} / +{F(s.DamagePerLevel)}");
+        StatCell(0, 1, BootIcon, Teal, "menu.moveSpeed", F(s.MoveSpeed));
+        StatCell(1, 1, TempoIcon, Gold, "menu.attackSpeed", F(s.AttackSpeed));
+        StatCell(0, 2, ShieldIcon, 0xFFFFBB94u, "menu.armor", Pct(s.Armor));
+        StatCell(1, 2, WardIcon, 0xFFFFA9DBu, "menu.magicResist", Pct(s.MagicResist));
+
+        int ix = px0 + 10, iy = ly + 3 * (statHeight + 2) + 8, iw = PanelW - 20;
         PixelFont.Draw(ui, Localizer.Get("menu.passive"), ix, iy, Teal, Ink);
         iy += PixelFont.LineHeight + 1;
         foreach (var line in Wrap(Localizer.Content("characters", c.Id, "passive", c.Passive), iw / PixelFont.Advance))
@@ -355,6 +371,15 @@ internal sealed partial class Hud(GameSettings settings)
         string language = Localizer.Format("menu.language", Localizer.Get("language." + Localizer.Language));
         PixelFont.Draw(ui, language, w - 14 - PixelFont.Measure(language), 14, Grey, Ink);
         PixelFont.DrawCentered(ui, Localizer.Get("menu.help"), w / 2, h - 16, Teal, Ink);
+        if (statHint is not null && mouse is { } pointer)
+        {
+            string label = Localizer.Get(statHint);
+            int width = PixelFont.Measure(label) + 12;
+            int x = Math.Clamp((int)(pointer.X * w) + 10, 0, Math.Max(0, w - width));
+            int y = (int)(pointer.Y * h) + 12;
+            Frame(ui, x, y, width, 15, Teal, Ink);
+            PixelFont.Draw(ui, label, x + 6, y + 4, White, Ink);
+        }
     }
 
     /// <summary>Slow diagonal light bands and a darker rim behind the menu panels (cosmetic, menu clock only).</summary>
@@ -375,20 +400,20 @@ internal sealed partial class Hud(GameSettings settings)
         }
     }
 
-    private static void Pedestal(PixelCanvas ui, int cx, int cy, int rx, int ry)
+    internal static void Pedestal(PixelCanvas ui, int cx, int cy, int rx, int ry, uint accent = Teal)
     {
         for (int y = -ry; y <= ry + 3; y++)
             for (int x = -rx; x <= rx; x++)
             {
                 float top = (x * x) / (float)(rx * rx) + (y * y) / (float)(ry * ry);
                 float side = (x * x) / (float)(rx * rx) + ((y - 3) * (y - 3)) / (float)(ry * ry);
-                if (top <= 1) ui.Set(cx + x, cy + y, top > 0.8f ? Teal : top > 0.55f ? PanelLit : PanelEdge);
+                if (top <= 1) ui.Set(cx + x, cy + y, top > 0.8f ? accent : top > 0.55f ? PanelLit : PanelEdge);
                 else if (side <= 1 && y > 0) ui.Set(cx + x, cy + y, Ink);
             }
     }
 
     /// <summary>Panel with a 1px border and darker inner corner pixels (bevelled look).</summary>
-    private static void Frame(PixelCanvas ui, int x, int y, int fw, int fh, uint border, uint fill)
+    internal static void Frame(PixelCanvas ui, int x, int y, int fw, int fh, uint border, uint fill)
     {
         for (int yy = 0; yy < fh; yy++)
             for (int xx = 0; xx < fw; xx++)
@@ -433,7 +458,7 @@ internal sealed partial class Hud(GameSettings settings)
             w / 2, h / 2 - 50, 0xFF6060FFu, Ink, interruption is null ? 3 : 1);
         PixelFont.DrawCentered(ui, Localizer.Format("hud.summaryTime", secs / 60, secs % 60, (int)world.RunSeconds / 60, (int)world.RunSeconds % 60), w / 2, h / 2 - 12, White, Ink);
         PixelFont.DrawCentered(ui, Localizer.Format("hud.summary", CharacterName(p.Character), p.Level, p.Kills, p.Wallet.Gold), w / 2, h / 2 + 2, White, Ink);
-        PixelFont.DrawCentered(ui, online ? Localizer.Get("hud.leave") : Localizer.Get("hud.restart"),
+        PixelFont.DrawCentered(ui, online ? Localizer.Get(interruption is null ? "online.returningToLobby" : "hud.leave") : Localizer.Get("hud.restart"),
             w / 2, h / 2 + 26, Teal, Ink);
         if (canReconnect)
             PixelFont.DrawCentered(ui, Localizer.Get("online.reconnect"), w / 2, h / 2 + 40, Teal, Ink);

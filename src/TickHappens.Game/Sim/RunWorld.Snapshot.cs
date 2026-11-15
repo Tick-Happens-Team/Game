@@ -7,7 +7,7 @@ namespace TickHappens.Game.Sim;
 public sealed partial class RunWorld
 {
     public const int SnapshotCapacity = 64 * 1024;
-    private const byte SnapshotVersion = 5;
+    private const byte SnapshotVersion = 6;
     private int _replicaTick = -1;
     private readonly ushort[] _enemySnapshotSlots = new ushort[ushort.MaxValue / 8];
 
@@ -352,7 +352,7 @@ public sealed partial class RunWorld
         string hero = Content.Characters[character].Id;
         float distance = hero == "diver" ? r.Float() : 0;
         int souls = hero == "necromancer" ? r.Int() : 0;
-        Span<float> cube = stackalloc float[CubeStats.Length + 1];
+        Span<float> cube = stackalloc float[CubeStats.Length];
         if (hero == "cybernetic_cube")
         {
             for (int i = 0; i < cube.Length; i++)

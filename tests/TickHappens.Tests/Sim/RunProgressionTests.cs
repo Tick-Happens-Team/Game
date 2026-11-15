@@ -78,7 +78,7 @@ public sealed class RunProgressionTests
         var content = TestContent.LoadCore();
         var world = new RunWorld(content, seed: 5, character: "watchman");
         var p = world.Player;
-        TestWorld.Close(3f, p.Stats[Stat.Damage]);
+        TestWorld.Close(3.75f, p.Stats[Stat.Damage]);
 
         p.Pos = world.Statues[0];
         int ticks = (int)(content.Rules.Statue.HoldSeconds * RunWorld.TicksPerSecond) + 2;
@@ -87,11 +87,13 @@ public sealed class RunProgressionTests
         Assert.True(world.StatueActive[0], "standing on the statue must activate it");
         float minutes = world.Minutes;
         Assert.True(minutes >= content.Rules.Statue.Minutes, $"minutes {minutes} should include the statue bonus");
-        TestWorld.Close(3f + 0.75f * minutes, p.Stats[Stat.Damage]);
+        TestWorld.Close(3.75f + 0.75f * minutes, p.Stats[Stat.Damage]);
 
         TestWorld.LevelTo(world, 2);
 
-        TestWorld.Close(3f + 0.25f + (0.75f + 0.25f) * minutes, p.Stats[Stat.Damage]);
+        TestWorld.Close(3.75f + 0.35f + 0.75f * minutes, p.Stats[Stat.Damage]);
+        TestWorld.Close(0.01f, p.Stats[Stat.PhysicalCrit]);
+        TestWorld.Close(0.01f, p.Stats[Stat.MagicalCrit]);
     }
 
     [Fact]

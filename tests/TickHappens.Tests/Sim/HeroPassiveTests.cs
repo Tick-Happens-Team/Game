@@ -97,8 +97,7 @@ public sealed class HeroPassiveTests
         TestWorld.LevelTo(world, 2);
         TestWorld.LevelTo(second, 2);
 
-        Assert.InRange(world.Player.CubeBonuses[^1], 1, 5);
-        Assert.Single(world.Player.CubeBonuses[..^1], bonus => bonus > 0);
+        Assert.InRange(Assert.Single(world.Player.CubeBonuses, bonus => bonus > 0), 0.01f, 0.05f);
         Assert.Equal(world.Player.CubeBonuses, second.Player.CubeBonuses);
         var replica = new RunWorld(world.Content, character: "cybernetic_cube");
         CopySnapshot(world, replica);
@@ -162,14 +161,17 @@ public sealed class HeroPassiveTests
     }
 
     [Fact]
-    public void MissingHealthBoostsStatsAndVampireHealsFromDamageDealt()
+    public void MissingHealthBoostsMobilityAndRegenerationAndVampireHealsFromDamageDealt()
     {
         var content = QuietContent();
         var wounded = new RunWorld(content, character: "masochist");
         TestWorld.Close(wounded.Player.Character.Stats.Damage, wounded.Player.Stats[Stat.Damage]);
         wounded.Player.Hp *= 0.5f;
         wounded.Step(default);
-        TestWorld.Close(wounded.Player.Character.Stats.Damage * 1.5f, wounded.Player.Stats[Stat.Damage]);
+        TestWorld.Close(wounded.Player.Character.Stats.Damage, wounded.Player.Stats[Stat.Damage]);
+        TestWorld.Close(wounded.Player.Character.Stats.AttackSpeed, wounded.Player.Stats[Stat.AttackSpeed]);
+        Assert.InRange(wounded.Player.Stats[Stat.MoveSpeed], 29.9f, 30f);
+        Assert.InRange(wounded.Player.Stats[Stat.Regen], 1.49f, 1.5f);
 
         var vampire = new RunWorld(content, character: "vampire");
         vampire.Player.Hp = 100;
