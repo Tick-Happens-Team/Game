@@ -45,7 +45,9 @@ public sealed partial class EosTransport : ICoopTransport, IDisposable
     private string? _lobbyId;
     private ulong _memberNotification, _requestNotification, _closedNotification, _establishedNotification, _expirationNotification;
     private long _nextMembershipRefresh;
+    private Result? _lastReceiveError, _lastSendError, _lastAcceptError;
     private bool _refreshMembers, _busy, _disposed;
+    private bool _receivedRoomPacket;
 
     public string? LocalPeer { get; private set; }
     public string? HostPeer { get; private set; }
@@ -196,10 +198,13 @@ public sealed partial class EosTransport : ICoopTransport, IDisposable
             {
                 var remote = info.RemoteUserId;
                 if (info.SocketId?.SocketName != SocketName || remote is null) return;
+                var reason = info.Reason;
                 _completed.Enqueue(() =>
                 {
                     string id = remote.ToString();
-                    if (IsAllowed(id)) PeerDisconnected?.Invoke(id);
+                    if (!IsAllowed(id)) return;
+                    Console.Error.WriteLine($"EOS P2P connection closed ({reason}).");
+                    PeerDisconnected?.Invoke(id);
                 });
             });
         var established = new AddNotifyPeerConnectionEstablishedOptions { LocalUserId = _local, SocketId = _socket };
@@ -251,11 +256,21 @@ public sealed partial class EosTransport : ICoopTransport, IDisposable
         {
             Result result = _p2p.ReceivePacket(ref _receiveOptions, ref _receivedUser, ref _receivedSocket,
                 out _, _incoming, out uint written);
-            if (result != Result.Success) break;
+            if (result != Result.Success)
+            {
+                if (result != Result.NotFound) LogP2pError("ReceivePacket", result, ref _lastReceiveError);
+                break;
+            }
+            _lastReceiveError = null;
             if (_receivedSocket.SocketName != SocketName || _lobbyId is null) continue;
             foreach (var (id, member) in _members)
             {
                 if (member != _receivedUser || (!IsHost && id != HostPeer)) continue;
+                if (!_receivedRoomPacket)
+                {
+                    _receivedRoomPacket = true;
+                    Console.WriteLine("EOS P2P first room packet received.");
+                }
                 PacketReceived?.Invoke(id, _incoming.AsMemory(0, (int)written));
                 break;
             }
@@ -279,7 +294,7 @@ public sealed partial class EosTransport : ICoopTransport, IDisposable
             DisableAutoAcceptConnection = false,
             Reliability = reliable ? PacketReliability.ReliableOrdered : PacketReliability.UnreliableUnordered,
         };
-        _p2p.SendPacket(ref options);
+        LogP2pError("SendPacket", _p2p.SendPacket(ref options), ref _lastSendError);
     }
 
     private bool IsAllowed(string peer) => _lobbyId is not null && _members.ContainsKey(peer) && (IsHost || peer == HostPeer);
@@ -287,7 +302,15 @@ public sealed partial class EosTransport : ICoopTransport, IDisposable
     private void Accept(ProductUserId remote)
     {
         var options = new AcceptConnectionOptions { LocalUserId = _local, RemoteUserId = remote, SocketId = _socket };
-        _p2p.AcceptConnection(ref options);
+        LogP2pError("AcceptConnection", _p2p.AcceptConnection(ref options), ref _lastAcceptError);
+    }
+
+    private static void LogP2pError(string operation, Result result, ref Result? previous)
+    {
+        if (result == Result.Success) return;
+        if (result == previous) return;
+        previous = result;
+        Console.Error.WriteLine($"EOS P2P {operation} failed ({result}).");
     }
 
     private void Close(ProductUserId remote)
