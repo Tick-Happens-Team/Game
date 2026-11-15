@@ -52,8 +52,10 @@ internal sealed class OnlineMenu(OnlineGame game)
         int w = renderer.ViewW, h = renderer.ViewH;
         var click = window.LeftClick;
         bool Click(int x, int y, int width, int height) =>
-            click is { } point && point.X * w >= x && point.X * w < x + width &&
-            point.Y * h >= y && point.Y * h < y + height;
+            click is { } point && point.X * window.Width / renderer.Scale >= x &&
+            point.X * window.Width / renderer.Scale < x + width &&
+            point.Y * window.Height / renderer.Scale >= y &&
+            point.Y * window.Height / renderer.Scale < y + height;
 
         if (_editingNickname is not null)
         {
@@ -91,8 +93,10 @@ internal sealed class OnlineMenu(OnlineGame game)
         {
             if (game.LocalSlot is not null)
             {
-                int step = (window.WasPressed(Key.Right) || Click(w / 2 + 74, h / 2 + 14, 16, 16) ? 1 : 0)
-                    - (window.WasPressed(Key.Left) || Click(w / 2 - 90, h / 2 + 14, 16, 16) ? 1 : 0);
+                int step = (window.WasPressed(Key.Right) || window.WasPressed(Key.D) ||
+                    Click(w / 2 + 66, h / 2 + 14, 24, 16) ? 1 : 0)
+                    - (window.WasPressed(Key.Left) || window.WasPressed(Key.A) ||
+                    Click(w / 2 - 90, h / 2 + 14, 24, 16) ? 1 : 0);
                 if (step != 0)
                     game.EditProfile((game.SelectedHero + step + game.HeroCount) % game.HeroCount, game.Nickname);
                 if (window.WasPressed(Key.F4) || Click(w / 2 - 90, h / 2 - 4, 180, 16))
@@ -164,12 +168,13 @@ internal sealed class OnlineMenu(OnlineGame game)
     {
         var ui = PixelCanvas.ColorOf(renderer.UiFrame);
         int x = renderer.ViewW / 2, y = renderer.ViewH / 2;
-        void Button(string label, int top, bool enabled = true)
+        void Button(string label, int top, bool enabled = true, int offset = 0, int width = 180)
         {
+            int center = x + offset;
             for (int dy = 0; dy < 16; dy++)
-                for (int dx = -90; dx < 90; dx++)
-                    ui.Set(x + dx, top + dy, Panel);
-            PixelFont.DrawCentered(ui, label, x, top + 4, enabled ? Teal : Text, Ink);
+                for (int dx = -width / 2; dx < width / 2; dx++)
+                    ui.Set(center + dx, top + dy, Panel);
+            PixelFont.DrawCentered(ui, label, center, top + 4, enabled ? Teal : Text, Ink);
         }
         if (!IsOpen)
         {
@@ -214,7 +219,9 @@ internal sealed class OnlineMenu(OnlineGame game)
                 if (game.LocalSlot is not null)
                 {
                     Button(Localizer.Get("online.editNickname"), y - 4);
-                    Button($"<   {game.HeroName(game.SelectedHero)}   >", y + 14);
+                    Button("<", y + 14, offset: -78, width: 24);
+                    Button(">", y + 14, offset: 78, width: 24);
+                    PixelFont.DrawCentered(ui, game.HeroName(game.SelectedHero), x, y + 18, Teal, Ink);
                 }
                 if (game.IsHost) Button(Localizer.Get("online.start"), y + 36, game.CanStart);
             }

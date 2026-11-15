@@ -29,12 +29,13 @@ public sealed class LanTransportTests
         }
 
         await PumpUntil(() => host.CanStart && guest.LocalSlot is not null);
+        host.EditProfile(1, "Host");
         guest.EditProfile(2, "Guest");
-        await PumpUntil(() => host.PlayerHero(1) == 2 && guest.PlayerHero(1) == 2);
+        await PumpUntil(() => guest.PlayerHero(0) == 1 && host.PlayerHero(1) == 2 && guest.PlayerHero(1) == 2);
         Assert.Equal("Guest", guest.PlayerName(1));
         host.Start();
         await PumpUntil(() => guest.Playing);
-        Assert.Equal(content.Characters[0], guest.World!.Players[0].Character);
+        Assert.Equal(content.Characters[1], guest.World!.Players[0].Character);
         Assert.Equal(content.Characters[2], guest.World.Players[1].Character);
 
         host.SetPaused(true);

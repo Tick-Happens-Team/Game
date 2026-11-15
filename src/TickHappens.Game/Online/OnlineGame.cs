@@ -146,7 +146,6 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
 
 #if TICKHAPPENS_EOS
     private bool _forceRelays = LocalEosConfig.ForceRelays;
-    private long? _connectingToHost;
 
     public bool ForceRelays
     {
@@ -177,7 +176,7 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
                 _transport.PeerConnected += (_, relayed) =>
                 {
                     _relay |= relayed;
-                    Console.WriteLine(relayed ? "EOS P2P relay established." : "EOS P2P direct connection established.");
+                    EosTransport.LogConnection(relayed ? "EOS P2P relay established." : "EOS P2P direct connection established.");
                 };
             }
             _signingIn = _transport.LocalPeer is null;
@@ -334,42 +333,10 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
                 int size = SnapshotDelta.Decode(_baselineTick, _baseline.AsSpan(0, _baselineBytes), packet.Span, _snapshot);
                 if (size > 0) Apply(_snapshot.AsSpan(0, size));
             };
-#if TICKHAPPENS_EOS
-            if (TransportIsConnecting())
-            {
-                _connectingToHost = Stopwatch.GetTimestamp();
-                Status = Localizer.Get("online.waitingP2p");
-                return;
-            }
-#endif
-            JoinHost(session);
+            session.Join();
+            Status = Localizer.Get("online.waitingHost");
         }
     }
-
-    private void JoinHost(CoopSession session)
-    {
-        session.Join();
-        Status = Localizer.Get("online.waitingHost");
-    }
-
-#if TICKHAPPENS_EOS
-    private bool TransportIsConnecting() => _lan is null && _transport is { IsHostConnected: false };
-
-    private void UpdateEosJoin()
-    {
-        if (_connectingToHost is not long started || _session is not { } session) return;
-        if (!TransportIsConnecting())
-        {
-            _connectingToHost = null;
-            JoinHost(session);
-        }
-        else if (Stopwatch.GetElapsedTime(started) >= TimeSpan.FromSeconds(15))
-        {
-            CloseRoom(Interrupted);
-            Status = Localizer.Get("online.p2pTimeout");
-        }
-    }
-#endif
 
     public void Start()
     {
@@ -392,13 +359,27 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
             if (_lan is null) _transport?.Pump();
 #endif
             if (_operation?.IsCompleted == true) CompleteOperation();
-#if TICKHAPPENS_EOS
-            UpdateEosJoin();
-#endif
             _session?.Poll();
+            if (_session is { IsHost: false } guest && !_started)
+            {
+                string key = guest.LocalPlayerSlot.HasValue ? "online.waitingStart" : "online.waitingHost";
+#if TICKHAPPENS_EOS
+                if (!guest.LocalPlayerSlot.HasValue && _lan is null && _transport is { IsHostConnected: false })
+                    key = "online.waitingP2p";
+#endif
+                Status = Localizer.Get(key);
+            }
             if (_hostEnded || _session?.JoinError is not null)
             {
-                string message = Localizer.Get(_session?.JoinError ?? "online.hostClosed");
+                string key = _session?.JoinError ?? "online.hostClosed";
+#if TICKHAPPENS_EOS
+                if (_lan is null && _transport is { } eos)
+                {
+                    if (key == "online.timeout" && !eos.IsHostConnected) key = "online.p2pTimeout";
+                    EosTransport.LogConnection($"EOS session ended: {key}.");
+                }
+#endif
+                string message = Localizer.Get(key);
                 bool keepResults = Interrupted || (_hostEnded && Playing);
                 CloseRoom(keepResults);
                 Status = message;
@@ -475,6 +456,14 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
 
     private void LogLatency(int slot, double rtt, double jitter)
     {
+        string transport = _lan is not null ? "LAN" : _relay ? "EOS relay" : "EOS";
+        WriteNetworkLog(string.Create(CultureInfo.InvariantCulture,
+            $"{transport} slot={slot} rtt_ms={rtt:F1} jitter_ms={jitter:F1} snapshot_ms={_snapshotInterval:F1} snapshot_jitter_ms={_snapshotJitter:F1} correction_px={_correction:F1}"));
+        _correction = 0;
+    }
+
+    internal static void WriteNetworkLog(string message)
+    {
         string path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "TickHappens", "coop-network.log");
         try
@@ -482,13 +471,10 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             if (new FileInfo(path) is { Exists: true, Length: >= 256 * 1024 })
                 File.Move(path, path + ".previous", overwrite: true);
-            string transport = _lan is not null ? "LAN" : _relay ? "EOS relay" : "EOS";
-            File.AppendAllText(path, string.Create(CultureInfo.InvariantCulture,
-                $"{DateTimeOffset.UtcNow:O} {transport} slot={slot} rtt_ms={rtt:F1} jitter_ms={jitter:F1} snapshot_ms={_snapshotInterval:F1} snapshot_jitter_ms={_snapshotJitter:F1} correction_px={_correction:F1}\n"));
+            File.AppendAllText(path, $"{DateTimeOffset.UtcNow:O} {message}\n");
         }
         catch (IOException) { }
         catch (UnauthorizedAccessException) { }
-        _correction = 0;
     }
 
     private void SendSnapshot(CoopSession session, RunWorld world, bool forceKeyframe)
@@ -527,9 +513,6 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
         _lastSnapshotAt = null;
         _snapshotInterval = _snapshotJitter = _correction = 0;
         _relay = false;
-#if TICKHAPPENS_EOS
-        _connectingToHost = null;
-#endif
         if (!keepResults)
         {
             World = null;

@@ -63,6 +63,7 @@
   "online.searching": "ИЩЕМ ЛОББИ",
   "online.waitingPlayers": "ОЖИДАНИЕ ИГРОКОВ",
   "online.waitingHost": "ОЖИДАНИЕ ХОСТА",
+  "online.waitingStart": "ОЖИДАНИЕ СТАРТА ИГРЫ",
   "online.waitingP2p": "УСТАНОВКА КАНАЛА EOS",
   "online.p2pTimeout": "КАНАЛ EOS НЕ УСТАНОВЛЕН",
   "online.player": "ИГРОК {0}",
