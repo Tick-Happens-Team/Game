@@ -174,6 +174,44 @@ public sealed class RunProgressionTests
     }
 
     [Fact]
+    public void ChestsBecomeAvailableIndividuallyOneMinuteAfterPurchase()
+    {
+        var content = TestContent.LoadCore();
+        foreach (var wave in content.Waves.Waves) wave.PerSecond = 0;
+        var world = new RunWorld(content, seed: 1);
+        var player = world.Player;
+        const int minuteTicks = 60 * RunWorld.TicksPerSecond;
+
+        player.Pos = world.Chests[0];
+        player.Wallet.Collect(new GoldDrop(player.Wallet.NextPrice, player.Id), player.Id);
+        world.Step(default);
+        int firstOpenTick = world.Tick;
+        Assert.True(world.ChestOpen[0]);
+        world.Step(new RunInput(0, 0, ChestChoice: 1));
+
+        player.Pos = world.Chests[1];
+        player.Wallet.Collect(new GoldDrop(player.Wallet.NextPrice, player.Id), player.Id);
+        world.Step(default);
+        int secondOpenTick = world.Tick;
+        Assert.True(world.ChestOpen[1]);
+
+        while (world.Tick < firstOpenTick + minuteTicks - 1) world.Step(default);
+        Assert.True(world.ChestOpen[0]);
+        world.Step(default);
+        Assert.False(world.ChestOpen[0]);
+        Assert.True(world.ChestOpen[1]);
+
+        player.Pos = world.Chests[0];
+        player.Wallet.Collect(new GoldDrop(player.Wallet.NextPrice, player.Id), player.Id);
+        world.Step(default);
+        Assert.True(world.ChestOpen[0]);
+        Assert.True(player.ChestOfferFirst >= 0);
+
+        while (world.Tick < secondOpenTick + minuteTicks) world.Step(default);
+        Assert.False(world.ChestOpen[1]);
+    }
+
+    [Fact]
     public void ChestChoiceTimesOutToTheFirstItem()
     {
         var world = new RunWorld(TestContent.LoadCore());

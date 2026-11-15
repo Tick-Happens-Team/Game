@@ -74,6 +74,27 @@ public sealed class EnemyAttacksTests
         Assert.Contains(world.Events, e => e.Kind == EventKind.EnemyBlast);
     }
 
+    [Fact]
+    public void ExistingEnemyMovesOnePercentFasterAfterOneMinute()
+    {
+        var world = IsolatedWorld();
+        var start = world.Player.Pos + new Vector2(300, 0);
+        int enemy = world.SpawnEnemy(world.Content.EnemyIndex("gloombat"), start);
+        world.Step(default);
+        float firstStep = start.X - world.EX[enemy];
+
+        const int minuteTicks = 60 * RunWorld.TicksPerSecond;
+        for (int i = 0; i < minuteTicks; i++)
+        {
+            world.EX[enemy] = start.X;
+            world.Step(default);
+        }
+
+        Assert.True(world.EAlive[enemy]);
+        Assert.True(firstStep > 0);
+        TestWorld.Close(firstStep * 1.01f, start.X - world.EX[enemy], 3);
+    }
+
     private static RunWorld IsolatedWorld()
     {
         var content = TestContent.LoadCore();
