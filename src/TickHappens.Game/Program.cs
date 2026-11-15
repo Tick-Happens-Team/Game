@@ -193,6 +193,8 @@ for (int frame = 1; !window.QuitRequested; frame++)
         }
         int delta = (window.WasPressed(Key.S) || window.WasPressed(Key.Down) || window.WasPressed(Key.Right) ? 1 : 0)
                   - (window.WasPressed(Key.W) || window.WasPressed(Key.Up) || window.WasPressed(Key.Left) ? 1 : 0);
+        int clicked = Hud.MenuRowAt(view.Renderer, window.LeftClick, content.Characters.Count);
+        if (clicked >= 0 && clicked != selected) delta = clicked - selected;
         if (delta != 0)
         {
             audio.Play("ui_move", 0.5f, 0, 0, 2);
@@ -200,7 +202,7 @@ for (int frame = 1; !window.QuitRequested; frame++)
             world = new RunWorld(content, seed, content.Characters[selected].Id);
             loop = new RunLoop(world);
         }
-        if (!stayInMenu && (window.WasPressed(Key.Space) || window.WasPressed(Key.Return)))
+        if (!stayInMenu && (window.WasPressed(Key.Space) || window.WasPressed(Key.Return) || Hud.MenuStartAt(view.Renderer, window.LeftClick)))
         {
             world = new RunWorld(content, seed, content.Characters[selected].Id);
             loop = new RunLoop(world);
@@ -209,7 +211,7 @@ for (int frame = 1; !window.QuitRequested; frame++)
             audio.Play("ui_confirm", 0.6f, 0, 0, 1);
         }
         view.Draw(window.Width, window.Height, world, 1, paused: true, frameDt, menuSelection: selected,
-            overlay: drawHeroMenu);
+            overlay: drawHeroMenu, menuMouse: window.Mouse);
     }
     else
     {
@@ -229,7 +231,8 @@ for (int frame = 1; !window.QuitRequested; frame++)
         }
 
         if (inMenu)
-            view.Draw(window.Width, window.Height, world, 1, paused: true, frameDt, menuSelection: selected, overlay: drawHeroMenu);
+            view.Draw(window.Width, window.Height, world, 1, paused: true, frameDt, menuSelection: selected, overlay: drawHeroMenu,
+                menuMouse: window.Mouse);
         else
         {
             if (loop.Paused != pauseMenu.IsOpen) loop.TogglePause();

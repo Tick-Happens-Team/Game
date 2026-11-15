@@ -13,6 +13,8 @@ public sealed class GameWindow : IDisposable
     public int Height { get; private set; }
     public bool QuitRequested { get; private set; }
     public (float X, float Y)? LeftClick { get; private set; }
+    /// <summary>Last mouse position over the window, normalized to 0..1; null until the mouse moves.</summary>
+    public (float X, float Y)? Mouse { get; private set; }
     public string TextInput { get; private set; } = "";
     public bool Vsync { get; private set; }
 
@@ -73,6 +75,12 @@ public sealed class GameWindow : IDisposable
                     SDL.GetWindowSize(Handle, out int w, out int h);
                     LeftClick = (e.Button.X / Math.Max(w, 1), e.Button.Y / Math.Max(h, 1));
                     break;
+                case SDL.EventType.MouseMotion:
+                {
+                    SDL.GetWindowSize(Handle, out int mw, out int mh);
+                    Mouse = (e.Motion.X / Math.Max(mw, 1), e.Motion.Y / Math.Max(mh, 1));
+                    break;
+                }
                 case SDL.EventType.TextInput:
                     TextInput += Marshal.PtrToStringUTF8(e.Text.Text);
                     break;

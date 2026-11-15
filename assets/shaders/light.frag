@@ -67,6 +67,10 @@ void main() {
         if (uBands > 0) v = floor(v * float(uBands) + dither) / float(uBands);
         light += c * v;
     }
+    // The hero lamp, bolt lights and flashes all meet on the hero; past full brightness they roll off
+    // instead of adding up, so pale sprites (hair, aprons, clock faces) keep their shading instead of clipping.
+    float lm = max(light.r, max(light.g, light.b));
+    if (lm > 0.85) light *= (0.85 + (lm - 0.85) * 0.3) / lm;
     // Stacked VFX glows (e.g. 6 chain-lightning hops at once) saturate softly instead of blowing out
     // the hero: readability beats raw intensity.
     vl = vl / (1.0 + 0.8 * max(vl.r, max(vl.g, vl.b)));
