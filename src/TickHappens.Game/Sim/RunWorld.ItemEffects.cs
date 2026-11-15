@@ -307,7 +307,7 @@ public sealed partial class RunWorld
                 p.ItemTimers[item] = effect.Duration;
                 return true;
             }
-            if (effect.Kind == "attackSpeedAura" && chance > 0 && kind == DamageKind.Physical &&
+            if (enemy >= 0 && effect.Kind == "attackSpeedAura" && chance > 0 && kind == DamageKind.Physical &&
                 amount > effect.Threshold && RollChance(chance))
             {
                 ApplyEnemyHit(enemy, amount, kind, p.Id, p.Pos.X, p.Pos.Y, 0);

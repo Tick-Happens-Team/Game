@@ -11,7 +11,7 @@ public enum RunPhase { Playing, Dead }
 public enum EventKind : byte
 {
     Hit, Kill, Bolt, Pulse, Chain, Blast, LevelUp, Statue, Chest, PlayerHurt, Dash, Pickup, Elite, Melee, ItemBeam, Flame, Frost, BossReward,
-    DroneBlast,
+    DroneBlast, EnemyBlast,
 }
 
 /// <summary>Gameplay event for cosmetics (VFX, sound, damage numbers). Never drives simulation.</summary>
