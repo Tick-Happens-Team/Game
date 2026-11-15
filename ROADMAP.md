@@ -34,7 +34,7 @@
 | 1.5 | [ ] Back and front CPU VFX passes | P+ | 0.11 | Scorch below enemies and sparks above in a screenshot. |
 | 1.6 | [ ] Bake VFX flipbooks into a VFX atlas | P+ | 0.11 | 200 concurrent explosions use ≤2 ms CPU per frame. |
 | 1.7 | [ ] SDL3 audio streams, mixer, voice pool, SFX caps, buses | P+ | 1.1 | 100 hits per frame without clipping or stalls. |
-| 1.8 | [ ] GPU queries, frame overlay, min/avg/p99 reports | P+ | 1.4 | Bench writes timings to `.tmp/bench/`. |
+| 1.8 | [~] GPU queries, frame overlay, min/avg/p99 reports | P+ | 1.4 | Bench writes per-frame interval, CPU, and VFX timings with min/avg/p99 to `.tmp/bench/frames.csv` and shows CPU p99 in the title. GPU timer queries remain. |
 | 1.9 | [x] Bitmap font and UI layer above upscale | P! | 1.4 | Built-in 5×7 PixelFont and screen-space UiFrame composited after tonemapping. HUD, damage numbers and cards verified in captures at ×2. Cyrillic glyphs pending 6.2. |
 | 1.10 | [ ] Development hot reload of shaders and atlas | P- | 1.4 | Edits to frag or indexed art appear without restart. |
 | 1.11 | [~] Self-contained win-x64 game ZIP and separate Assets pack | P+ | 1.1, 2.1 | Signed local packages install and run from a separate directory. Clean Windows acceptance remains. |
@@ -90,6 +90,7 @@ Depends on P2. The owner's [Google Sheet](https://docs.google.com/spreadsheets/d
 - [ ] 5.3 Enemies and bosses based on run time: 23 owner enemies, including five bosses, in tiers E1–E5 (see the content roadmap).
 - [ ] 5.4 Balance using local run logs under .tmp/.
 - [ ] 5.5 Metaprogression pending owner decision.
+- [ ] 5.6 Projectile splash: bolts damage the nearest enemies within a 30 px radius of the impact instead of only the primary target. Acceptance: a bolt landing in a cluster damages every enemy within 30 px, damage falls off with distance, and a test covers the radius and the falloff.
 
 ## P6. Polish and release
 

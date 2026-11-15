@@ -56,4 +56,4 @@ See [networking](NETWORKING.md) and [modding](MODDING.md). The base game uses th
 
 ## Profiling
 
-The bench title shows FPS, CPU VFX time, sprites, enemies, lights, and scale. P1 adds GPU timer queries per pass, a frame-time graph, and min/avg/p99 reports under `.tmp/bench/`.
+The bench title shows FPS, CPU frame time with p99, CPU VFX time, sprites, enemies, lights, and scale. It writes per-frame interval, CPU, and VFX timings with min/avg/p99 to `.tmp/bench/frames.csv`, and `--report PATH` overrides the path. P1 still adds GPU timer queries per pass and a frame-time graph.
