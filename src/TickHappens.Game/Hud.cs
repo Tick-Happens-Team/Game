@@ -10,7 +10,7 @@ using TickHappens.Game.Sim;
 namespace TickHappens.Game;
 
 /// <summary>Screen-space HUD, character select and overlays drawn into the renderer's UI layer, plus short-lived world rings.</summary>
-internal sealed class Hud
+internal sealed class Hud(GameSettings settings)
 {
     private const uint Ink = 0xFF22141Au, White = 0xFFEAECF4u, Teal = 0xFFDEF08Fu, TealDark = 0xFF6A8A1Fu, Gold = 0xFF3DC2FFu,
         Red = 0xFF2028C9u, RedDark = 0xFF17128Au, Grey = 0xFF857A6Cu, Panel = 0xFF331B2Bu;
@@ -170,7 +170,7 @@ internal sealed class Hud
         else if (paused) Dim(ui, w, h, 0.5f);
     }
 
-    private static void DrawChestOffer(PixelCanvas ui, RunWorld world, int width)
+    private void DrawChestOffer(PixelCanvas ui, RunWorld world, int width)
     {
         var p = world.Player;
         int left = Math.Max(0, p.ChestOfferUntilTick - world.Tick);
@@ -181,16 +181,17 @@ internal sealed class Hud
         int x = (width - totalWidth) / 2;
         PixelFont.DrawCentered(ui, Localizer.Format("hud.chestChoice", seconds), width / 2, 43, Gold, Ink);
         Bar(ui, x + 1, 53, totalWidth - 2, 2, (float)left / RunWorld.ChestChoiceTicks, Gold, Panel);
-        DrawChestCard(ui, world.Content.Items[p.ChestOfferFirst], 1, x, cardWidth);
-        DrawChestCard(ui, world.Content.Items[p.ChestOfferSecond], 2, x + cardWidth + 4, cardWidth);
-        if (count == 3) DrawChestCard(ui, world.Content.Items[p.ChestOfferThird], 3, x + (cardWidth + 4) * 2, cardWidth);
+        DrawChestCard(ui, world.Content.Items[p.ChestOfferFirst], RunAction.Chest1, x, cardWidth);
+        DrawChestCard(ui, world.Content.Items[p.ChestOfferSecond], RunAction.Chest2, x + cardWidth + 4, cardWidth);
+        if (count == 3)
+            DrawChestCard(ui, world.Content.Items[p.ChestOfferThird], RunAction.Chest3, x + (cardWidth + 4) * 2, cardWidth);
     }
 
-    private static void DrawChestCard(PixelCanvas ui, ItemDef item, int choice, int x, int width)
+    private void DrawChestCard(PixelCanvas ui, ItemDef item, RunAction choice, int x, int width)
     {
         const int top = 58;
         int columns = Math.Max(1, (width - 12) / PixelFont.Advance);
-        string title = $"[{choice}] {ItemName(item)}";
+        string title = $"[{GameSettings.KeyLabel(settings.Keys[(int)choice])}] {ItemName(item)}";
         string description = Localizer.Content("items", item.Id, "description", item.Description);
         var titleLines = Wrap(title, columns).ToArray();
         var descriptionLines = Wrap(description, columns).ToArray();

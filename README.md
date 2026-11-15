@@ -16,7 +16,8 @@ Pick one of six heroes from the owner roster (Octarine, Swordsman, Smith, Goflin
 |---|---|
 | WASD / arrows | Move |
 | Space | Dash (short invulnerable burst, cooldown bar under the hero) |
-| A / D or arrows, Space / Enter | Choose a hero / start the run on the character screen |
+| W / S or arrows, Space / Enter | Choose a hero / start the run on the character screen |
+| F3 | Open volume and control settings on the character screen |
 | Esc / P | Open or close the pause menu during a solo run |
 | R | Back to hero select after death or from pause |
 

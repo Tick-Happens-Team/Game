@@ -29,6 +29,13 @@ internal sealed class GameAudio : IDisposable
 
     public bool Enabled { get; }
 
+    public void ApplyVolumes(GameSettings settings)
+    {
+        _mixer.MasterVolume = settings.Master / 100f;
+        _mixer.MusicVolume = 0.55f * settings.Music / 100f;
+        _mixer.SfxVolume = 0.9f * settings.Effects / 100f;
+    }
+
     public GameAudio(bool openDevice, string? recordPath)
     {
         _recordPath = recordPath;
