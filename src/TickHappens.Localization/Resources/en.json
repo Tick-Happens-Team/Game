@@ -87,7 +87,7 @@
   "online.readyStatus": "READY",
   "online.notReadyStatus": "NOT READY",
   "online.heroTaken": "TAKEN",
-  "online.waitingForThree": "AT LEAST 3 PLAYERS REQUIRED",
+  "online.waitingForTwo": "AT LEAST 2 PLAYERS REQUIRED",
   "online.waitingReady": "WAITING FOR EVERYONE TO READY UP",
   "online.start": "START RUN  ENTER",
   "online.code": "CODE: {0}",

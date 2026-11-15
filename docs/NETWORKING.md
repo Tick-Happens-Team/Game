@@ -1,4 +1,4 @@
-# Online co-op for 3–4 players
+# Online co-op for 2–4 players
 
 Players install the game through the launcher from GitHub Releases. Hosting and joining happen in the game, including when launched directly. LAN play uses LiteNetLib. Internet play uses EOS with a guest device identity.
 
@@ -13,7 +13,7 @@ Players install the game through the launcher from GitHub Releases. Hosting and 
 
 ### LAN and direct IPv4
 
-Open **Co-op** with **F1** in the character menu. On the host, choose **Create lobby** with **F2**. Clients on the same subnet can choose **Find LAN room** with **F3**. If discovery finds multiple rooms or broadcasts are blocked, use **Direct IP** with **F5** and enter the host's IPv4 address. An optional `:port` overrides the default UDP port 39230. The period key enters a dot and the semicolon key enters a colon. The host can start with **Enter** after at least three players have joined and everyone is ready.
+Open **Co-op** with **F1** in the character menu. On the host, choose **Create lobby** with **F2**. Clients on the same subnet can choose **Find LAN room** with **F3**. If discovery finds multiple rooms or broadcasts are blocked, use **Direct IP** with **F5** and enter the host's IPv4 address. An optional `:port` overrides the default UDP port 39230. The period key enters a dot and the semicolon key enters a colon. The host can start with **Enter** after at least two players are in the room and every player has marked themselves ready.
 
 For a two-computer smoke test, allow inbound UDP 39230 on the host's private network. Try discovery and direct IPv4 in separate runs, move and dash on both peers, and verify that closing the host shows the guest's results. Both users need matching game builds and enabled gameplay content.
 

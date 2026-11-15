@@ -34,8 +34,7 @@ public sealed class LanTransportTests
         host.ToggleReady();
         guest.ToggleReady();
         await PumpUntil(() => host.EveryoneReady && guest.LocalReady);
-        host.Start();
-        Assert.False(host.Playing);
+        Assert.True(host.CanStart);
         host.ToggleReady();
         guest.ToggleReady();
         await PumpUntil(() => !guest.LocalReady);

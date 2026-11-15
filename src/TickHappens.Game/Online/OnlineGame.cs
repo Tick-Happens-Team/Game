@@ -67,7 +67,7 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
     internal long SentLanBytes => _lan?.SentBytes ?? 0;
     internal int LastSubmittedInput => _lastSubmittedInput;
     public int PlayerCount => _session?.PlayerCount ?? 0;
-    internal const int MinPlayers = 3;
+    internal const int MinPlayers = 2;
     public bool CanStart => IsHost && !_started && PlayerCount >= MinPlayers && _session!.EveryoneReady;
     public bool CanReady => !_started && LocalSlot is int slot && PlayerHero(slot) is not null;
     public bool EveryoneReady => _session?.EveryoneReady == true;
