@@ -33,7 +33,7 @@
 | 1.4 | [x] Instanced SpriteBatch, atlas, animation | P! | — | About 2,850 sprites per draw in the bench. |
 | 1.5 | [ ] Back and front CPU VFX passes | P+ | 0.11 | Scorch below enemies and sparks above in a screenshot. |
 | 1.6 | [ ] Bake VFX flipbooks into a VFX atlas | P+ | 0.11 | 200 concurrent explosions use ≤2 ms CPU per frame. |
-| 1.7 | [ ] SDL3 audio streams, mixer, voice pool, SFX caps, buses | P+ | 1.1 | 100 hits per frame without clipping or stalls. |
+| 1.7 | [x] SDL3 audio streams, mixer, voice pool, SFX caps, buses | P+ | 1.1 | 100 hits per frame without clipping or stalls. `AudioMixer` (48 voices, per-clip caps, music and effect buses, looping crossfaded music, peak limiter) is fed from the main thread into an SDL3 stream by `AudioDevice`. `Hundred_hits_per_frame_never_clip_and_respect_the_instance_cap` covers the acceptance; `--record-audio` measured a 30 s demo at about -18 dBFS RMS and 0.73 peak. |
 | 1.8 | [~] GPU queries, frame overlay, min/avg/p99 reports | P+ | 1.4 | Bench writes per-frame interval, CPU, and VFX timings with min/avg/p99 to `.tmp/bench/frames.csv` and shows CPU p99 in the title. GPU timer queries remain. |
 | 1.9 | [x] Bitmap font and UI layer above upscale | P! | 1.4 | Built-in 5×7 PixelFont and screen-space UiFrame composited after tonemapping. HUD, damage numbers and cards verified in captures at ×2. Cyrillic glyphs pending 6.2. |
 | 1.10 | [ ] Development hot reload of shaders and atlas | P- | 1.4 | Edits to frag or indexed art appear without restart. |
@@ -94,7 +94,8 @@ Depends on P2. The owner's [Google Sheet](https://docs.google.com/spreadsheets/d
 
 ## P6. Polish and release
 
-- [ ] 6.1 Sound and music.
+- [~] 6.1 Sound and music. AssetTool `audio` renders 17 effect recipes and two music recipes (run and hero select) from Assets into WAV; combat, pickup, progression, dash and menu events play panned by position. Owner listening review, settings volume controls and more tracks for later run phases remain.
+- [~] 6.10 Presentation pass. The camera shows at least 426×240 art pixels (×3 at 720p, ×4 at 1080p) with an eased look-ahead; the UI keeps its 640×360 layout at its own scale. Dusk look with moonlight on normal maps, drifting cloud shadows, contact shadows, fireflies, event light flashes, a split-toned grade, diorama tilt-shift, hit aberration and screen flashes. Dash plays `DashSplashEffect` (shockwave, droplet crown with landing ripples, speed streaks), afterimages, sparks and a camera kick. Verified in captures; tuning with the owner and the settings toggles from 6.2 remain.
 - [~] 6.2 Game and launcher have English and Russian localization with a shared language preference. Menu expansion, scale, effect brightness, VfxOpacity, and screen shake settings remain.
 - [ ] 6.3 Profile and optimize. Consider SDL_GPU for macOS if needed.
 - [~] 6.4 Bootstrap CI for Game and Assets, with an atlas release and a Windows benchmark artifact. Complete signed game and launcher publication after 1.11, 6.8, and 6.9. Validate the exact package pair and recover from interrupted publishes.

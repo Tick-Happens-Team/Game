@@ -35,16 +35,21 @@ Game depends on Engine. Net depends on the game protocol and Engine. The engine 
 
 ## Render pipeline
 
-Rendering uses 640×360 art pixels and two pixels of padding on each side for fractional camera movement. A screen-space UI layer (`PixelRenderer.UiFrame`, built-in 5×7 `PixelFont`) is composited after tonemapping without the camera offset, so HUD text stays crisp at every integer scale.
+Rendering uses an integer scale chosen so the world view is at least `MinViewW × MinViewH` art pixels (640×360 in the bench, 426×240 in the game), plus two pixels of padding on each side for fractional camera movement. A screen-space UI layer (`PixelRenderer.UiFrame`, built-in 5×7 `PixelFont`) keeps the 640×360 layout at its own integer scale (`UiScale`, `UiW × UiH`) and is composited after grading without the camera offset, so HUD text stays crisp and the HUD layout does not change with the world zoom.
 
 1. The RGBA8 MRT G-buffer stores albedo, normals, and emission. SpriteBatch draws up to 65,536 instanced quads per flush with one atlas and an alpha test using `texelFetch`. Draw terrain first and actors in Y order. Instance flags handle X mirroring and emission. `tint.a < 1` supplies a white hit flash.
 2. CPU effects draw camera-relative color and light to PixelFrame and upload two textures.
-3. Lighting uses RGBA16F. Albedo is multiplied by ambient and accumulated point lights using N·L. Six light levels use 4×4 Bayer dithering. The 64 lights nearest the camera are used. The VFX light layer illuminates the world, the color layer is self-lit, and HDR emission is multiplied by 1.8.
-4. GPU particles use an SSBO ring of 131,072 entries and compute integration. They draw one-pixel additive points and strokes using GL_LINES in HDR.
-5. Bloom uses five levels, soft-threshold downsampling, and bilinear tent upsampling.
-6. The final pass uses integer upscaling with fractional camera offset and texelFetch, followed by bloom and a vignette. Tone mapping rolls off only values above 0.82 to preserve palette colors in neutral lighting.
+3. After terrain, contact shadows (`shadow.frag`, dithered ellipses) multiply into the albedo attachment only (`BeginAlbedoMultiply`).
+4. Lighting uses RGBA16F. Albedo is multiplied by ambient, a directional key light (`Sun*`) on the normal maps, drifting value-noise cloud shadows (`Clouds`) and accumulated point lights using N·L. Six light levels use 4×4 Bayer dithering. The 64 lights nearest the camera are used. The VFX light layer illuminates the world, the color layer is self-lit, and HDR emission is multiplied by 1.8.
+5. GPU particles use an SSBO ring of 131,072 entries and compute integration. They draw one-pixel additive points and strokes using GL_LINES in HDR.
+6. Bloom uses five levels, soft-threshold downsampling, and bilinear tent upsampling.
+7. The final pass uses integer upscaling with fractional camera offset and texelFetch, an optional diorama tilt-shift blur toward the top and bottom, per-frame chromatic aberration and flash, bloom, a highlight shoulder above 0.82, then a grade (split toning, contrast, saturation, lift) and a vignette. Defaults leave the grade neutral so palette colors stay exact in the bench.
 
 Debug controls include lighting (F1), bloom (F2), G-buffer and VFX light views (F3), light bands (F4), effect opacity (Tab), and screenshots (F12). CPU effects currently draw above all actors, including scorch marks. P1 introduces separate back and front passes.
+
+## Audio
+
+`TickHappens.Engine.Audio` has no new dependencies. `WavFile` reads and writes 16-bit PCM. `AudioMixer` mixes stereo at 32 kHz without a device: 48 pooled voices with linear-interpolated pitch, a per-clip instance cap that replaces the oldest copy, music and effect buses, two music slots for crossfades, and a limiter (instant attack, 150 ms release, soft knee) that keeps the output below full scale. `AudioDevice` opens the default SDL3 playback stream and tops its queue up from the main thread to max(70 ms, 1.5 frames) of audio, so the mixer never runs on the audio thread. The game's `GameAudio` maps simulation events to effects with distance attenuation and equal-power panning around the local hero, caps hits, kills and pickups per frame, raises the pitch of crystal streaks, ducks music while paused and after death, and switches between the hero-select and run tracks. Audio is cosmetic and never networked. Runs with `--frames` stay silent unless `--record-audio PATH` mixes exactly one frame of audio per rendered frame into a WAV for measurement.
 
 ## Simulation
 

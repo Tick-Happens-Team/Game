@@ -1,4 +1,4 @@
-using TickHappens.Localization;
+﻿using TickHappens.Localization;
 using System.Numerics;
 using Silk.NET.OpenGL;
 using TickHappens.Engine.Assets;
@@ -18,8 +18,8 @@ internal sealed class RunView : IDisposable
 {
     private const int Tile = 16, MaxCpuEffects = 28, MaxImpactsPerFrame = 4;
     private readonly PixelRenderer _renderer;
-    private readonly ShaderProgram _shader, _sim, _particleDraw;
-    private readonly SpriteBatch _batch;
+    private readonly ShaderProgram _shader, _shadowShader, _sim, _particleDraw;
+    private readonly SpriteBatch _batch, _shadows;
     private readonly GpuParticles _particles;
     private readonly Texture2D _albedo, _normals, _emission;
     private readonly AtlasSprite _chest, _grass, _stone, _gem, _statue;
@@ -33,7 +33,28 @@ internal sealed class RunView : IDisposable
     private readonly List<PointLight> _lights = new(64);
     private readonly Hud _hud;
     private readonly Random _cosmetic = new(7);
-    private float _shake, _time;
+    private float _shake, _time, _aberration, _flash, _moteDebt;
+    private uint _flashColor;
+    private Vector2 _camera, _kick;
+    private bool _cameraValid;
+
+    /// <summary>A short-lived point light from a combat event (kills, blasts, dashes) that fades out.</summary>
+    private struct Flash
+    {
+        public float X, Y, Radius, R, G, B, Life, MaxLife;
+    }
+
+    /// <summary>A dash afterimage: the hero sprite left behind, tinted and glowing, for a fraction of a second.</summary>
+    private struct Ghost
+    {
+        public float X, Y, Age;
+        public int Sprite, Frame;
+        public bool Flip;
+    }
+
+    private readonly List<Flash> _flashes = new(64);
+    private readonly List<Ghost> _ghosts = new(64);
+    private const float GhostLife = 0.3f;
 
     public PixelRenderer Renderer => _renderer;
 
@@ -64,11 +85,36 @@ internal sealed class RunView : IDisposable
         _sim = ShaderProgram.Compute(gl, Path.Combine(shaders, "particles.comp"));
         _particleDraw = ShaderProgram.FromFiles(gl, Path.Combine(shaders, "particles.vert"), Path.Combine(shaders, "particles.frag"));
         _batch = new SpriteBatch(gl, _shader);
+        _shadowShader = ShaderProgram.FromFiles(gl, Path.Combine(shaders, "sprite.vert"), Path.Combine(shaders, "shadow.frag"));
+        _shadows = new SpriteBatch(gl, _shadowShader);
         _particles = new GpuParticles(gl, _sim, _particleDraw, 1 << 15);
         _renderer = new PixelRenderer(gl, shaders);
-        _renderer.Settings.AmbientR = 0.42f;
-        _renderer.Settings.AmbientG = 0.40f;
-        _renderer.Settings.AmbientB = 0.55f;
+        // A closer camera (at least 426x240 art pixels of world; the UI keeps its 640x360 layout) and a dusk look:
+        // cool moonlight with drifting cloud shadows, warm hero light, a split-toned grade and a diorama blur.
+        _renderer.MinViewW = 426;
+        _renderer.MinViewH = 240;
+        var look = _renderer.Settings;
+        look.AmbientR = 0.27f;
+        look.AmbientG = 0.27f;
+        look.AmbientB = 0.42f;
+        look.SunR = 0.20f;
+        look.SunG = 0.22f;
+        look.SunB = 0.33f;
+        look.Clouds = 0.5f;
+        look.BloomStrength = 1.0f;
+        look.BloomThreshold = 1.0f;
+        look.Contrast = 1.1f;
+        look.Saturation = 1.06f;
+        look.Lift = 0.025f;
+        look.Split = 0.4f;
+        look.ShadowTintR = 0.82f;
+        look.ShadowTintG = 0.95f;
+        look.ShadowTintB = 1.15f;
+        look.HighlightTintR = 1.15f;
+        look.HighlightTintG = 1.03f;
+        look.HighlightTintB = 0.85f;
+        look.Vignette = 0.45f;
+        look.TiltShift = 1.4f;
         _hud = new Hud();
     }
 
@@ -83,6 +129,23 @@ internal sealed class RunView : IDisposable
         _effects.Clear();
         _hud.Reset();
         _shake = 0;
+        _flashes.Clear();
+        _ghosts.Clear();
+        _aberration = _flash = 0;
+        _kick = default;
+        _cameraValid = false;
+    }
+
+    private void AddFlash(float x, float y, float radius, float r, float g, float b, float life)
+    {
+        if (_flashes.Count < 40) _flashes.Add(new Flash { X = x, Y = y, Radius = radius, R = r, G = g, B = b, Life = life, MaxLife = life });
+    }
+
+    private void ScreenFlash(float amount, uint color)
+    {
+        if (amount < _flash) return;
+        _flash = amount;
+        _flashColor = color;
     }
 
     /// <summary>Turns the simulation's events into local cosmetics and HUD notices. Call once per frame, then clear the world's events.</summary>
@@ -99,12 +162,15 @@ internal sealed class RunView : IDisposable
                         _effects.Add(new ImpactEffect(new ImpactOptions { X = e.X * 2, Y = (e.Y - 6) * 2, Size = 0.45f, Seed = e.Seed }));
                     break;
                 case EventKind.Kill:
-                    Burst(e.X, e.Y - 6, 10, 70, 0xFFE070C0u, 0xFF5C1F4Au, 1.4f);
+                    Burst(e.X, e.Y - 6, 16, 85, 0xFFE070C0u, 0xFF5C1F4Au, 1.8f);
+                    AddFlash(e.X, e.Y - 6, 34, 0.9f, 0.35f, 0.8f, 0.18f);
                     break;
                 case EventKind.Blast:
                     if (_effects.Count < MaxCpuEffects)
                         _effects.Add(new ExplosionEffect(new ExplosionOptions { X = e.X * 2, Y = e.Y * 2, Size = MathF.Max(0.5f, e.Value / 40), Seed = e.Seed, Shake = Shake }));
                     Burst(e.X, e.Y, 90, 240, 0xFFA6F3FFu, 0xFF1D56F2u, 2.2f);
+                    AddFlash(e.X, e.Y - 8, 150, 1.6f, 0.9f, 0.4f, 0.4f);
+                    ScreenFlash(0.08f, 0xFF60C0FFu);
                     break;
                 case EventKind.Chain:
                 {
@@ -116,6 +182,7 @@ internal sealed class RunView : IDisposable
                         {
                             Kind = LightningKind.Arc, From = (pts[e.A].X * 2, pts[e.A].Y * 2), To = to, Duration = 0.35f, Seed = e.Seed,
                         }));
+                    for (int k = 1; k < e.B; k += 2) AddFlash(pts[e.A + k].X, pts[e.A + k].Y - 6, 50, 0.5f, 0.8f, 1.6f, 0.22f);
                     break;
                 }
                 case EventKind.Melee:
@@ -162,6 +229,8 @@ internal sealed class RunView : IDisposable
                     if (_effects.Count < MaxCpuEffects)
                         _effects.Add(new SparkleEffect(new SparkleOptions { X = e.X * 2, Y = (e.Y - 26) * 2, Size = 12, Seed = e.Seed }));
                     RingBurst(e.X, e.Y - 10, 26, 0xFFDEF08Fu, 0xFFC0C43Fu);
+                    AddFlash(e.X, e.Y - 16, 110, 1.4f, 1.2f, 0.5f, 0.6f);
+                    ScreenFlash(0.12f, 0xFF8FF0DEu);
                     _hud.Notice(Localizer.Format("notice.level", e.Value), 0xFFDEF08Fu);
                     break;
                 case EventKind.Statue:
@@ -169,6 +238,8 @@ internal sealed class RunView : IDisposable
                     Burst(e.X, e.Y - 20, 160, 160, 0xFF6BE2FFu, 0xFF3DC2FFu, 2.4f);
                     _hud.Notice(Localizer.Format("notice.statue", e.Value), 0xFF6BE2FFu);
                     Shake(0.5f);
+                    AddFlash(e.X, e.Y - 20, 160, 0.6f, 1.2f, 1.6f, 0.8f);
+                    ScreenFlash(0.18f, 0xFFFFE0A0u);
                     break;
                 case EventKind.Chest:
                 case EventKind.BossReward:
@@ -183,16 +254,45 @@ internal sealed class RunView : IDisposable
                 case EventKind.PlayerHurt:
                     Shake(0.35f);
                     Burst(e.X, e.Y - 10, 12, 80, 0xFF6060FFu, 0xFF1A1A8Au, 1.6f);
+                    _aberration = MathF.Max(_aberration, 1.6f);
+                    ScreenFlash(0.1f, 0xFF3030FFu);
                     break;
                 case EventKind.Dash:
-                    for (int k = 0; k < 14; k++)
+                {
+                    var dash = world.Rules.Dash;
+                    _effects.Add(new DashSplashEffect(new DashSplashOptions
+                    {
+                        X = e.X, Y = e.Y, Dx = e.X2, Dy = e.Y2, Distance = dash.Distance, Seconds = dash.Seconds, Seed = e.Seed,
+                    }));
+                    // Sparks thrown back from the feet and motes trailing along the path.
+                    for (int k = 0; k < 16; k++)
+                    {
+                        float ang = MathF.Atan2(-e.Y2, -e.X2) + (_cosmetic.NextSingle() - 0.5f) * 2.4f, sp = 60 + 140 * _cosmetic.NextSingle();
                         _particles.Spawn(new GpuParticle
                         {
-                            X = e.X + _cosmetic.NextSingle() * 6 - 3, Y = e.Y - _cosmetic.NextSingle() * 18,
-                            Vx = -e.X2 * 40, Vy = -e.Y2 * 40, Life = 0.35f, MaxLife = 0.35f, Drag = 4,
-                            ColorA = 0xFFDEF08Fu, ColorB = 0xFF8A561Fu, Intensity = 1.6f, Kind = 1,
+                            X = e.X, Y = e.Y - 2, Vx = MathF.Cos(ang) * sp, Vy = MathF.Sin(ang) * sp * 0.6f,
+                            Life = 0.2f + 0.3f * _cosmetic.NextSingle(), MaxLife = 0.5f, Drag = 5, Gravity = 60,
+                            ColorA = 0xFFFFF3A6u, ColorB = 0xFFF2561Du, Intensity = 1.3f, Kind = 0,
                         });
+                    }
+                    for (int k = 0; k < 18; k++)
+                        _particles.Spawn(new GpuParticle
+                        {
+                            X = e.X + e.X2 * dash.Distance * _cosmetic.NextSingle() + _cosmetic.NextSingle() * 6 - 3,
+                            Y = e.Y + e.Y2 * dash.Distance * _cosmetic.NextSingle() - _cosmetic.NextSingle() * 18,
+                            Vx = -e.X2 * 30, Vy = -e.Y2 * 30 - 10, Life = 0.45f, MaxLife = 0.45f, Drag = 3,
+                            ColorA = 0xFFFFF3A6u, ColorB = 0xFFF2561Du, Intensity = 1.4f, Kind = 1,
+                        });
+                    AddFlash(e.X, e.Y - 4, 80, 0.3f, 0.7f, 1.0f, 0.35f);
+                    AddFlash(e.X + e.X2 * dash.Distance, e.Y + e.Y2 * dash.Distance - 4, 64, 0.25f, 0.55f, 0.85f, 0.45f);
+                    if (Vector2.DistanceSquared(new Vector2(e.X, e.Y), world.Player.Pos) < 60 * 60)
+                    {
+                        _kick += new Vector2(e.X2, e.Y2) * 7;
+                        _aberration = MathF.Max(_aberration, 1.1f);
+                        Shake(0.22f);
+                    }
                     break;
+                }
                 case EventKind.Elite:
                     _hud.Notice(Localizer.Get("notice.elite"), 0xFFE070C0u);
                     break;
@@ -204,6 +304,25 @@ internal sealed class RunView : IDisposable
     }
 
     private void Shake(float t) => _shake = MathF.Max(_shake, t);
+
+    /// <summary>Fireflies and pollen drifting through the view: slow motes that rise and flicker.</summary>
+    private void SpawnMotes(float dt, int ox, int oy, int tw, int th)
+    {
+        _moteDebt += dt * 16;
+        for (; _moteDebt >= 1; _moteDebt--)
+        {
+            bool firefly = _cosmetic.NextSingle() < 0.55f;
+            float life = 2.5f + 2.5f * _cosmetic.NextSingle();
+            _particles.Spawn(new GpuParticle
+            {
+                X = ox + _cosmetic.NextSingle() * tw, Y = oy + _cosmetic.NextSingle() * th,
+                Vx = (_cosmetic.NextSingle() - 0.5f) * 10, Vy = -2 - 6 * _cosmetic.NextSingle(),
+                Life = life, MaxLife = life, Drag = 0.2f, Gravity = -1.5f,
+                ColorA = firefly ? 0xFF8FF8E6u : 0xFFF0D0E8u, ColorB = firefly ? 0xFF2A8A3Du : 0xFF6A3D8Au,
+                Intensity = firefly ? 2.6f : 1.1f, Kind = 1,
+            });
+        }
+    }
 
     private void Burst(float x, float y, int n, float speed, uint a, uint b, float intensity)
     {
@@ -260,10 +379,24 @@ internal sealed class RunView : IDisposable
         }
         _shake = MathF.Max(0, _shake - frameDt * 2.2f);
         float sx = (_cosmetic.NextSingle() - 0.5f) * _shake * _shake * 8, sy = (_cosmetic.NextSingle() - 0.5f) * _shake * _shake * 8;
+        // The camera eases after the hero with a little look-ahead, and a dash kicks it forward briefly.
+        float ease = paused ? 1 : 1 - MathF.Exp(-frameDt * 7);
+        var lead = p.Walking && !paused ? p.Facing * 12 : Vector2.Zero;
+        var aim = hero + new Vector2(0, -10) + lead;
+        _camera = _cameraValid ? Vector2.Lerp(_camera, aim, ease) : aim;
+        _cameraValid = true;
+        _kick *= MathF.Exp(-frameDt * 9);
         // Keep the camera inside the arena so the void beyond the edge never shows.
         float arena = world.Rules.ArenaSize, halfW = _renderer.ViewW / 2f, halfH = _renderer.ViewH / 2f;
-        float camX = Math.Clamp(hero.X, halfW, MathF.Max(halfW, arena - halfW));
-        float camY = Math.Clamp(hero.Y - 10, halfH, MathF.Max(halfH, arena - halfH));
+        float camX = Math.Clamp(_camera.X + _kick.X, halfW, MathF.Max(halfW, arena - halfW));
+        float camY = Math.Clamp(_camera.Y + _kick.Y, halfH, MathF.Max(halfH, arena - halfH));
+        _aberration = MathF.Max(0, _aberration - frameDt * 5);
+        _flash = MathF.Max(0, _flash - frameDt * 0.6f);
+        var look = _renderer.Settings;
+        look.Aberration = _aberration;
+        look.FlashR = (_flashColor & 255) / 255f * _flash;
+        look.FlashG = ((_flashColor >> 8) & 255) / 255f * _flash;
+        look.FlashB = ((_flashColor >> 16) & 255) / 255f * _flash;
         _renderer.BeginFrame(width, height, camX + sx, camY + sy);
         int ox = _renderer.OriginX, oy = _renderer.OriginY, tw = _renderer.TargetW, th = _renderer.TargetH;
 
@@ -275,6 +408,62 @@ internal sealed class RunView : IDisposable
         {
             if (!world.GAlive[i] || world.GKind[i] != PickupKind.Xp || !Visible(world.GX[i], world.GY[i])) continue;
             _batch.Draw(_gem, _gem.Anims["spin"].Frames[(int)(_time * 6 + i) % 2], world.GX[i] - ox, world.GY[i] - oy);
+        }
+
+        _batch.Flush(_albedo, _normals, _emission, tw, th);
+
+        // Contact shadows under everything that stands on the ground, multiplied into the albedo.
+        _renderer.BeginAlbedoMultiply();
+        _shadows.Begin();
+        for (int i = 0; i < world.EnemyHighWater; i++)
+        {
+            if (!world.EAlive[i] || !Visible(world.EX[i], world.EY[i])) continue;
+            var pos = world.EnemyPos(i, alpha);
+            float sw = MathF.Max(6, _enemySprites[world.EDef[i]].W * 0.6f);
+            _shadows.DrawRect(pos.X - ox - sw / 2, pos.Y - oy - 2, sw, 5, 0x8C000000u);
+        }
+        for (int i = 0; i < world.Players.Count; i++)
+        {
+            var player = world.Players[i];
+            if (!player.Active || player.Hp <= 0) continue;
+            var position = _displayPlayers[i];
+            _shadows.DrawRect(position.X - ox - 7, position.Y - oy - 2, 14, 5, 0x99000000u);
+        }
+        foreach (var st in world.Statues) if (Visible(st.X, st.Y)) _shadows.DrawRect(st.X - ox - 10, st.Y - oy - 3, 20, 7, 0x99000000u);
+        foreach (var ch in world.Chests) if (Visible(ch.X, ch.Y)) _shadows.DrawRect(ch.X - ox - 9, ch.Y - oy - 2, 18, 5, 0x8C000000u);
+        _shadows.Flush(_albedo, _normals, _emission, tw, th);
+        _renderer.EndAlbedoMultiply();
+
+        // Dash afterimages: recorded while a hero dashes, drawn glowing cyan and thinned out as they age.
+        float gdt = paused ? 0 : frameDt;
+        for (int i = _ghosts.Count - 1; i >= 0; i--)
+        {
+            var g = _ghosts[i];
+            g.Age += gdt;
+            if (g.Age >= GhostLife) _ghosts.RemoveAt(i);
+            else _ghosts[i] = g;
+        }
+        for (int i = 0; i < world.Players.Count; i++)
+        {
+            var player = world.Players[i];
+            if (paused || !player.Active || player.DashTicks <= 0 || _ghosts.Count >= _ghosts.Capacity) continue;
+            int spriteIndex = world.Content.CharacterIndex(player.Character.Id);
+            var sprite = _heroSprites[spriteIndex];
+            var anim = sprite.Anims[sprite.Anims.ContainsKey("walk") ? "walk" : "idle"];
+            _ghosts.Add(new Ghost
+            {
+                X = _displayPlayers[i].X, Y = _displayPlayers[i].Y, Sprite = spriteIndex, Flip = player.FacingLeft,
+                Frame = anim.Frames[(int)(_time * anim.Fps) % anim.Frames.Count],
+            });
+        }
+        _batch.Begin();
+        for (int i = 0; i < _ghosts.Count; i++)
+        {
+            var g = _ghosts[i];
+            float k = g.Age / GhostLife;
+            if (k > 0.5f && (i + (int)(_time * 30)) % 2 == 0) continue;  // flicker out
+            uint tint = k < 0.12f ? 0xD8FFF0C0u : 0xFFFFD070u;
+            _batch.Draw(_heroSprites[g.Sprite], g.Frame, g.X - ox, g.Y - oy, g.Flip, tint, (byte)(70 * (1 - k)));
         }
 
         // Actors and props sorted by ground Y (painter's order).
@@ -449,7 +638,24 @@ internal sealed class RunView : IDisposable
 
         _lights.Clear();
         float flick = 0.94f + 0.06f * MathF.Sin(_time * 11) * MathF.Sin(_time * 6.1f);
-        _lights.Add(new PointLight { X = hero.X - 5, Y = hero.Y - 20, Radius = 130, R = 1.0f * flick, G = 0.78f * flick, B = 0.52f * flick, Height = 26 });
+        _lights.Add(new PointLight { X = hero.X - 5, Y = hero.Y - 20, Radius = 160, R = 0.9f * flick, G = 0.68f * flick, B = 0.42f * flick, Height = 26 });
+        for (int i = _flashes.Count - 1; i >= 0; i--)
+        {
+            var f = _flashes[i];
+            f.Life -= dt;
+            if (f.Life <= 0) { _flashes.RemoveAt(i); continue; }
+            _flashes[i] = f;
+            float k = f.Life / f.MaxLife;
+            k *= k;
+            _lights.Add(new PointLight { X = f.X, Y = f.Y, Radius = f.Radius * (0.7f + 0.3f * k), R = f.R * k, G = f.G * k, B = f.B * k, Height = 14 });
+        }
+        int boltLights = 0;
+        for (int i = 0; i < RunWorld.ProjectileCapacity && boltLights < 12; i++)
+            if (world.PAlive[i] && Visible(world.PX[i], world.PY[i]))
+            {
+                _lights.Add(new PointLight { X = world.PX[i], Y = world.PY[i] + 4, Radius = 30, R = 0.9f, G = 0.85f, B = 0.35f, Height = 8 });
+                boltLights++;
+            }
         _lights.Add(new PointLight { X = hero.X, Y = hero.Y - 16, Radius = 30, R = 0.2f, G = 0.7f, B = 0.65f, Height = 10 });
         if (online)
         {
@@ -474,6 +680,7 @@ internal sealed class RunView : IDisposable
             if (!world.ChestOpen[c] && Visible(world.Chests[c].X, world.Chests[c].Y))
                 _lights.Add(new PointLight { X = world.Chests[c].X, Y = world.Chests[c].Y - 8, Radius = 40, R = 0.5f, G = 0.4f, B = 0.15f, Height = 10 });
         _renderer.Light(_lights.ToArray(), _time);
+        SpawnMotes(dt, ox, oy, tw, th);
         _particles.Update(dt);
         _renderer.BindLit();
         _particles.Draw(ox, oy, tw, th, _time);
@@ -544,7 +751,9 @@ internal sealed class RunView : IDisposable
         _particles.Dispose();
         _renderer.Dispose();
         _batch.Dispose();
+        _shadows.Dispose();
         _shader.Dispose();
+        _shadowShader.Dispose();
         _sim.Dispose();
         _particleDraw.Dispose();
         _emission.Dispose();

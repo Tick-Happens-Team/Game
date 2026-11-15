@@ -49,13 +49,13 @@ internal sealed class OnlineMenu(OnlineGame game)
 
     public void Read(GameWindow window, PixelRenderer renderer, string character, uint seed)
     {
-        int w = renderer.ViewW, h = renderer.ViewH;
+        int w = renderer.UiW, h = renderer.UiH;
         var click = window.LeftClick;
         bool Click(int x, int y, int width, int height) =>
-            click is { } point && point.X * window.Width / renderer.Scale >= x &&
-            point.X * window.Width / renderer.Scale < x + width &&
-            point.Y * window.Height / renderer.Scale >= y &&
-            point.Y * window.Height / renderer.Scale < y + height;
+            click is { } point && point.X * window.Width / renderer.UiScale >= x &&
+            point.X * window.Width / renderer.UiScale < x + width &&
+            point.Y * window.Height / renderer.UiScale >= y &&
+            point.Y * window.Height / renderer.UiScale < y + height;
 
         if (_editingNickname is not null)
         {
@@ -167,7 +167,7 @@ internal sealed class OnlineMenu(OnlineGame game)
     public void Draw(PixelRenderer renderer)
     {
         var ui = PixelCanvas.ColorOf(renderer.UiFrame);
-        int x = renderer.ViewW / 2, y = renderer.ViewH / 2;
+        int x = renderer.UiW / 2, y = renderer.UiH / 2;
         void Button(string label, int top, bool enabled = true, int offset = 0, int width = 180)
         {
             int center = x + offset;
@@ -178,10 +178,10 @@ internal sealed class OnlineMenu(OnlineGame game)
         }
         if (!IsOpen)
         {
-            Button(Localizer.Get("online.entry"), renderer.ViewH - 38);
+            Button(Localizer.Get("online.entry"), renderer.UiH - 38);
             return;
         }
-        int halfWidth = Math.Min(renderer.ViewW / 2 - 3, game.InRoom ? 185 : 130);
+        int halfWidth = Math.Min(renderer.UiW / 2 - 3, game.InRoom ? 185 : 130);
         for (int dy = -82; dy < 80; dy++)
             for (int dx = -halfWidth; dx <= halfWidth; dx++)
                 ui.Set(x + dx, y + dy, Ink);

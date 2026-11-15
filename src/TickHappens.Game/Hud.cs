@@ -97,7 +97,7 @@ internal sealed class Hud
     public void Draw(PixelRenderer renderer, RunWorld world, Vector2 hero, float dt, bool paused, bool online, string? interruption, bool canReconnect)
     {
         var ui = PixelCanvas.ColorOf(renderer.UiFrame);
-        int w = renderer.ViewW, h = renderer.ViewH;
+        int w = renderer.UiW, h = renderer.UiH;
         var p = world.Player;
 
         // Floating damage numbers (world anchored), colored by damage type.
@@ -214,7 +214,7 @@ internal sealed class Hud
     public void DrawMenu(PixelRenderer renderer, ContentSet content, int selected)
     {
         var ui = PixelCanvas.ColorOf(renderer.UiFrame);
-        int w = renderer.ViewW, h = renderer.ViewH;
+        int w = renderer.UiW, h = renderer.UiH;
         for (int y = 0; y < h; y++)
             for (int x = 0; x < w; x++)
                 if (x < w / 2 - 40 || x > w / 2 + 40 || y < h / 2 - 50 || y > h / 2 + 20) ui.Blend(x, y, 0xFF140A10u, 0.55f);
