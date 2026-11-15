@@ -1,15 +1,17 @@
-# Content roadmap: characters and items
+# Content roadmap: characters, items, and enemies
 
 This plan orders the owner's character, item and enemy lists by how easy they are to add. Each tier builds on the engine systems introduced by the tiers before it, and every finished tier is playable content. Russian names are the canonical content names. Content is data in `content/core/*.json` (see the `add-content` skill); new behaviour is added as engine systems (S0–S14) shared by many entries.
+
+The [owner's Google Sheet](https://docs.google.com/spreadsheets/d/1q4DUxTFMWcSg_zevYYDIWf2DWFH_v2YpFHKe_LTDcOM/edit) is the source of truth for content names, stats, and effects. This roadmap tracks implementation order and status.
 
 Status markers follow the main [roadmap](../ROADMAP.md): `[x]` verified, `[ ]` pending, `[~]` partial.
 
 ## 1. What the engine already has
 
-- **Run loop:** run clock, waves, enemies, XP and level-up cards, gold that belongs to the killer, chests at 10 gold with ×1.5 per purchase, statues, dash.
-- **Stats:** `maxHp`, `armor` (flat), `moveSpeed`, `regen`, `magnet`, `might`, `area`, `cooldown`, `amount`, with additive and percentage modifiers and level-up passives.
+- **Run loop:** run clock, waves, enemies, XP and automatic stat growth, gold that belongs to the killer, chests at 10 gold with ×1.5 per purchase, statues, dash.
+- **Stats:** `maxHp`, `armor` (percentage physical reduction), `moveSpeed`, `regen`, `magnet`, `might`, `area`, `cooldown`, `amount`, with additive and percentage modifiers and level-up passives.
 - **Weapon kinds:** `bolt` (projectiles), `pulse` (aura burst), `chain` (lightning hops), `blast` (explosion in the densest spot). `CombatArea` also provides circle and cone geometry with falloff.
-- **Damage types:** `physical`, `magical` and `pure` exist in data, but resistances do not use them yet.
+- **Damage types:** `physical`, `magical` and `pure` are supported. Physical and magical damage use the corresponding defences, while pure damage bypasses them.
 - **VFX:** explosion, impact, slash, lightning, sparkle, pickup, and GPU particles.
 
 Milestone M1 is done: stat model v2 (S0), hero basic attack (S1), the damage pipeline with types and percentage defences (S2), chest loot by rarity with stacking items (S13), six C1 heroes with sprites, six I1 items and the character select screen, all covered by tests. Everything else below is pending unless marked otherwise.
@@ -18,8 +20,8 @@ Milestone M1 is done: stat model v2 (S0), hero basic attack (S1), the damage pip
 
 | ID | System | Depends on | Acceptance |
 |---|---|---|---|
-| S0 | **Character stat model v2.** See §3. | — | All 16 characters load from JSON with their table values. Unit tests cover per-level growth and percentage defences. |
-| S1 | **Hero basic attack** driven by the character's «Damage» and «Attack speed». Shape pending owner answer Q1. | S0 | Each character attacks with its own damage and rate. Damage and attack speed scale with level. |
+| S0 | **Character stat model v2.** See §3. | — | All 17 characters load from JSON with their table values. Unit tests cover per-level growth and percentage defences. |
+| S1 | **Hero basic attack** driven by the character's «Damage» and «Attack speed». Auto-aimed projectiles use the shape described in §8. | S0 | Each character attacks with its own damage and rate. Damage and attack speed scale with level. |
 | S2 | **Damage pipeline.** Hit = base × source multipliers (hero, items, damage type) → crit → target defence (armor % for physical, Magic resist % for magical, none for pure) → on-hit and on-damage-taken hooks. Every hit carries source (hero / item id / summon owner), type and flags (crit, proc, reflected). | S0 | Order-independent multiplier tests. Pure damage ignores defences. Summon damage credits the summon owner. |
 | S3 | **Crit:** separate chance per damage type and a shared crit damage multiplier. | S2 | Deterministic crit rolls from the seeded RNG. |
 | S4 | **Healing layer:** lifesteal (by damage type), shields (absorb, regenerating), heal-received events, a conditional regen hook. | S2 | Lifesteal and shields are tested. Shields show on the HUD. |
@@ -30,8 +32,8 @@ Milestone M1 is done: stat model v2 (S0), hero basic attack (S1), the damage pip
 | S9 | **Defensive procs:** block chance (any or physical only), block on cooldown, reflect (percentage and threshold), vision radius modifier. | S2, S5 | Tests cover each proc. Vision radius changes the camera or fog. |
 | S10 | **Dash extensions:** extra charges, long dash, dash cooldown stat, on-dash buffs. | existing dash | HUD shows charges. |
 | S11 | **Companions and summons:** an entity kind with HP, AI (follow, orbit, attack nearest, kamikaze, decoy, fetch XP), lifetime and respawn. Damage credits the owner. | S2, S5 | Gnome, drone and decoy work in solo play. Summon kills credit their owner's gold. |
-| S12 | **Allies:** an "ally" query covering co-op players and summons, radius auras, ally buffs, and heal sharing. Solo rule pending owner answer Q6. | S11, P3 for co-op | Auras affect summons in solo and players in co-op. |
-| S13 | **Economy and loot:** gold multiplier, refund on spend, chest loot tables by rarity (Common, Rare, Epic, Mythic, Legendary), item slots and stacking. | S0 | Chest rewards follow rarity weights from JSON. |
+| S12 | **Allies:** an "ally" query covering co-op players and summons, radius auras, ally buffs, and heal sharing. Auras include their owner in solo. | S11, P3 for co-op | Auras affect summons in solo and players in co-op. |
+| S13 | **Economy and loot:** gold multiplier, refund on spend, chest loot tables by rarity (Common, Rare, Epic, Mythic, Legendary), item stacking, and cursed boss drops. | S0; E6 for boss drops | Chest rewards match the sheet's rarity chances, and bosses drop their assigned cursed items. |
 | S14 | **Cursor targeting (Scope):** a manual aim point for abilities that support it. This is the only manual targeting allowed by AGENTS.md. | S6 | With Scope, `bolt`, `cone`, `melee` and `snipe` aim at the cursor. Without it, they auto-target. |
 
 ## 3. Character stat model (S0)
@@ -55,7 +57,7 @@ The table uses these columns. The source marks every character as official.
 "passives": [ { "id": "octarine_cooldown", "params": { "cooldown": -0.10 }, "perLevel": { "cooldown": -0.0015 } } ]
 ```
 
-**Migration:** the current demo character `clockwarden` uses flat armor and no basic attack. It is replaced by the real roster in Tier C1.
+Tier C1 replaced the demo character `clockwarden` with six heroes using this model.
 
 ## 4. Characters ordered by ease
 
@@ -87,7 +89,7 @@ Stats are copied from the owner's table. Growth means the per-level value of the
 |---|---|---|---|---|---|---|---|---|---|---|
 | 11 | Skater | 200/+3 | 25 | 25 | 5% | 5% | 20/+1 | +25% move speed; leaves a fire trail (5 dps, lasts 3 s) → S8 trail hazard | +1% move speed, +3 trail dps | [ ] |
 | 12 | Diver | 200/+5.5 | 10 | 15 | 7% | 7% | 25/+1 | low base move speed that cannot be increased; armor grows with distance travelled; reflection grows per level → move-speed lock, odometer stat, S9 reflect | 0.25% | [ ] |
-| 13 | Pig | 200/+4 | 30 | 30 | 7.5% | 8% | 5/+8.25 | becomes a ghost for 5 s after death → death-override state (Q7) | +0.25 s | [ ] |
+| 13 | Pig | 200/+4 | 30 | 20 | 7.5% | 8% | 5/+8.25 | becomes a ghost for 5 s after death → death-override state (Q7) | +0.25 s | [ ] |
 
 ### Tier C4: allies and summons (S11, S12; co-op for full value)
 
@@ -96,10 +98,11 @@ Stats are copied from the owner's table. Growth means the per-level value of the
 | 14 | Nekotyan | 175/+3.5 | 45 | 35 | 2.5% | 2.5% | 15/+1.5 | allies take −12% damage and heal 2.5 HP within radius 200; the bonuses apply to herself ×1.75 → ally aura (S12), works in solo through the self ×1.75 rule | −0.25% damage taken, +1.25 radius, +0.25 regen per level | [ ] |
 | 15 | Puppeteer | 200/+3 | 30 | 20 | 5% | 5% | 20/+1 | +10% damage and attack speed for allies and allied creatures → ally buff (S12); needs summons from items to matter in solo | 1% | [ ] |
 | 16 | Necromancer | 200/+5 | 30 | 25 | 0% | 15% | 15/+1 | killed enemies leave souls; every 30 s spends them: 1–20 souls → healing ghost, 21–50 → warrior ghost (HP and damage = souls), 51+ → big area ghost (HP and damage = souls); during the cooldown each soul adds +0.5% damage → soul counter (`onKill`), three summon AIs (S11), ally heal (S12) | +0.1% damage per soul per level | [ ] |
+| 17 | Иллюзионист | 175/+3 | 30 | 30 | 5% | 15% | 15/+1.5 | every 15 s creates a copy with 30% of the hero's max HP; it lasts 8 s, draws enemies, and repeats the hero's attacks at 25% damage; at most one copy → timed summon with decoy aggro and mirrored attacks (S5, S11) | +0.25 percentage points of illusion damage per level | [ ] |
 
 ## 5. Items ordered by ease
 
-There are 56 items. Rarity drives chest loot weights (S13); see Q5 for item levels and slots. A damage type of «—» means the item deals no damage.
+There are 61 items: 56 in the chest rarity pool and five cursed boss drops. The sheet sets chest rarity chances at 40% common, 25% rare, 17% epic, 12% mythic, and 6% legendary. The current build uses weights of 55/25/12/6/2 in `rules.json`; matching the sheet is pending under S13. A damage type of «—» means the item deals no damage.
 
 ### Tier I1: stat items (S0, S10 for dash cooldown)
 
@@ -138,8 +141,8 @@ There are 56 items. Rarity drives chest loot weights (S13); see Q5 for item leve
 | Magic Projectile | Rare | shot at a random enemy, 25 damage; on a kill it bounces to an enemy within 500 | `bounce` | Magical | [ ] |
 | Electric Gloves | Epic | 20% chance on the hero's attack: lightning bouncing up to 5 times, 10 damage | `onAttack` proc plus `chain` (exists) | Magical | [ ] |
 | Rocket | Mythic | 25% chance on attack: a rocket with 50% of the attack's damage | `onAttack` proc plus projectile | Physical | [ ] |
-| Laser | Legendary | instantly kills one enemy every 5 s | `execute` (bosses excluded, Q11) | Pure | [ ] |
-| Galactic Rifle | Epic | every 25 s targets the enemy with the most HP, aims 5 s, deals 20% of its current HP | `snipe` | Physical | [ ] |
+| Laser | Legendary | instantly kills one enemy every 10 s, excluding bosses | `execute` | Pure | [ ] |
+| Galactic Rifle | Epic | every 25 s targets the enemy with the most HP, aims 5 s, deals 20% of its current HP (5% against bosses) | `snipe` | Physical | [ ] |
 | Cane | Common | 0.1% chance on a 30 s cooldown to kill the enemy with the most HP | `execute` with a proc chance | Pure | [ ] |
 | Finisher | Legendary | 50% chance to finish an enemy below 10% HP (not bosses) | `onHit` execute | Pure | [ ] |
 
@@ -149,11 +152,11 @@ There are 56 items. Rarity drives chest loot weights (S13); see Q5 for item leve
 |---|---|---|---|---|---|
 | Witch Doctor | Mythic | each hit adds delayed poison damage | poison (S7) | Magical | [ ] |
 | Aura | Mythic | a wild aura around the hero slows enemies and deals 20 dps | slow plus damage zone (S7, S8) | Magical | [ ] |
-| Wooden Stick | Legendary | slows and damages enemies within 700 for 30–100; closer means stronger | proximity-scaled slow and damage (S7) | Pure | [ ] |
+| Wooden Stick | Legendary | slows and damages enemies within 700 for 30–70; closer means stronger | proximity-scaled slow and damage (S7) | Pure | [ ] |
 | Icicle | Mythic | a killed enemy freezes and explodes for 30 nearby; creates an icicle that heals 30% of current HP | `onKill` freeze, explosion, heal pickup (S5, S7) | Magical | [ ] |
-| Dice | Mythic | 33% chance to change an attack's or item's damage type at random | damage-type remap in S2 | — | [ ] |
+| Dice | Mythic | 33% chance to change an attack's or item's damage type to a different type at random | damage-type remap in S2 | — | [ ] |
 | Shield | Rare | blocks one physical attack, 10 s cooldown | S9 | — | [ ] |
-| Welder's Mask | Legendary | 15% chance to block any damage; reduces vision radius | S9 block plus vision | — | [ ] |
+| Welding Mask | Legendary | 15% chance to block any damage; reduces vision radius | S9 block plus vision | — | [ ] |
 | Nettle | Epic | reflects 30% of damage dealt by enemies | S9 reflect | Pure | [ ] |
 | Garlic | Epic | reduces any enemy lifesteal to 25% | enemy lifesteal cap (Q10) | — | [ ] |
 
@@ -192,11 +195,21 @@ There are 56 items. Rarity drives chest loot weights (S13); see Q5 for item leve
 |---|---|---|---|
 | Scope | Rare | aims abilities at the cursor point | [ ] |
 
-**Coverage:** 6 + 10 + 11 + 9 + 8 + 11 + 1 = 56 items.
+### Tier I7: cursed boss drops (E6, S13)
+
+| Item | Boss | Effect | Implementation | Status |
+|---|---|---|---|---|
+| Перевёрнутый крест | Древний культист | Once, prevents death, restores full HP, gives 2 s of invulnerability, and is consumed | death override and item consumption (S4, S5) | [ ] |
+| Сердце золотой жилы | Старатель | Every third chest offers a third reward option | per-player chest counter and reward choices (S13) | [ ] |
+| Маска Фантома | Фантом | 5% chance on kill to create a 4 s illusion that repeats attacks at 25% damage; at most one illusion | on-kill mirrored summon (S5, S11) | [ ] |
+| Разбитые часы | Хранитель времени | Every 15 s resets one item that is already on cooldown | periodic cooldown reset (S5) | [ ] |
+| Сердце Пожирателя | Пожиратель | Below 25% HP, devours a random non-boss enemy and restores 15% HP; 60 s cooldown | HP threshold trigger, filtered execute, and heal (S4–S6) | [ ] |
+
+**Coverage:** 6 + 10 + 11 + 9 + 8 + 11 + 1 + 5 = 61 items.
 
 ## 6. Enemies ordered by ease
 
-The owner's roster has 18 enemies: 8 normal, 7 elite, 3 bosses. They replace the demo enemies (gloombat, amberslime, duskslime).
+The owner's roster has 23 enemies: 10 normal, 8 elite, 5 bosses. They replace the demo enemies (gloombat, amberslime, duskslime).
 
 **Rules applied to every enemy:**
 - **Speed.** Enemy Move speed uses the same scale as heroes: px/s = Move speed × 3.
@@ -207,13 +220,13 @@ The owner's roster has 18 enemies: 8 normal, 7 elite, 3 bosses. They replace the
 
 | ID | System | Depends on | Acceptance |
 |---|---|---|---|
-| E0 | **Enemy stat model v2:** HP, damage and type, Move speed, optional Attack speed, armor and Magic resist in %, XP, lifesteal, role (normal / elite / boss) | S2 | All 18 enemies load from JSON with the table values. Enemy lifesteal heals in tests. |
+| E0 | **Enemy stat model v2:** HP, damage and type, Move speed, optional Attack speed, armor and Magic resist in %, XP, lifesteal, role (normal / elite / boss) | S2 | All 23 enemies load from JSON with the table values. Enemy lifesteal heals in tests. |
 | E1 | **Enemy projectiles and ranged AI:** keep distance, shoot, retreat from melee range | E0 | Spark and Thief kite and shoot in a capture. Enemy projectiles respect the player's defences. |
 | E2 | **Death effects:** a hazard on death (S8) and an explosion that hurts both the player and enemies | E0, S8 | Rot leaves a 200-radius cloud. Kamikaze's blast damages nearby enemies. |
 | E3 | **Special movement:** jumps with a landing area, teleport, stealth (hidden until the attack) | E0 | Jumper, Dark Mage, Ninja and Phantom move as described. |
 | E4 | **Enemy auras and buffs:** damage share to a guardian, a timed global buff | E0 | Guardian absorbs a share of nearby damage. Screamer's 10 s timer buffs living enemies once. |
 | E5 | **Debuffs on the player:** slow, root, HP drain into max HP, item disable, cooldown slowdown | E0, S7 | Each debuff shows on the HUD and expires. Disabled items resume, and all of them resume on the thief's death. |
-| E6 | **Bosses:** spawn schedule, boss HP bar, scripted phases (enrage, devour, time acceleration, illusions with a real target and stun) | E0–E5 | Each boss can be beaten in a scripted test and reads clearly in a capture. |
+| E6 | **Bosses:** spawn schedule, boss HP bar, scripted phases (enrage, devour, time acceleration, illusions, destructible veins, and interruptible sacrifices) | E0–E5 | Each boss can be beaten in a scripted test and reads clearly in a capture. |
 | E7 | **XP rebalance** for table XP values (7–500 per kill) | E0 | Level curve tuned so a 15-minute run reaches the intended level range (owner target pending). |
 
 ### Tier E1: stat-only (E0)
@@ -251,6 +264,14 @@ The owner's roster has 18 enemies: 8 normal, 7 elite, 3 bosses. They replace the
 | Ninja | elite | 135 | 25 | physical | 30 | — | 0% | 15% | 15 | 25% | turns invisible, comes from behind, makes one attack (25 damage, slows the player by 25%), runs away and repeats; at least 10 s between approaches | [ ] |
 | She-Wolf | elite | 115 | 35 | physical | 55 | 65 | 15% | 20% | 45 | 35% | fast hunter; 33% crit chance; every third hit roots the player for 2 s | [ ] |
 
+### Tier E4b: cultist support and reinforcements (E4, E5, S8)
+
+| Enemy | Role | HP | Урон | Тип | С/П | С/А | М/З | Броня | Опыт | Вампиризм | Behaviour | Status |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Младший культист | normal | 75 | 20 | физ | 15 | 20 | 15% | 0% | 15 | 35% | melee blood dagger; every 15 s can create a blood circle on another cultist of any rank, healing it for 10 HP/s | [ ] |
+| Старший культист | elite | 200 | 35 | маг | 20 | 25 | 50% | 15% | 35 | 35% | every 13 s casts radius-300 circles under the player; they activate after 2 s, deal 50 damage, and mark the player so other cultists attack them 15% faster. Every 25 s summons three junior cultists and one shaman | [ ] |
+| Шаман-культист | normal | 75 | 20 | маг | 15 | 15 | 15% | 0% | 15 | 15% | casts blood rain from range, healing cultists within a 600-radius area for 35 HP/s for 5 s. Casting costs 50 of the shaman's HP and can kill it | [ ] |
+
 ### Tier E5: bosses (E6)
 
 | Boss | HP | Damage | Type | Move speed | Attack speed | Magic resist | Armor | XP | Lifesteal | Behaviour | Status |
@@ -258,11 +279,13 @@ The owner's roster has 18 enemies: 8 normal, 7 elite, 3 bosses. They replace the
 | Devourer | 5000 | 125 | physical | 20 | 15 | 20% | 40% | 350 | 15% | huge, slow chaser; every 20 s devours the nearest mob and heals 300; below 25% HP speeds up to 30 Move speed | [ ] |
 | Timekeeper | 3500 | 70 | magical | 25 | 30 | 45% | 15% | 500 | 0% | on spawn doubles the flow of time; an aura of radius 250 slows the player by 50% and makes items and passives recharge 25% slower | [ ] |
 | Phantom | 1800 | 45 | magical | 25 | 35 | 35% | 35% | 325 | 25% | every 4 s teleports to a random point within 700 of the player and leaves a 5 s illusion that repeats its attacks at 30% damage; every 30 s makes 4 illusions around the player, one of them real; dealing 500 damage to the real one removes the others and stuns the boss for 5 s | [ ] |
+| Старатель | 4000 | 85 | physical | 20 | 30 | 35% | 35% | 450 | 15% | every 15 s creates a 500 HP gold vein at a random point within 1000 of himself and runs to mine it. Mining takes 3 s and heals him for 750 HP; the player can destroy the vein first. Below 35% HP, gold fever raises Move speed and Attack speed to 40 and cuts mining to 2 s; his eyes and pickaxe turn gold | [ ] |
+| Древний культист | 2500 | 50 | magical | 15 | 25 | 50% | 15% | 350 | 35% | attacks with blood daggers from different sides; every 15 s summons one Старший культист and three Младший культист. Below 50% HP can sacrifice a senior cultist at an altar; if the sacrifice survives 3 s, the boss heals 500 HP and gains +15% lifesteal and +20 Attack speed | [ ] |
 
-**Coverage:** 3 + 4 + 5 + 3 + 3 = 18 enemies.
-- Normal (8): Rot, Slime, Jumper, Spark, Siphoner, Skeleton Swordsman, Screamer, Kamikaze.
-- Elite (7): Witch, Guardian, Butcher, Dark Mage, Ninja, She-Wolf, Thief.
-- Bosses (3): Devourer, Timekeeper, Phantom.
+**Coverage:** 3 + 4 + 5 + 3 + 5 + 3 = 23 enemies.
+- Normal (10): Rot, Slime, Jumper, Spark, Leech, Skeleton Swordsman, Screamer, Kamikaze, Младший культист, Шаман-культист.
+- Elite (8): Witch, Guardian, Butcher, Dark Mage, Ninja, She-Wolf, Thief, Старший культист.
+- Bosses (5): Devourer, Timekeeper, Phantom, Старатель, Древний культист.
 
 The table's «10%%» Magic resist for Slime is read as 10%.
 
@@ -277,8 +300,9 @@ Each milestone is playable content.
 | M2 "Crit and triggers" | S3, S4, S5, S10 | Characters 7–10; items I2 | Hook tests. HUD shows shield and dash charges. |
 | M3 "Arsenal" | S6, S8, E2 | Items I3; Skater; enemies E2 | Every new weapon kind captured. Simulation budget kept with 2,000 enemies. |
 | M4 "Afflictions and guards" | S7, S9, E1, E3, E4, E5 | Items I4; Diver, Pig; enemies E3 and E4 | Status stacking rules documented and tested. |
-| M4b "Bosses" | E6 | Devourer, Timekeeper, Phantom | Boss schedule in waves.json. Each boss beaten in a scripted test. |
-| M5 "Companions" | S11 | Items I5 | Summon AI and owner credit tests. 50 summons stay within budget. |
+| M4b "Bosses" | E6, E4b | All five bosses and the cultist roster | Boss schedule in waves.json. Each boss beaten in a scripted test. |
+| Boss rewards | E6, S13, relevant I7 effect systems | Five cursed items | Each boss drops its assigned reward. Старатель's reward requires chest reward choices. |
+| M5 "Companions" | S11 | Items I5; Иллюзионист | Summon AI and owner credit tests. 50 summons stay within budget. |
 | M6 "Allies" | S12 (+P3 co-op) | Items I6; Nekotyan, Puppeteer, Necromancer | Auras work in solo (summons) and in a 2-player loopback test. |
 | M7 "Aim" | S14 | Scope | Cursor aim without breaking passive play. |
 
@@ -292,7 +316,7 @@ Art for every character, enemy and summon goes through recipes (`art-recipe` ski
 | Units | Developer's choice: move px/s = Move speed × 3; attacks per second = Attack speed / 25 (data in `rules.json` → `units`). |
 | Defences | Armor and Magic resist are percentage reductions: 50% blocks half. Item and level bonuses add up, with a cap of 90% (`units.resistCap`). Pure damage ignores both. |
 | Growth | `base/+lvl`: level 1 has the base value and each later level adds the growth. Passive growth follows the same rule. |
-| Items | Items come only from chests on the map. Copies stack, and mods apply once per copy. Level-ups give automatic stat growth; there are no level-up cards. |
+| Items | Standard items come from chests on the map; cursed items drop from their listed bosses. Copies of standard items stack, and mods apply once per copy. Level-ups give automatic stat growth; there are no level-up cards. |
 | Ally auras | Work on the owner too, including solo play. |
 | Pig | After death becomes an invulnerable ghost re-skin for 5 s (+0.25 s per level), like Wraith King's reincarnation, then dies. |
 | Watchman | Counts minutes on the game run clock, statues included. Formula used: damage bonus = (0.75 + 0.25 × (level − 1)) × run minutes. |
@@ -301,11 +325,12 @@ Art for every character, enemy and summon goes through recipes (`art-recipe` ski
 
 ## 9. Open questions for the owner
 
-1. **Executes.** Do Laser, Cane, Finisher and Galactic Rifle ignore elites and bosses? Only Finisher says so explicitly.
+1. **Executes.** Laser and Finisher exclude bosses, and Galactic Rifle deals 5% current HP to bosses. Can Cane execute bosses, and do any of these effects treat elites differently?
 2. **Accelerator.** The speed bonus amount is not specified.
 3. **Timekeeper.** Does "doubles the flow of time" double the run clock (difficulty) while it is alive, or speed up the whole game?
 4. **Guardian.** What share of the protected enemies' damage does it take, and within what radius?
 5. **Boss schedule.** At which run-clock minutes do the bosses appear, and in what order? May the developer propose the waves?
 6. **XP target.** What level should a typical 15-minute run reach? Enemy XP is now 7–500 per kill.
 7. **Gold.** The enemy table has no gold column. Which enemies drop gold, and how much?
-8. **Siphoner.** What is the range of its drain?
+8. **Leech.** What is the range of its drain?
+9. **Сердце золотой жилы.** The sheet calls for a third option every third chest. The current game auto-awards one item, so the baseline chest choices and their selection flow need to be specified.
