@@ -24,6 +24,8 @@ public sealed partial class RunWorld
     public float[] StatueHold { get; private set; } = [];
     public Vector2[] Chests { get; private set; } = [];
     public bool[] ChestOpen { get; private set; } = [];
+    private const int ChestCooldownTicks = 60 * TicksPerSecond;
+    private int[] _chestReadyTick = [];
     /// <summary>Unopened chest the player stands at but cannot afford yet (-1 if none).</summary>
     public int NearbyChest => Player.NearbyChest;
 
@@ -49,6 +51,7 @@ public sealed partial class RunWorld
         Chests = new Vector2[cc];
         for (int i = 0; i < cc; i++) Chests[i] = Ring(i, cc, 110, 600);
         ChestOpen = new bool[cc];
+        _chestReadyTick = new int[cc];
     }
 
     private void DropPickup(PickupKind kind, float x, float y, int value, int owner)
@@ -237,6 +240,9 @@ public sealed partial class RunWorld
 
     private void StepChests(ReadOnlySpan<RunInput> inputs)
     {
+        for (int i = 0; i < Chests.Length; i++)
+            ChestOpen[i] = Tick < _chestReadyTick[i];
+
         foreach (var p in _players)
         {
             p.NearbyChest = -1;
@@ -270,6 +276,7 @@ public sealed partial class RunWorld
                 int coins = (int)MathF.Floor(refund);
                 p.RefundCarry = refund - coins;
                 if (coins > 0) p.Wallet.Collect(new GoldDrop(coins, p.Id), p.Id);
+                _chestReadyTick[i] = Tick + ChestCooldownTicks;
                 ChestOpen[i] = true;
                 int first = RollChestItem();
                 int second = first >= 0 ? RollChestItem(first, -1) : -1;

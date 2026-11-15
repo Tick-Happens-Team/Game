@@ -532,6 +532,7 @@ public sealed partial class RunWorld
     {
         BuildEnemyGrid();
         float arena = Rules.ArenaSize;
+        float moveSpeedScale = Rules.Units.MoveSpeedScale * (1 + 0.01f * Minutes);
         bool hasCompanions = false;
         foreach (ref readonly var companion in Companions)
             if (companion.Active && companion.Health > 0) { hasCompanions = true; break; }
@@ -555,7 +556,7 @@ public sealed partial class RunWorld
             float dx = p.X - EX[i], dy = p.Y - EY[i], dist = MathF.Sqrt(dx * dx + dy * dy);
             float vx = 0, vy = 0;
             bool stunned = _enemyStunUntil[i] > Tick;
-            float speed = stunned ? 0 : d.Speed * Rules.Units.MoveSpeedScale;
+            float speed = stunned ? 0 : d.Speed * moveSpeedScale;
             if (_enemySlowUntil[i] > Tick) speed *= 1 - _enemySlow[i];
             if (_enemyAttackTicks[i] > 0) speed *= 0.2f;
             else if (d.ShotRange > 0)
