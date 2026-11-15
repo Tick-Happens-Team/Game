@@ -443,7 +443,7 @@ internal sealed partial class Hud(GameSettings settings)
             }
     }
 
-    private static void Bar(PixelCanvas ui, int x, int y, int width, int height, float k, uint fill, uint back)
+    internal static void Bar(PixelCanvas ui, int x, int y, int width, int height, float k, uint fill, uint back)
     {
         k = Math.Clamp(k, 0, 1);
         for (int yy = -1; yy <= height; yy++)

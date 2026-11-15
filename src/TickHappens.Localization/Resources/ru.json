@@ -105,6 +105,7 @@
   "online.confirmNickname": "СОХРАНИТЬ  ENTER",
   "online.editNickname": "ИЗМЕНИТЬ НИК  F4",
   "online.disconnected": "ОТКЛЮЧЁН",
+  "online.playerDied": "{0} погиб(ла)",
   "online.downed": "ПОВЕРЖЕН",
   "online.teamHint": "УДЕРЖИВАЙ TAB - ВЕЩИ КОМАНДЫ",
   "online.teamItems": "ВЕЩИ КОМАНДЫ",
