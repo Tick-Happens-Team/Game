@@ -90,6 +90,31 @@ public sealed class CombatTests
         Assert.True(world.Player.Hp < hpBefore, "a contact hit must hurt the player");
     }
 
+    [Theory]
+    [InlineData("octarine", 2f)]
+    [InlineData("swordsman", 2f)]
+    [InlineData("smith", 2.75f)]
+    [InlineData("goflin", 2f)]
+    [InlineData("celestial_mage", 1f)]
+    [InlineData("watchman", 5f)]
+    public void CoreCharacterRegeneratesHealthUpToItsMaximum(string character, float hpPerSecond)
+    {
+        var world = new RunWorld(TestContent.LoadCore(), seed: 1, character: character);
+        float maxHp = world.Player.Hp;
+        float injuredHp = maxHp - 10f;
+        world.Player.Hp = injuredHp;
+
+        for (int tick = 0; tick < RunWorld.TicksPerSecond; tick++)
+            world.Step(default);
+
+        Assert.InRange(world.Player.Hp, injuredHp + hpPerSecond - 0.002f, injuredHp + hpPerSecond + 0.002f);
+
+        world.Player.Hp = maxHp - hpPerSecond * RunWorld.Dt / 2f;
+        world.Step(default);
+
+        Assert.Equal(maxHp, world.Player.Hp);
+    }
+
     [Fact]
     public void BasicAttackDealsDamageTimesMultipliers()
     {
