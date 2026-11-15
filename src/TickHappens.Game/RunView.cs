@@ -188,6 +188,9 @@ internal sealed class RunView : IDisposable
                     Burst(e.X, e.Y - 6, 16, 85, 0xFFE070C0u, 0xFF5C1F4Au, 1.8f);
                     AddFlash(e.X, e.Y - 6, 34, 0.9f, 0.35f, 0.8f, 0.18f);
                     break;
+                case EventKind.Blast when e.A == (int)BlastStyle.SodaSplash:
+                    DrawSodaSplash(e.X, e.Y, e.Value);
+                    break;
                 case EventKind.Blast:
                     if (_effects.Count < MaxCpuEffects)
                         _effects.Add(new ExplosionEffect(new ExplosionOptions { X = e.X * 2, Y = e.Y * 2, Size = MathF.Max(0.5f, e.Value / 40), Seed = e.Seed, Shake = Shake }));
@@ -383,6 +386,24 @@ internal sealed class RunView : IDisposable
                 X = x, Y = y, Vx = MathF.Cos(ang) * sp, Vy = MathF.Sin(ang) * sp * 0.75f,
                 Life = 0.25f + 0.45f * _cosmetic.NextSingle(), MaxLife = 0.7f, Drag = 3.5f, Gravity = 30,
                 ColorA = a, ColorB = b, Intensity = intensity, Kind = 0,
+            });
+        }
+    }
+
+    private void DrawSodaSplash(float x, float y, float radius)
+    {
+        float spread = Math.Clamp(radius, 16, 80);
+        for (int i = 0; i < 24; i++)
+        {
+            float angle = _cosmetic.NextSingle() * MathF.Tau;
+            float speed = spread * (0.6f + 1.4f * _cosmetic.NextSingle());
+            float life = 0.28f + 0.24f * _cosmetic.NextSingle();
+            _particles.Spawn(new GpuParticle
+            {
+                X = x, Y = y, Vx = MathF.Cos(angle) * speed,
+                Vy = MathF.Sin(angle) * speed * 0.45f - 42,
+                Life = life, MaxLife = life, Drag = 2.4f, Gravity = 150,
+                ColorA = 0xFFCFFFF0u, ColorB = 0xFF74B62Cu, Intensity = 1f, Kind = 0,
             });
         }
     }

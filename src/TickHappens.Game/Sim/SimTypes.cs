@@ -14,6 +14,8 @@ public enum EventKind : byte
     DroneBlast, HeroFireTrail, EnemyBlast,
 }
 
+public enum BlastStyle { Default, SodaSplash }
+
 /// <summary>Gameplay event for cosmetics (VFX, sound, damage numbers). Never drives simulation.</summary>
 public struct GameEvent
 {

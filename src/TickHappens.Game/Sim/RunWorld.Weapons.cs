@@ -334,9 +334,11 @@ public sealed partial class RunWorld
             {
                 if (_pLife[i] <= 0)
                 {
-                    float radius = Content.Items[source.ItemDef].Weapon!.Area * owner.Stats[Stat.Area];
+                    var item = Content.Items[source.ItemDef];
+                    float radius = item.Weapon!.Area * owner.Stats[Stat.Area];
                     AreaItemHit(position, radius, _pDamage[i], _pKind[i], source);
-                    Emit(EventKind.Blast, position.X, position.Y, radius);
+                    var blastStyle = item.Id == "soda" ? BlastStyle.SodaSplash : BlastStyle.Default;
+                    Emit(EventKind.Blast, position.X, position.Y, radius, a: (int)blastStyle);
                     PAlive[i] = false;
                 }
                 continue;
