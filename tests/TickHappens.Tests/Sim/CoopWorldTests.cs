@@ -94,6 +94,60 @@ public sealed class CoopWorldTests
     }
 
     [Fact]
+    public void KillEventCarriesTheSeedUsedForTheAuthoritativeDrop()
+    {
+        var content = TestContent.LoadCore();
+        content.Enemies[0].Gold = 25;
+        content.Enemies[0].GoldChance = 1;
+        var host = new RunWorld(content);
+        int enemy = host.SpawnEnemy(0, host.Player.Pos);
+        host.DamageEnemy(enemy, 10_000, DamageKind.Pure, new DamageSourceRef(0), 0, 0);
+        var client = new RunWorld(content);
+        Span<byte> packet = stackalloc byte[CoopSession.MaxEventBytes];
+        int next = 0;
+        int bytes = host.WriteEvents(packet, ref next);
+        Assert.True(client.TryApplyEvents(packet[..bytes]));
+        var death = Assert.Single(client.Events, e => e.Kind == EventKind.Kill);
+        var rng = new SimRng(death.Seed);
+        Assert.InRange(rng.Next(), 0, 1);
+        int gold = Array.FindIndex(host.GKind, kind => kind == PickupKind.Gold);
+        Assert.True(gold >= 0);
+        Assert.Equal(host.GOwner[gold], death.B);
+        Assert.Equal(host.GX[gold], death.X + rng.Range(-3, 3));
+        Assert.Equal(host.GY[gold], death.Y + rng.Range(-3, 3));
+    }
+
+    [Fact]
+    public void PredictionAdvancesOnlyLocalMovementAndMatchesTheHost()
+    {
+        var content = TestContent.LoadCore();
+        var host = new RunWorld(content, playerCount: 2);
+        host.SetPlayerActive(1, true);
+        var client = new RunWorld(content, playerCount: 2, localPlayerId: 1);
+        byte[] bytes = new byte[RunWorld.SnapshotCapacity];
+        int size = host.WriteSnapshot(bytes);
+        Assert.True(client.TryApplySnapshot(bytes.AsSpan(0, size)));
+        Vector2 otherPlayer = client.Players[0].Pos;
+        float health = client.Player.Hp;
+
+        RunInput[] inputs = [default, new(1, -1, true)];
+        host.StepCoop(inputs);
+        client.PredictLocalMovement(inputs[1]);
+        Assert.InRange(Vector2.Distance(host.Players[1].Pos, client.Player.Pos), 0, 0.05f);
+        Assert.Equal(otherPlayer, client.Players[0].Pos);
+        Assert.Equal(0, client.Tick);
+        Assert.Empty(client.Events);
+        Assert.Equal(health, client.Player.Hp);
+
+        host.Players[1].LastAppliedInput = 1;
+        size = host.WriteSnapshot(bytes);
+        Assert.True(client.TryApplySnapshot(bytes.AsSpan(0, size)));
+        Assert.Equal(1, client.Player.LastAppliedInput);
+        Assert.True(client.Player.PrevDash);
+        Assert.InRange(Vector2.Distance(host.Players[1].Pos, client.Player.Pos), 0, 0.05f);
+    }
+
+    [Fact]
     public void EventPacketsPreserveCombatDataAndChainPoints()
     {
         var content = TestContent.LoadCore();

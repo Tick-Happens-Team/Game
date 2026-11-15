@@ -168,8 +168,11 @@ public sealed partial class RunWorld
         ChainPoints.Clear();
     }
 
-    private void Emit(EventKind kind, float x, float y, float value = 0, int a = 0, int b = 0, float x2 = 0, float y2 = 0) =>
-        _events.Add(new GameEvent { Kind = kind, X = x, Y = y, X2 = x2, Y2 = y2, Value = value, A = a, B = b, Seed = _rng.NextU() });
+    private void Emit(EventKind kind, float x, float y, float value = 0, int a = 0, int b = 0, float x2 = 0, float y2 = 0, uint? seed = null)
+    {
+        uint cosmeticSeed = _rng.NextU();
+        _events.Add(new GameEvent { Kind = kind, X = x, Y = y, X2 = x2, Y2 = y2, Value = value, A = a, B = b, Seed = seed ?? cosmeticSeed });
+    }
 
     public float XpForLevel(int level) => MathF.Round(Rules.XpBase * MathF.Pow(Rules.XpGrowth, level - 1));
 
@@ -241,7 +244,13 @@ public sealed partial class RunWorld
     }
 
     // ---------------------------------------------------------------- player
-    private void StepPlayer(PlayerState p, RunInput input)
+    internal void PredictLocalMovement(RunInput input)
+    {
+        if (_replicaTick >= 0 && Phase == RunPhase.Playing && Player.Active && Player.Hp > 0)
+            StepPlayer(Player, input, predict: true);
+    }
+
+    private void StepPlayer(PlayerState p, RunInput input, bool predict = false)
     {
         p.Prev = p.Pos;
         var dir = new Vector2(Math.Sign(input.X), Math.Sign(input.Y));
@@ -251,7 +260,7 @@ public sealed partial class RunWorld
             p.Facing = dir;
             if (dir.X != 0) p.FacingLeft = dir.X < 0;
         }
-        if (p.InvulnTicks > 0) p.InvulnTicks--;
+        if (!predict && p.InvulnTicks > 0) p.InvulnTicks--;
         if (p.DashCooldownTicks > 0) p.DashCooldownTicks--;
         bool dashPressed = input.Dash && !p.PrevDash;
         p.PrevDash = input.Dash;
@@ -262,8 +271,11 @@ public sealed partial class RunWorld
             // The dash is an ability: both the dash and the general cooldown multipliers apply.
             p.DashCooldownTicks = (int)MathF.Round(dash.Cooldown * p.Stats[Stat.DashCooldown] * p.Stats[Stat.Cooldown] * TicksPerSecond);
             p.DashDir = p.Facing;
-            if (dash.Invulnerable) p.InvulnTicks = Math.Max(p.InvulnTicks, p.DashTicks + 2);
-            Emit(EventKind.Dash, p.Pos.X, p.Pos.Y, x2: p.DashDir.X, y2: p.DashDir.Y);
+            if (!predict)
+            {
+                if (dash.Invulnerable) p.InvulnTicks = Math.Max(p.InvulnTicks, p.DashTicks + 2);
+                Emit(EventKind.Dash, p.Pos.X, p.Pos.Y, x2: p.DashDir.X, y2: p.DashDir.Y);
+            }
         }
         Vector2 move;
         if (p.DashTicks > 0)
@@ -276,7 +288,7 @@ public sealed partial class RunWorld
         float a = Rules.ArenaSize;
         p.Pos = Vector2.Clamp(p.Pos + move, new Vector2(12), new Vector2(a - 12));
         p.Walking = p.Pos != p.Prev;
-        p.Hp = MathF.Min(MaxHealthFor(p), p.Hp + p.Stats[Stat.Regen] * Dt);
+        if (!predict) p.Hp = MathF.Min(MaxHealthFor(p), p.Hp + p.Stats[Stat.Regen] * Dt);
     }
 
     /// <summary>Fraction of damage blocked: armor for physical, magic resist for magical, nothing for pure (capped).</summary>
@@ -492,9 +504,10 @@ public sealed partial class RunWorld
         {
             _players[credit].Kills++;
             DropPickup(PickupKind.Xp, EX[i], EY[i], d.Xp, -1);
+            uint dropSeed = _rng.State;
             if (d.Gold > 0 && _rng.Next() < d.GoldChance)
                 DropPickup(PickupKind.Gold, EX[i] + _rng.Range(-3, 3), EY[i] + _rng.Range(-3, 3), d.Gold, GoldDrop.FromKill(d.Gold, credit).OwnerId);
-            Emit(EventKind.Kill, EX[i], EY[i], a: EDef[i]);
+            Emit(EventKind.Kill, EX[i], EY[i], a: EDef[i], b: credit, seed: dropSeed);
         }
         EX[i] = EY[i] = -1e6f;
         _freeEnemies.Push(i);

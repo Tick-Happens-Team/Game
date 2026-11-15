@@ -20,7 +20,7 @@ public sealed class LanTransport : ICoopTransport, IDisposable
     private long _searchStarted;
     private int _broadcasts;
 
-    public LanTransport(bool host, int port = DefaultPort)
+    public LanTransport(bool host, int port = DefaultPort, bool collectStatistics = false)
     {
         var listener = new EventBasedNetListener();
         _network = new NetManager(listener)
@@ -30,6 +30,7 @@ public sealed class LanTransport : ICoopTransport, IDisposable
             UnconnectedMessagesEnabled = !host,
             IPv6Enabled = false,
             ReuseAddress = false,
+            EnableStatistics = collectStatistics,
         };
         listener.ConnectionRequestEvent += request =>
         {
@@ -90,6 +91,7 @@ public sealed class LanTransport : ICoopTransport, IDisposable
     public IPEndPoint? HostAddress { get; private set; }
     public bool Discoverable { get; set; } = true;
     public int Port => _network.LocalPort;
+    internal long SentBytes => _network.Statistics.BytesSent;
     public event Action<string, ReadOnlyMemory<byte>>? PacketReceived;
     public event Action<string>? PeerDisconnected;
 

@@ -7,7 +7,7 @@ namespace TickHappens.Game.Sim;
 public sealed partial class RunWorld
 {
     public const int SnapshotCapacity = 64 * 1024;
-    private const byte SnapshotVersion = 1;
+    private const byte SnapshotVersion = 2;
     private int _replicaTick = -1;
     private readonly ushort[] _enemySnapshotSlots = new ushort[ushort.MaxValue / 8];
 
@@ -40,7 +40,8 @@ public sealed partial class RunWorld
                 w.Int(p.DashCooldownTicks);
                 w.Int(p.NearbyChest);
                 w.Int(p.LastChestItem);
-                w.Byte((byte)((p.Walking ? 1 : 0) | (p.FacingLeft ? 2 : 0)));
+                w.Byte((byte)((p.Walking ? 1 : 0) | (p.FacingLeft ? 2 : 0) | (p.PrevDash ? 4 : 0)));
+                w.Int(p.LastAppliedInput);
                 w.Short(EncodeAngle(p.Facing));
                 w.Short(EncodeAngle(p.DashDir));
                 int equipped = 0;
@@ -237,12 +238,13 @@ public sealed partial class RunWorld
         float xp = r.Float(), xpNext = r.Float();
         int kills = r.Int(), gold = r.Int(), price = r.Int(), invulnerable = r.Int(), dash = r.Int(), cooldown = r.Int();
         int chest = r.Int(), item = r.Int(), flags = r.Byte();
+        int lastAppliedInput = r.Int();
         var facing = DecodeAngle(r.Short());
         var dashDirection = DecodeAngle(r.Short());
         int equipped = r.Short();
         Require(character < Content.Characters.Count && hp >= 0 && level > 0 && xp >= 0 && xpNext > 0 &&
             kills >= 0 && gold >= 0 && price > 0 && invulnerable >= 0 && dash >= 0 && cooldown >= 0 &&
-            chest >= -1 && chest < Chests.Length && item >= -1 && item < Content.Items.Count && flags <= 3 &&
+            chest >= -1 && chest < Chests.Length && item >= -1 && item < Content.Items.Count && flags <= 7 && lastAppliedInput >= 0 &&
             equipped <= Content.Items.Count);
         if (apply)
         {
@@ -258,6 +260,8 @@ public sealed partial class RunWorld
             p.DashDir = dashDirection;
             p.Walking = (flags & 1) != 0;
             p.FacingLeft = (flags & 2) != 0;
+            p.PrevDash = (flags & 4) != 0;
+            p.LastAppliedInput = lastAppliedInput;
             p.Hp = hp;
             p.Level = level;
             p.Xp = xp;

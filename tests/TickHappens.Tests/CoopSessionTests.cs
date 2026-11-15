@@ -161,6 +161,30 @@ public sealed class CoopSessionTests
     }
 
     [Fact]
+    public void NewerSnapshotDoesNotDiscardIncompleteReliableKeyframe()
+    {
+        var wire = new Loopback();
+        using var host = new CoopSession(wire.Connect("host"), Digest);
+        using var client = new CoopSession(wire.Connect("client"), Digest, "host");
+        client.Join();
+        wire.Flush();
+        byte[] keyframe = new byte[2300];
+        byte[] delta = [1, 2, 3];
+        var delivered = new List<(int Tick, byte[] Bytes)>();
+        client.KeyframeReceived += (tick, bytes) => delivered.Add((tick, bytes.ToArray()));
+        client.SnapshotReceived += (tick, bytes) => delivered.Add((tick, bytes.ToArray()));
+        host.BroadcastKeyframe(3, keyframe);
+        host.BroadcastSnapshot(6, delta);
+        var newer = wire.Pending[^1];
+        wire.Pending.RemoveAt(wire.Pending.Count - 1);
+        wire.Pending.Insert(1, newer);
+        wire.Flush();
+        Assert.Equal(new[] { 6, 3 }, delivered.Select(item => item.Tick));
+        Assert.Equal(delta, delivered[0].Bytes);
+        Assert.Equal(keyframe, delivered[1].Bytes);
+    }
+
+    [Fact]
     public void RetriesHandshakeThenKeepsAnIdleRoomAliveUntilPeerTimesOut()
     {
         var clock = new ManualClock();
