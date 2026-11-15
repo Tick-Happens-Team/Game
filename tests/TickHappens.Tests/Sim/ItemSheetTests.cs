@@ -43,8 +43,27 @@ public sealed class ItemSheetTests
         Assert.True(replica.TryApplySnapshot(snapshot.AsSpan(0, world.WriteSnapshot(snapshot))));
         Assert.Contains(replica.Companions.ToArray(), companion => companion.Active && companion.Owner == 0 && companion.Item == dog);
 
-        for (int i = 0; i < 60; i++) world.Step(default);
+        for (int i = 0; i < 3 * RunWorld.TicksPerSecond; i++) world.Step(default);
         Assert.True(world.Player.Xp > 0);
+    }
+
+    [Theory]
+    [InlineData(PickupKind.Xp)]
+    [InlineData(PickupKind.Gold)]
+    public void PickupsMoveAtFifteenMoveSpeed(PickupKind kind)
+    {
+        var world = new RunWorld(QuietContent());
+        float start = world.Player.Pos.X - 30;
+        world.GX[0] = start;
+        world.GY[0] = world.Player.Pos.Y - 8;
+        world.GKind[0] = kind;
+        world.GAlive[0] = true;
+
+        float step = 15 * world.Rules.Units.MoveSpeedScale * RunWorld.Dt;
+        world.Step(default);
+        TestWorld.Close(start + step, world.GX[0]);
+        world.Step(default);
+        TestWorld.Close(start + 2 * step, world.GX[0]);
     }
 
     [Fact]

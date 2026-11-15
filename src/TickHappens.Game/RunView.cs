@@ -321,10 +321,13 @@ internal sealed partial class RunView : IDisposable
                     }
                     break;
                 case EventKind.PlayerHurt:
-                    Shake(0.35f);
                     Burst(e.X, e.Y - 10, 12, 80, 0xFF6060FFu, 0xFF1A1A8Au, 1.6f);
-                    _aberration = MathF.Max(_aberration, 1.6f);
-                    ScreenFlash(0.1f, 0xFF3030FFu);
+                    if (e.A == world.Player.Id)
+                    {
+                        Shake(0.35f);
+                        _aberration = MathF.Max(_aberration, 1.6f);
+                        ScreenFlash(0.1f, 0xFF3030FFu);
+                    }
                     break;
                 case EventKind.Dash:
                 {

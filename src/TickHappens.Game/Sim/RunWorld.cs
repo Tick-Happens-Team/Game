@@ -398,7 +398,7 @@ public sealed partial class RunWorld
         if (p.Hp <= 0) TryRevive(p);
         OnHeroDamaged(p, dmg);
         p.HurtTick = Tick;
-        Emit(EventKind.PlayerHurt, p.Pos.X, p.Pos.Y, dmg, x2: fromX, y2: fromY);
+        Emit(EventKind.PlayerHurt, p.Pos.X, p.Pos.Y, dmg, a: p.Id, x2: fromX, y2: fromY);
         return dmg;
     }
 
