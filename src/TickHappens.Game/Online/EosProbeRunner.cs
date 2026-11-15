@@ -1,4 +1,6 @@
 #if TICKHAPPENS_EOS
+using TickHappens.Localization;
+
 namespace TickHappens.Game.Online;
 
 internal static class EosProbe
@@ -18,7 +20,8 @@ internal static class EosProbe
         }
         catch (Exception error)
         {
-            Console.Error.WriteLine(error is InvalidOperationException ? error.Message : error.GetType().Name);
+            Console.Error.WriteLine(error is LocalizedException localized ? Localizer.Get(localized.Key) :
+                error is InvalidOperationException ? error.Message : error.GetType().Name);
             return 1;
         }
     }

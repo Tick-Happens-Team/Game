@@ -1,4 +1,5 @@
 #if TICKHAPPENS_EOS
+using TickHappens.Localization;
 using System.Security.Cryptography;
 using System.Text.Json;
 using TickHappens.Game.Content;
@@ -53,7 +54,7 @@ internal sealed class OnlineGame(ContentSet content) : IDisposable
             _signingIn = _transport.LocalPeer is null;
             if (_signingIn)
             {
-                Status = "ПОДКЛЮЧЕНИЕ К EOS";
+                Status = Localizer.Get("online.signIn");
                 _operation = _transport.SignInAsync();
             }
             else BeginRoom();
@@ -63,7 +64,7 @@ internal sealed class OnlineGame(ContentSet content) : IDisposable
 
     private void BeginRoom()
     {
-        Status = _joinCode is null ? "СОЗДАЁМ ЛОББИ" : "ИЩЕМ ЛОББИ";
+        Status = _joinCode is null ? Localizer.Get("online.creating") : Localizer.Get("online.searching");
         _operation = _joinCode is null ? _transport!.HostAsync(4) : _transport!.JoinAsync(_joinCode);
     }
 
@@ -111,7 +112,7 @@ internal sealed class OnlineGame(ContentSet content) : IDisposable
                     _inputs[slot] = input with { Dash = _inputs[slot].Dash || input.Dash };
                     _lastInput[slot] = World.Tick;
                 };
-                Status = "ОЖИДАНИЕ ИГРОКОВ";
+                Status = Localizer.Get("online.waitingPlayers");
             }
             else
             {
@@ -126,7 +127,7 @@ internal sealed class OnlineGame(ContentSet content) : IDisposable
                     _accumulator = 0;
                 };
                 session.Join();
-                Status = "ОЖИДАНИЕ ХОСТА";
+                Status = Localizer.Get("online.waitingHost");
             }
         }
         catch (Exception error)
@@ -155,7 +156,7 @@ internal sealed class OnlineGame(ContentSet content) : IDisposable
             _session?.Poll();
             if (_hostEnded || _session?.JoinError is not null)
             {
-                string message = _session?.JoinError ?? "ХОСТ ЗАКРЫЛ КОМНАТУ";
+                string message = Localizer.Get(_session?.JoinError ?? "online.hostClosed");
                 _hostEnded = false;
                 Leave();
                 Status = message;
@@ -219,7 +220,7 @@ internal sealed class OnlineGame(ContentSet content) : IDisposable
         _accumulator = _inputTime = 0;
         Array.Clear(_inputs);
         Array.Clear(_lastInput);
-        Status = "ЛОББИ ЗАКРЫТО";
+        Status = Localizer.Get("online.closed");
         if (_transport is null) return;
         _leaving = true;
         try { _operation = _transport.LeaveAsync(); }
@@ -229,7 +230,8 @@ internal sealed class OnlineGame(ContentSet content) : IDisposable
     private void SetError(Exception error)
     {
         // Configuration, platform and transport exceptions do not need to expose file contents.
-        Status = error is InvalidOperationException ? error.Message : $"ОШИБКА EOS: {error.GetType().Name}";
+        Console.Error.WriteLine(error is InvalidOperationException ? error.Message : error.GetType().Name);
+        Status = Localizer.Get(error is LocalizedException failure ? failure.Key : "online.error");
     }
 
     public void Dispose()

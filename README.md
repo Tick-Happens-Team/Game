@@ -10,7 +10,7 @@ Install the .NET 10 SDK, keep Game and Assets side by side, and use a GPU with O
 dotnet run --project src/TickHappens.Game
 ```
 
-Pick one of six heroes from the owner roster (Октарин, Мечник, Кузнец, Гофлин, Небесный маг, Часовой), each with table stats and a passive. The hero shoots automatically, crystals level you up (HP and damage grow per level), and items come only from chests, which open on their own when you can pay (10 gold, then ×1.5 per purchase) and roll by rarity. Time statues add minutes to the run clock and the horde grows with it. The run ends when your HP reaches zero.
+Pick one of six heroes from the owner roster (Octarine, Swordsman, Smith, Goflin, Celestial Mage, Watchman), each with table stats and a passive. The hero shoots automatically, crystals level you up (HP and damage grow per level), and items come only from chests, which open on their own when you can pay (10 gold, then ×1.5 per purchase) and roll by rarity. Time statues add minutes to the run clock and the horde grows with it. The run ends when your HP reaches zero.
 
 | Control | Action |
 |---|---|
@@ -22,6 +22,8 @@ Pick one of six heroes from the owner roster (Октарин, Мечник, Ку
 Content (6 heroes, 6 items, enemies, waves, rules) is data in `content/core/*.json`, the built-in `core` mod; the full plan is the [content roadmap](docs/CONTENT_ROADMAP.md). Autopilot and captures: `--demo --character ID --menu --frames N --screenshot PATH --seed S --no-vsync`.
 
 ## Online co-op
+
+Choose English or Russian from the launcher language selector or press **F4** on the game's character selection screen. Both applications use the same saved language. On first launch they use the system UI language when supported, with English as the fallback.
 
 Windows developer builds can enable online co-op with the official EOS SDK and local credentials. See the [online setup and test instructions](docs/NETWORKING.md#local-windows-eos-build).
 

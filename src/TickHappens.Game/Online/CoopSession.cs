@@ -84,7 +84,7 @@ public sealed class CoopSession : IDisposable
         if (_joining && now - _joinStarted >= 15 * second)
         {
             _joining = false;
-            JoinError = "Timed out waiting for the host.";
+            JoinError = "online.timeout";
         }
         if (_joining && now - _lastHello >= second) SendHello(now);
 
@@ -186,9 +186,9 @@ public sealed class CoopSession : IDisposable
             case Message.Rejected when _joining && packet.Length == 3:
                 JoinError = (Rejection)packet[2] switch
                 {
-                    Rejection.Full => "The room is full.",
-                    Rejection.Started => "The run has already started.",
-                    _ => "Game versions or content differ.",
+                    Rejection.Full => "online.full",
+                    Rejection.Started => "online.started",
+                    _ => "online.incompatible",
                 };
                 _joining = false;
                 break;
@@ -295,7 +295,7 @@ public sealed class CoopSession : IDisposable
             _joining = false;
             LocalPlayerSlot = null;
             PlayerCount = 0;
-            JoinError = "The host disconnected.";
+            JoinError = "online.hostClosed";
             HostDisconnected?.Invoke();
         }
     }

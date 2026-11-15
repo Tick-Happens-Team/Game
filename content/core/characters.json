@@ -1,36 +1,26 @@
 [
   {
-    "id": "octarine", "name": "Октарин", "sprite": "char_octarine",
-    "passive": "Все способности и предметы персонажа меньше перезаряжаются на 10%.",
-    "growth": "Ещё 0.15% к перезарядке за уровень.",
+    "id": "octarine", "sprite": "char_octarine",
     "stats": { "maxHp": 150, "maxHpPerLevel": 5, "moveSpeed": 25, "attackSpeed": 25, "armor": 0.05, "magicResist": 0.10, "damage": 15, "damagePerLevel": 2.75 },
     "passives": [ { "stat": "cooldown", "pct": -0.10, "perLevel": { "pct": -0.0015 } } ]
   },
   {
-    "id": "swordsman", "name": "Мечник", "sprite": "char_swordsman",
-    "passive": "За каждый уровень увеличивает броню.",
-    "growth": "+1% брони за уровень.",
+    "id": "swordsman", "sprite": "char_swordsman",
     "stats": { "maxHp": 300, "maxHpPerLevel": 5, "moveSpeed": 18, "attackSpeed": 20, "armor": 0.10, "magicResist": 0.03, "damage": 20, "damagePerLevel": 1 },
     "passives": [ { "stat": "armor", "perLevel": { "add": 0.01 } } ]
   },
   {
-    "id": "smith", "name": "Кузнец", "sprite": "char_smith",
-    "passive": "Увеличивает урон от предметов на 15%.",
-    "growth": "+1% урона предметов за уровень.",
+    "id": "smith", "sprite": "char_smith",
     "stats": { "maxHp": 250, "maxHpPerLevel": 2, "moveSpeed": 30, "attackSpeed": 25, "armor": 0.05, "magicResist": 0.04, "damage": 15, "damagePerLevel": 1.5 },
     "passives": [ { "stat": "itemDamage", "pct": 0.15, "perLevel": { "pct": 0.01 } } ]
   },
   {
-    "id": "goflin", "name": "Гофлин", "sprite": "char_goflin",
-    "passive": "Получает больше золота на 10%.",
-    "growth": "+0.75% золота за уровень.",
+    "id": "goflin", "sprite": "char_goflin",
     "stats": { "maxHp": 200, "maxHpPerLevel": 4, "moveSpeed": 35, "attackSpeed": 30, "armor": 0.04, "magicResist": 0.06, "damage": 5, "damagePerLevel": 0.5 },
     "passives": [ { "stat": "goldGain", "pct": 0.10, "perLevel": { "pct": 0.0075 } } ]
   },
   {
-    "id": "celestial_mage", "name": "Небесный маг", "sprite": "char_celestial_mage",
-    "passive": "Дополнительный магический урон 25%, но здоровье владельца всегда уменьшено на 65%.",
-    "growth": "+2.25% магического урона за уровень.",
+    "id": "celestial_mage", "sprite": "char_celestial_mage",
     "stats": { "maxHp": 200, "maxHpPerLevel": 1, "moveSpeed": 28, "attackSpeed": 28, "armor": 0.25, "magicResist": 0.25, "damage": 10, "damagePerLevel": 0.25 },
     "attack": { "damageType": "magical", "speed": 230, "range": 220, "pierce": 1, "count": 1 },
     "passives": [
@@ -39,9 +29,7 @@
     ]
   },
   {
-    "id": "watchman", "name": "Часовой", "sprite": "char_watchman",
-    "passive": "Даёт 0.75 урона за каждую минуту игры (по часам забега).",
-    "growth": "+0.25 урона в минуту за уровень.",
+    "id": "watchman", "sprite": "char_watchman",
     "stats": { "maxHp": 225, "maxHpPerLevel": 1.5, "moveSpeed": 40, "attackSpeed": 50, "armor": 0.05, "magicResist": 0.05, "damage": 3, "damagePerLevel": 0.25 },
     "passives": [ { "stat": "damage", "add": 0.75, "perLevel": { "add": 0.25 }, "per": "runMinute" } ]
   }

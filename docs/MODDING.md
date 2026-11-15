@@ -39,15 +39,15 @@ The built-in `core` mod (`Game/content/core/`) uses exactly this format. Validat
 
 | File under `content/` | Data |
 |---|---|
-| `characters.json` | `id`, `name`, `sprite`, designer `passive` and `growth` text, table `stats` (`maxHp`/`maxHpPerLevel`, `moveSpeed` С/П, `attackSpeed` С/А, `armor` and `magicResist` as fractions, `damage`/`damagePerLevel`), optional basic `attack` override (damage type, speed, range, pierce, count), `passives` |
+| `characters.json` | `id`, `name`, `sprite`, designer `passive` and `growth` text, table `stats` (`maxHp`/`maxHpPerLevel`, `moveSpeed` Move speed, `attackSpeed` Attack speed, `armor` and `magicResist` as fractions, `damage`/`damagePerLevel`), optional basic `attack` override (damage type, speed, range, pierce, count), `passives` |
 | `items.json` | `id`, `name`, `rarity` (common, rare, epic, mythic, legendary), `description`, stat `mods` applied once per copy, optional `weapon` (kind `bolt`, `pulse`, `chain` or `blast`, damage type and parameters) |
-| `enemies.json` | `id`, sprite and animation, optional tint, HP, `speed` in С/П, damage and type, `armor`/`magicResist`, `lifesteal`, radius, XP, gold chance, `boss` flag |
+| `enemies.json` | `id`, sprite and animation, optional tint, HP, `speed` in Move speed, damage and type, `armor`/`magicResist`, `lifesteal`, radius, XP, gold chance, `boss` flag |
 | `waves.json` | Wave mix by run-clock minute, HP and damage growth per minute, max alive, timed elites |
 | `rules.json` | Arena, XP curve, unit scales (`units`), basic attack defaults, dash, statues, chests with `rarityWeights` (price growth fixed at 1.5) |
 | `sprites/*.png` and `*.sprite.json` | Frames, origin, animations, emission, normals |
 | `sfx/*.ogg` | Sound effects |
 
-A passive is a level-scaled stat formula: `{"stat": "armor", "add": 0, "pct": 0, "perLevel": {"add": 0.01}, "per": "runMinute"}`. Its value is `base + perLevel × (level − 1)`; with `"per": "runMinute"` it is multiplied by the run clock in minutes. Stats are `(base + Σadd) × (1 + Σpct)`. Damage passes through might, the type multiplier and, for items, item damage, then the target's armor (physical) or magic resist (magical), capped at 90%. Pure damage ignores defences. Units: px/s = С/П × 3; attacks per second = С/А / 25. Items come only from chests and stack. See [the content roadmap](CONTENT_ROADMAP.md) for the systems that later tiers add.
+A passive is a level-scaled stat formula: `{"stat": "armor", "add": 0, "pct": 0, "perLevel": {"add": 0.01}, "per": "runMinute"}`. Its value is `base + perLevel × (level − 1)`; with `"per": "runMinute"` it is multiplied by the run clock in minutes. Stats are `(base + Σadd) × (1 + Σpct)`. Damage passes through might, the type multiplier and, for items, item damage, then the target's armor (physical) or magic resist (magical), capped at 90%. Pure damage ignores defences. Units: px/s = Move speed × 3; attacks per second = Attack speed / 25. Items come only from chests and stack. See [the content roadmap](CONTENT_ROADMAP.md) for the systems that later tiers add.
 
 Mods compose parameterized engine behaviors; new behaviors arrive as engine systems listed in the content roadmap. Formula expressions use a deterministic AST with no loops or I/O. StyleLint applies to mod sprites, with TH001–TH003 blocking errors. The loader builds the atlas at runtime.
 
@@ -57,14 +57,14 @@ The prototype measures distances in world pixels between ground pivots. Circle a
 
 | Design examples | Runtime parameters and behavior |
 |---|---|
-| Деревяшка, АУРА, Тотем, Маска мотивации | Radius, origin, ally/enemy filter, tick interval, and optional distance falloff. Aura bonuses need to expire on exit. |
-| Огнемет, Вентилятор, Меч | Cone radius and full angle. Use facing or its reverse as the direction. |
-| Трезубец, Магический снаряд, Электро перчатки | Projectile travel distance and speed are separate from hit and bounce radius. A bounce searches from its last impact, with an explicit hop limit and repeat-target rule. |
-| Газировка, Сосулька, Галактическая винтовка | Delayed effects carry a location or target and a due tick. Specify whether to reselect a missing target. |
-| Ракета, Добивалка, Щит, Крапива, Общее сердце, Звезда Давида | Typed hit, kill, received damage, heal, and gold-spend events. Give secondary effects explicit proc and reflection rules to prevent loops. |
-| Садовый гном, Орёл смерти, Приманка | Summon owner, lifetime, and attack cadence. Keep owner credit on the final hit for enemy gold. |
-| Джетпак, Банка с ветром, Батончик, Подушка пердушка | Dash duration, charges, cooldown, and dash-triggered passive effects. |
-| Прицел | A key enables cursor targeting for supported effects. Effect timing remains automatic. Key binding and activation lifetime are pending. |
+| Wooden Stick, Aura, Totem, Motivation Mask | Radius, origin, ally/enemy filter, tick interval, and optional distance falloff. Aura bonuses need to expire on exit. |
+| Flamethrower, Fan, Sword | Cone radius and full angle. Use facing or its reverse as the direction. |
+| Trident, Magic Projectile, Electric Gloves | Projectile travel distance and speed are separate from hit and bounce radius. A bounce searches from its last impact, with an explicit hop limit and repeat-target rule. |
+| Soda, Icicle, Galactic Rifle | Delayed effects carry a location or target and a due tick. Specify whether to reselect a missing target. |
+| Rocket, Finisher, Shield, Nettle, Shared Heart, Star of David | Typed hit, kill, received damage, heal, and gold-spend events. Give secondary effects explicit proc and reflection rules to prevent loops. |
+| Garden Gnome, Death Eagle, Bait | Summon owner, lifetime, and attack cadence. Keep owner credit on the final hit for enemy gold. |
+| Jetpack, Jar of Wind, Snack Bar, Whoopee Cushion | Dash duration, charges, cooldown, and dash-triggered passive effects. |
+| Scope | A key enables cursor targeting for supported effects. Effect timing remains automatic. Key binding and activation lifetime are pending. |
 
 The current code supplies area geometry, directional facing, resolved radius and typed damage multipliers, and hit attribution. The remaining behaviors in the table are requirements for the content loader and combat systems. Quantize authored durations to simulation ticks and use seeded rolls for random targets and proc chances.
 

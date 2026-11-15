@@ -1,3 +1,4 @@
+using TickHappens.Localization;
 using System.Numerics;
 using Silk.NET.OpenGL;
 using TickHappens.Engine.Assets;
@@ -123,12 +124,12 @@ internal sealed class RunView : IDisposable
                     if (_effects.Count < MaxCpuEffects)
                         _effects.Add(new SparkleEffect(new SparkleOptions { X = e.X * 2, Y = (e.Y - 26) * 2, Size = 12, Seed = _fxSeed++ }));
                     RingBurst(e.X, e.Y - 10, 26, 0xFFDEF08Fu, 0xFFC0C43Fu);
-                    _hud.Notice($"УРОВЕНЬ {e.Value:0}", 0xFFDEF08Fu);
+                    _hud.Notice(Localizer.Format("notice.level", e.Value), 0xFFDEF08Fu);
                     break;
                 case EventKind.Statue:
                     _effects.Add(new SparkleEffect(new SparkleOptions { X = e.X * 2, Y = (e.Y - 24) * 2, Seed = _fxSeed++ }));
                     Burst(e.X, e.Y - 20, 160, 160, 0xFF6BE2FFu, 0xFF3DC2FFu, 2.4f);
-                    _hud.Notice($"ЧАСЫ +{e.Value:0}:00  -  ОРДА КРЕПНЕТ", 0xFF6BE2FFu);
+                    _hud.Notice(Localizer.Format("notice.statue", e.Value), 0xFF6BE2FFu);
                     Shake(0.5f);
                     break;
                 case EventKind.Chest:
@@ -137,7 +138,7 @@ internal sealed class RunView : IDisposable
                     if (e.A >= 0)
                     {
                         var item = world.Content.Items[e.A];
-                        _hud.Notice($"СУНДУК: {item.Name} ({Hud.RarityName(item.Rarity)}) - {item.Description}", Hud.RarityColor(item.Rarity));
+                        _hud.Notice(Localizer.Format("notice.chest", Hud.ItemName(item), Hud.RarityName(item.Rarity), Localizer.Content("items", item.Id, "description", item.Description)), Hud.RarityColor(item.Rarity));
                     }
                     break;
                 case EventKind.PlayerHurt:
@@ -154,7 +155,7 @@ internal sealed class RunView : IDisposable
                         });
                     break;
                 case EventKind.Elite:
-                    _hud.Notice("ПРИБЛИЖАЕТСЯ ЭЛИТА", 0xFFE070C0u);
+                    _hud.Notice(Localizer.Get("notice.elite"), 0xFFE070C0u);
                     break;
                 case EventKind.Pickup:
                     if (e.A == (int)PickupKind.Gold) Burst(e.X, e.Y, 4, 40, 0xFF6BE2FFu, 0xFF2A8AFFu, 1.2f);

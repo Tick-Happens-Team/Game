@@ -1,4 +1,5 @@
 #if TICKHAPPENS_EOS
+using TickHappens.Localization;
 using TickHappens.Engine.Graphics;
 using TickHappens.Engine.Platform;
 using TickHappens.Engine.Ui;
@@ -73,34 +74,34 @@ internal sealed class OnlineMenu(OnlineGame game)
         }
         if (!IsOpen)
         {
-            Button("ОНЛАЙН  F1", renderer.ViewH - 38);
+            Button(Localizer.Get("online.entry"), renderer.ViewH - 38);
             return;
         }
         for (int dy = -60; dy < 58; dy++)
             for (int dx = -130; dx <= 130; dx++)
                 ui.Set(x + dx, y + dy, Ink);
-        PixelFont.DrawCentered(ui, "ОНЛАЙН КООП  2-4", x, y - 53, Teal, Ink);
-        string status = game.RoomCode is { } code ? $"КОД {code}   ИГРОКОВ {game.PlayerCount}/4" : game.Status;
+        PixelFont.DrawCentered(ui, Localizer.Get("online.title"), x, y - 53, Teal, Ink);
+        string status = game.RoomCode is { } code ? Localizer.Format("online.room", code, game.PlayerCount) : game.Status;
         if (status.Length > 42) status = status[..42];
         PixelFont.DrawCentered(ui, status, x, y - 32, Text, Ink);
         if (!game.Busy)
         {
             if (game.InRoom)
             {
-                if (game.IsHost) Button("НАЧАТЬ ЗАБЕГ  ENTER", y + 12, game.PlayerCount >= 2);
+                if (game.IsHost) Button(Localizer.Get("online.start"), y + 12, game.PlayerCount >= 2);
             }
             else if (_screen == Screen.Code)
             {
-                PixelFont.DrawCentered(ui, $"КОД: {_code.PadRight(6, '_')}", x, y - 9, Text, Ink);
-                Button("ПОДКЛЮЧИТЬСЯ  ENTER", y + 12, _code.Length == 6);
+                PixelFont.DrawCentered(ui, Localizer.Format("online.code", _code.PadRight(6, '_')), x, y - 9, Text, Ink);
+                Button(Localizer.Get("online.connect"), y + 12, _code.Length == 6);
             }
             else
             {
-                Button("СОЗДАТЬ ЛОББИ  F2", y - 12);
-                Button("ВОЙТИ ПО КОДУ  F3", y + 12);
+                Button(Localizer.Get("online.host"), y - 12);
+                Button(Localizer.Get("online.join"), y + 12);
             }
         }
-        Button("НАЗАД  ESC", y + 36);
+        Button(Localizer.Get("online.back"), y + 36);
     }
 }
 #endif

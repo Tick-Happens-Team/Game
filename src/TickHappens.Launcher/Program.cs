@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Reflection;
 using TickHappens.Launcher;
+using TickHappens.Localization;
 
 internal static class Program
 {
@@ -8,6 +9,7 @@ internal static class Program
     private static void Main()
     {
         ApplicationConfiguration.Initialize();
+        Localizer.Initialize();
         string root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TickHappens");
         Directory.CreateDirectory(root);
         const string defaultUrl = "https://github.com/Tick-Happens-Team/Game/releases/latest/download/channel.json";
@@ -38,7 +40,7 @@ internal static class Program
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
         {
-            MessageBox.Show(error.Message, "TickHappens Launcher", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(LauncherForm.ErrorText(error), Localizer.Get("launcher.title"), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 }
