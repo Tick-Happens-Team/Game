@@ -354,7 +354,7 @@ public sealed partial class RunWorld
     private float HurtPlayer(PlayerState p, float amount, DamageKind kind, float fromX, float fromY, int enemy)
     {
         if (p.InvulnTicks > 0 || p.Hp <= 0) return 0;
-        float dmg = amount * (1 - Resist(kind, p.Stats[Stat.Armor], p.Stats[Stat.MagicResist]));
+        float dmg = amount * (1 - Resist(kind, p.Stats[Stat.Armor], p.Stats[Stat.MagicResist])) * p.Stats[Stat.DamageTaken];
         if (kind == DamageKind.Physical && p.Stats[Stat.PhysicalBlock] > 0 && Tick >= p.PhysicalBlockTick)
         {
             p.PhysicalBlockTick = Tick + (int)MathF.Round(10 * p.Stats[Stat.Cooldown] * TicksPerSecond);

@@ -32,5 +32,10 @@
     "id": "watchman", "sprite": "char_watchman",
     "stats": { "maxHp": 225, "maxHpPerLevel": 1.5, "regen": 5, "moveSpeed": 40, "attackSpeed": 50, "armor": 0.05, "magicResist": 0.05, "damage": 3, "damagePerLevel": 0.25 },
     "passives": [ { "stat": "damage", "add": 0.75, "perLevel": { "add": 0.25 }, "per": "runMinute" } ]
+  },
+  {
+    "id": "nekochan", "sprite": "char_nekochan",
+    "stats": { "maxHp": 175, "maxHpPerLevel": 3.5, "regen": 0.15, "moveSpeed": 45, "attackSpeed": 35, "armor": 0.025, "magicResist": 0.025, "damage": 15, "damagePerLevel": 1.5 },
+    "aura": { "radius": 200, "radiusPerLevel": 1.25, "damageReduction": 0.08, "damageReductionPerLevel": 0.003, "regen": 1.75, "regenPerLevel": 0.25, "selfMultiplier": 1.75 }
   }
 ]

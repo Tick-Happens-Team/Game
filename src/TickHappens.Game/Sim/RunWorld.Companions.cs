@@ -10,7 +10,7 @@ public struct Companion
     public Vector2 Pos, Prev;
     internal float Health, MaxHealth, AuraCapacity, Shield, AttackTimer, Life;
     internal int Target, TargetUid, HurtTick;
-    internal float Armor, BlockChance, AttackSpeed, PhysicalDamage, Lifesteal;
+    internal float Armor, BlockChance, AttackSpeed, PhysicalDamage, Lifesteal, DamageReduction;
 }
 
 public sealed partial class RunWorld
@@ -199,7 +199,7 @@ public sealed partial class RunWorld
             if (Tick - ally.HurtTick < TicksPerSecond / 2 || kind == DamageKind.Physical && RollChance(ally.BlockChance))
                 return true;
             ally.HurtTick = Tick;
-            damage *= 1 - Resist(kind, ally.Armor, 0);
+            damage *= (1 - Resist(kind, ally.Armor, 0)) * MathF.Max(0.1f, 1 - ally.DamageReduction);
             float absorbed = Math.Min(damage, ally.Shield);
             ally.Shield -= absorbed;
             ally.Health -= damage - absorbed;

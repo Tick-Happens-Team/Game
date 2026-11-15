@@ -41,6 +41,8 @@ public enum Stat
     StationaryRegen, RechargingShield, GoldRefund, DashSpeedBonus,
     EnemyLifestealCap, PhysicalBlock, DamageReroll, FinisherChance, DamageReflection,
     EliteDamage, HighestHealthDamage, DashLength, ExtraDashCharges, Lifesteal,
+    /// <summary>Multiplier on damage the hero takes after defences (ally auras lower it). Default 1, floor 0.1.</summary>
+    DamageTaken,
 }
 
 public enum DamageKind { Physical, Magical, Pure }
@@ -96,6 +98,24 @@ public sealed class AttackDef
     [JsonPropertyName("count")] public int Count { get; set; } = 1;
 }
 
+/// <summary>
+/// Character ally aura (Некотян): every living ally within the radius, the owner and allied summons included,
+/// takes less damage and regenerates HP. value(level) = base + perLevel × (level − 1); the owner gets
+/// <see cref="SelfMultiplier"/> × the damage reduction and regen. The radius scales with the owner's Area.
+/// </summary>
+public sealed class CharacterAura
+{
+    [JsonPropertyName("radius")] public float Radius { get; set; }
+    [JsonPropertyName("radiusPerLevel")] public float RadiusPerLevel { get; set; }
+    /// <summary>Fraction of incoming damage removed (0.08 = 8%).</summary>
+    [JsonPropertyName("damageReduction")] public float DamageReduction { get; set; }
+    [JsonPropertyName("damageReductionPerLevel")] public float DamageReductionPerLevel { get; set; }
+    /// <summary>HP restored per second.</summary>
+    [JsonPropertyName("regen")] public float Regen { get; set; }
+    [JsonPropertyName("regenPerLevel")] public float RegenPerLevel { get; set; }
+    [JsonPropertyName("selfMultiplier")] public float SelfMultiplier { get; set; } = 1;
+}
+
 public sealed class CharacterDef
 {
     [JsonPropertyName("id")] public string Id { get; set; } = "";
@@ -109,6 +129,7 @@ public sealed class CharacterDef
     /// <summary>Optional basic attack override; defaults come from rules.basicAttack.</summary>
     [JsonPropertyName("attack")] public AttackDef? Attack { get; set; }
     [JsonPropertyName("passives")] public List<PassiveDef> Passives { get; set; } = [];
+    [JsonPropertyName("aura")] public CharacterAura? Aura { get; set; }
 }
 
 /// <summary>Active behaviour of an item that attacks on its own (see ContentLoader.WeaponKinds).</summary>

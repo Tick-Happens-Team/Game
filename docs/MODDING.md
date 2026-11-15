@@ -39,7 +39,7 @@ The built-in `core` mod (`Game/content/core/`) uses exactly this format. Validat
 
 | File under `content/` | Data |
 |---|---|
-| `characters.json` | `id`, `name`, `sprite`, designer `passive` and `growth` text, table `stats` (`maxHp`/`maxHpPerLevel`, `moveSpeed` Move speed, `attackSpeed` Attack speed, `armor` and `magicResist` as fractions, `damage`/`damagePerLevel`), optional basic `attack` override (damage type, speed, range, pierce, count), `passives` |
+| `characters.json` | `id`, `name`, `sprite`, designer `passive` and `growth` text, table `stats` (`maxHp`/`maxHpPerLevel`, `moveSpeed` Move speed, `attackSpeed` Attack speed, `armor` and `magicResist` as fractions, `damage`/`damagePerLevel`), optional basic `attack` override (damage type, speed, range, pierce, count), `passives`, optional ally `aura` |
 | `items.json` | `id`, `name`, `rarity` (common, rare, epic, mythic, legendary), `description`, stat `mods` applied once per copy, optional `weapon` (kind `bolt`, `pulse`, `chain` or `blast`, damage type and parameters) |
 | `enemies.json` | `id`, sprite and animation, optional tint, HP, `speed` in Move speed, damage and type, `armor`/`magicResist`, `lifesteal`, radius, XP, gold chance, `boss` flag |
 | `waves.json` | Wave mix by run-clock minute, HP and damage growth per minute, max alive, timed elites |
@@ -48,6 +48,8 @@ The built-in `core` mod (`Game/content/core/`) uses exactly this format. Validat
 | `sfx/*.ogg` | Sound effects |
 
 A passive is a level-scaled stat formula: `{"stat": "armor", "add": 0, "pct": 0, "perLevel": {"add": 0.01}, "per": "runMinute"}`. Its value is `base + perLevel × (level − 1)`; with `"per": "runMinute"` it is multiplied by the run clock in minutes. Stats are `(base + Σadd) × (1 + Σpct)`. Damage passes through might, the type multiplier and, for items, item damage, then the target's armor (physical) or magic resist (magical), capped at 90%. Pure damage ignores defences. Units: px/s = Move speed × 3; attacks per second = Attack speed / 25. Standard items come from chests and stack. Cursed items use `rarity: "cursed"` and a `bossDrop` enemy ID. They are excluded from chest rolls and drop for the player credited with the matching boss kill. See [the content roadmap](CONTENT_ROADMAP.md) for the systems that later tiers add.
+
+An ally `aura` covers every living player within its radius, the owner included, and allied summons: `{"radius": 200, "radiusPerLevel": 1.25, "damageReduction": 0.08, "damageReductionPerLevel": 0.003, "regen": 1.75, "regenPerLevel": 0.25, "selfMultiplier": 1.75}`. Each value grows as `base + perLevel × (level − 1)`, the radius scales with the owner's `area`, and the owner receives `selfMultiplier` × the reduction and regen. Reduction lowers the `damageTaken` stat (default 1, floor 0.1) applied after defences; several auras stack additively.
 
 Mods compose parameterized engine behaviors; new behaviors arrive as engine systems listed in the content roadmap. Formula expressions use a deterministic AST with no loops or I/O. StyleLint applies to mod sprites, with TH001–TH003 blocking errors. The loader builds the atlas at runtime.
 

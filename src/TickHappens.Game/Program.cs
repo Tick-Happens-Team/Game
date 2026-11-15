@@ -43,7 +43,7 @@ if (args is ["--eos-probe"]) return EosProbe.Run();
 
 // TickHappens single-player game: character select, then a run.
 //   --demo              autopilot plays (deterministic, fixed 60 FPS frame time), skips the menu
-//   --character ID      start directly with this character (e.g. octarine, swordsman, smith, goflin, celestial_mage, watchman)
+//   --character ID      start directly with this character (e.g. octarine, swordsman, smith, goflin, celestial_mage, watchman, nekochan)
 //   --menu              with --frames: stay on the character select screen (for screenshots)
 //   --frames N          exit after N frames      --screenshot PATH   save the last frame (needs --frames)
 //   --seed S            run seed                 --no-vsync          uncapped frame rate

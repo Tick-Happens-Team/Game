@@ -5,7 +5,7 @@ namespace TickHappens.Tests;
 public sealed class ContentLoaderTests
 {
     private static readonly string[] CharacterIds =
-        ["octarine", "swordsman", "smith", "goflin", "celestial_mage", "watchman"];
+        ["octarine", "swordsman", "smith", "goflin", "celestial_mage", "watchman", "nekochan"];
 
     [Fact]
     public void CoreContentLoadsWithExpectedShape()
@@ -76,6 +76,25 @@ public sealed class ContentLoaderTests
         Assert.Equal("runMinute", perMinute.Per);
         Assert.Equal(0.75f, perMinute.Add);
         Assert.Equal(0.25f, perMinute.PerLevel!.Add);
+
+        var nekochan = Character(content, "nekochan");
+        Assert.Equal(175f, nekochan.Stats.MaxHp);
+        Assert.Equal(3.5f, nekochan.Stats.MaxHpPerLevel);
+        Assert.Equal(0.15f, nekochan.Stats.Regen);
+        Assert.Equal(45f, nekochan.Stats.MoveSpeed);
+        Assert.Equal(35f, nekochan.Stats.AttackSpeed);
+        Assert.Equal(0.025f, nekochan.Stats.Armor);
+        Assert.Equal(0.025f, nekochan.Stats.MagicResist);
+        Assert.Equal(15f, nekochan.Stats.Damage);
+        Assert.Equal(1.5f, nekochan.Stats.DamagePerLevel);
+        var aura = Assert.IsType<CharacterAura>(nekochan.Aura);
+        Assert.Equal(200f, aura.Radius);
+        Assert.Equal(1.25f, aura.RadiusPerLevel);
+        Assert.Equal(0.08f, aura.DamageReduction);
+        Assert.Equal(0.003f, aura.DamageReductionPerLevel);
+        Assert.Equal(1.75f, aura.Regen);
+        Assert.Equal(0.25f, aura.RegenPerLevel);
+        Assert.Equal(1.75f, aura.SelfMultiplier);
     }
 
     [Fact]
