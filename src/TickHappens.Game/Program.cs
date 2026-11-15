@@ -115,15 +115,16 @@ var clock = Stopwatch.StartNew();
 double last = clock.Elapsed.TotalSeconds, fpsTimer = 0;
 int fpsFrames = 0;
 using var online = new OnlineGame(content);
-var onlineMenu = new OnlineMenu(online);
+var onlineMenu = new OnlineMenu(online, view.Preview);
 var coopHud = new CoopHud(online, settingsMenu);
 var itemPanel = new ItemPanel(online.PlayerName);
 var pauseMenu = new PauseMenu(settingsMenu);
 Action<PixelRenderer> drawPauseMenu = renderer => pauseMenu.Draw(renderer);
 Action<PixelRenderer> drawSettingsMenu = settingsMenu.Draw;
+Action<PixelRenderer> drawOnlineMenu = renderer => onlineMenu.Draw(renderer, (float)clock.Elapsed.TotalSeconds, window.Mouse);
 Action<PixelRenderer> drawHeroMenu = renderer =>
 {
-    if (!stayInMenu) onlineMenu.Draw(renderer);
+    if (!stayInMenu) drawOnlineMenu(renderer);
     settingsMenu.DrawEntry(renderer);
 };
 bool mainSettingsOpen = false;
@@ -184,7 +185,7 @@ for (int frame = 1; !window.QuitRequested; frame++)
     else if (inMenu && (onlineMenu.IsOpen || onlineMenuWasOpen))
     {
         view.Draw(window.Width, window.Height, world, 1, true, frameDt, selected,
-            onlineMenu.IsOpen ? onlineMenu.Draw : drawHeroMenu);
+            onlineMenu.IsOpen ? drawOnlineMenu : drawHeroMenu, showHeroMenu: !onlineMenu.IsOpen);
     }
     else if (inMenu)
     {

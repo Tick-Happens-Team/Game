@@ -50,6 +50,54 @@ public sealed class LanTransportTests
         await PumpUntil(() => !guest.Paused && guest.World.Tick > tick);
     }
 
+    [Fact]
+    public async Task WipedTeamReturnsToSameRoomAndStartsAnotherRun()
+    {
+        var content = TestContent.LoadCore();
+        using var host = new OnlineGame(content, lanPort: 0);
+        using var guest = new OnlineGame(content);
+        host.ConnectLan(true, null, "octarine", 1);
+        int port = host.LanPort!.Value;
+        guest.ConnectLan(false, new IPEndPoint(IPAddress.Loopback, port), "smith", 1);
+
+        async Task PumpUntil(Func<bool> done)
+        {
+            var timeout = Stopwatch.StartNew();
+            while (!done() && timeout.Elapsed < TimeSpan.FromSeconds(5))
+            {
+                host.Update(RunWorld.Dt, default);
+                guest.Update(RunWorld.Dt, default);
+                await Task.Delay(2);
+            }
+            Assert.True(done());
+        }
+
+        await PumpUntil(() => host.CanStart && guest.LocalSlot is not null);
+        guest.EditProfile(content.CharacterIndex("swordsman"), "Guest");
+        await PumpUntil(() => host.PlayerHero(1) == content.CharacterIndex("swordsman"));
+        host.Start();
+        await PumpUntil(() => guest.Playing);
+        var firstRun = host.World!;
+        var firstReplica = guest.World!;
+        firstRun.Players[0].Hp = firstRun.Players[1].Hp = 0;
+        await PumpUntil(() => guest.World?.Phase == RunPhase.Dead);
+        await PumpUntil(() => !host.Playing && !guest.Playing);
+
+        Assert.True(host.InRoom && guest.InRoom);
+        Assert.Equal(port, host.LanPort);
+        Assert.Equal(1, guest.LocalSlot);
+        Assert.Equal("Guest", guest.PlayerName(1));
+        guest.EditProfile(content.CharacterIndex("diver"), "Guest");
+        await PumpUntil(() => host.PlayerHero(1) == content.CharacterIndex("diver"));
+        host.Start();
+        await PumpUntil(() => guest.Playing && guest.World!.Tick > 0);
+
+        Assert.NotSame(firstRun, host.World);
+        Assert.NotSame(firstReplica, guest.World);
+        Assert.Equal("diver", guest.World!.Player.Character.Id);
+        Assert.True(guest.World.Player.Hp > 0);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

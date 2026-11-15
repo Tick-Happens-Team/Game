@@ -6,7 +6,7 @@
   },
   {
     "id": "swordsman", "sprite": "char_swordsman",
-    "stats": { "maxHp": 300, "maxHpPerLevel": 5, "regen": 2, "moveSpeed": 18, "attackSpeed": 20, "armor": 0.10, "magicResist": 0.03, "damage": 20, "damagePerLevel": 1 },
+    "stats": { "maxHp": 300, "maxHpPerLevel": 5, "regen": 3, "moveSpeed": 18, "attackSpeed": 20, "armor": 0.10, "magicResist": 0.03, "damage": 20, "damagePerLevel": 1 },
     "passives": [ { "stat": "armor", "perLevel": { "add": 0.01 } } ]
   },
   {
@@ -30,8 +30,12 @@
   },
   {
     "id": "watchman", "sprite": "char_watchman",
-    "stats": { "maxHp": 225, "maxHpPerLevel": 1.5, "regen": 5, "moveSpeed": 40, "attackSpeed": 50, "armor": 0.05, "magicResist": 0.05, "damage": 3, "damagePerLevel": 0.25 },
-    "passives": [ { "stat": "damage", "add": 0.75, "perLevel": { "add": 0.25 }, "per": "runMinute" } ]
+    "stats": { "maxHp": 225, "maxHpPerLevel": 1.5, "regen": 5, "moveSpeed": 40, "attackSpeed": 55, "armor": 0.05, "magicResist": 0.05, "damage": 3.75, "damagePerLevel": 0.35 },
+    "passives": [
+      { "stat": "damage", "add": 0.75, "per": "runMinute" },
+      { "stat": "physicalCrit", "perLevel": { "add": 0.01 } },
+      { "stat": "magicalCrit", "perLevel": { "add": 0.01 } }
+    ]
   },
   {
     "id": "nekochan", "sprite": "char_nekochan",
@@ -142,7 +146,7 @@
     "name": "Кибернетический куб",
     "sprite": "char_cybernetic_cube",
     "stats": {
-      "maxHp": 150,
+      "maxHp": 100,
       "maxHpPerLevel": 5,
       "regen": 2,
       "moveSpeed": 25,
@@ -152,17 +156,17 @@
       "damage": 0,
       "damagePerLevel": 0.1
     },
-    "passive": "Первое повышение можно получить за 15 с выживания. Каждый уровень даёт урон и одну случайную характеристику на 1–5.",
-    "growth": "Границы броска случайно растут на 0,25–2,5 за уровень."
+    "passive": "Каждый уровень повышает одну случайную характеристику на 1–5%. Первое повышение можно получить за 15 с выживания.",
+    "growth": "+1–5% к одной случайной характеристике за уровень."
   },
   {
     "id": "masochist",
     "name": "Мазохист",
     "sprite": "char_masochist",
     "stats": {
-      "maxHp": 190,
+      "maxHp": 100,
       "maxHpPerLevel": 4,
-      "regen": 0.5,
+      "regen": 1,
       "moveSpeed": 20,
       "attackSpeed": 35,
       "armor": 0.01,
@@ -170,7 +174,7 @@
       "damage": 13.5,
       "damagePerLevel": 2.15
     },
-    "passive": "Потерянное здоровье повышает регенерацию, скорость движения и атаки, а также урон.",
+    "passive": "Потерянное здоровье повышает регенерацию и скорость передвижения.",
     "growth": "Коэффициент конверсии растёт на 0,15 п. п. за уровень."
   },
   {
@@ -185,7 +189,7 @@
       "attackSpeed": 15,
       "armor": 0.07,
       "magicResist": 0.07,
-      "damage": 25,
+      "damage": 15,
       "damagePerLevel": 1
     },
     "passive": "Фиксированная скорость движения. Пройденное расстояние повышает броню.",

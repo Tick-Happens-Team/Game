@@ -89,8 +89,7 @@ public sealed class PlayerState
     public int GhostUntilTick, HeroAttackTick = -1;
     internal int NextHeroPassiveTick, Souls, IllusionHurtTick;
     internal float IllusionHealth, PendingBlastDamage, HeroDistance, PuppeteerDamageBonus;
-    internal float CubeMin = 1, CubeMax = 5;
-    internal readonly float[] CubeBonuses = new float[7];
+    internal readonly float[] CubeBonuses = new float[RunWorld.CubeStatCount];
     public int ConversionItem = -1;
     public float AcceleratorSpeedBonus;
     /// <summary>Fractional gold carried between pickups so small multipliers (+10% gold) are never rounded away.</summary>

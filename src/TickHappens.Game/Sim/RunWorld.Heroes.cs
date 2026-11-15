@@ -13,6 +13,8 @@ public sealed partial class RunWorld
     private static readonly Stat[] CubeStats =
         [Stat.MaxHp, Stat.Regen, Stat.MoveSpeed, Stat.AttackSpeed, Stat.Armor, Stat.MagicResist];
 
+    internal static int CubeStatCount => CubeStats.Length;
+
     internal static readonly CompanionDef[] SoulCompanions =
     [
         new() { Kind = "soulHealer", Sprite = "companion_soul_healer", Speed = 120 },
@@ -33,16 +35,13 @@ public sealed partial class RunWorld
                 float bonus = missing * (1 + 0.0015f * level);
                 player.Stats.ApplyDynamic(Stat.Regen, 0, bonus);
                 player.Stats.ApplyDynamic(Stat.MoveSpeed, 0, bonus);
-                player.Stats.ApplyDynamic(Stat.AttackSpeed, 0, bonus);
-                player.Stats.ApplyDynamic(Stat.Damage, 0, bonus);
                 break;
             case "diver":
                 player.Stats.ApplyDynamic(Stat.Armor, MathF.Floor(player.HeroDistance / 100) * 0.01f, 0);
                 break;
             case "cybernetic_cube":
                 for (int i = 0; i < CubeStats.Length; i++)
-                    player.Stats.ApplyDynamic(CubeStats[i], player.CubeBonuses[i], 0);
-                player.Stats.ApplyDynamic(Stat.Damage, player.CubeBonuses[^1], 0);
+                    player.Stats.ApplyDynamic(CubeStats[i], 0, player.CubeBonuses[i]);
                 break;
         }
     }
@@ -51,13 +50,7 @@ public sealed partial class RunWorld
     {
         if (player.Character.Id != "cybernetic_cube") return;
         int stat = _rng.Int(CubeStats.Length);
-        float lower = Math.Min(player.CubeMin, player.CubeMax);
-        float upper = Math.Max(player.CubeMin, player.CubeMax);
-        float statBonus = _rng.Range(lower, upper);
-        player.CubeBonuses[stat] += CubeStats[stat] is Stat.Armor or Stat.MagicResist ? statBonus * 0.01f : statBonus;
-        player.CubeBonuses[^1] += _rng.Range(lower, upper);
-        player.CubeMin += _rng.Range(0.25f, 2.5f);
-        player.CubeMax += _rng.Range(0.25f, 2.5f);
+        player.CubeBonuses[stat] += _rng.Range(0.01f, 0.05f);
     }
 
     private void OnHeroDamaged(PlayerState player, float damage)

@@ -17,17 +17,19 @@ public sealed partial class CoopSession : IDisposable
     // Fits LiteNetLib's initial 1024-byte MTU including its reliable header.
     public const int MaxPacketBytes = 1000;
     public const int MaxSnapshotBytes = 256 * 1024;
-    public const byte ProtocolVersion = 8;
+    public const byte ProtocolVersion = 9;
     private const int HeaderBytes = 2;
-    public const int MaxEventBytes = MaxPacketBytes - HeaderBytes;
-    private const int SnapshotHeaderBytes = 12;
+    private const int RunHeaderBytes = HeaderBytes + sizeof(uint);
+    public const int MaxEventBytes = MaxPacketBytes - RunHeaderBytes;
+    private const int InputHeaderBytes = RunHeaderBytes + sizeof(int);
+    private const int SnapshotHeaderBytes = RunHeaderBytes + 2 * sizeof(int) + sizeof(ushort);
     private const int FragmentBytes = MaxPacketBytes - SnapshotHeaderBytes;
     private const int RedundantInputs = 3;
     private const int DigestBytes = 32;
     private const int ResumeKeyBytes = 16;
     private const int ResumeSeconds = 60;
 
-    private enum Message : byte { Hello = 1, Welcome, Rejected, Inputs, Snapshot, Heartbeat, Events, Keyframe, Profile, Roster, Ping, Pong, Latency, Pause }
+    private enum Message : byte { Hello = 1, Welcome, Rejected, Inputs, Snapshot, Heartbeat, Events, Keyframe, Profile, Roster, Ping, Pong, Latency, Pause, RunState }
     private enum Rejection : byte { Incompatible = 1, Full, Started, ResumeExpired }
 
     private readonly ICoopTransport _transport;
@@ -44,6 +46,7 @@ public sealed partial class CoopSession : IDisposable
     private readonly byte[] _inputHistory = new byte[RedundantInputs];
     private readonly SnapshotAssembly _snapshot = new();
     private readonly SnapshotAssembly _keyframe = new();
+    private uint _runState; // Odd while a run is active, even in the lobby.
     private int _inputSequence;
     private long _joinStarted, _lastHello, _lastHeartbeat, _lastHostActivity;
     private bool _joining, _disposed;
@@ -74,6 +77,7 @@ public sealed partial class CoopSession : IDisposable
     public event Action<int>? PeerResumed;
     public event Action<int>? PeerLeft;
     public event Action? HostDisconnected;
+    internal event Action? RunStateChanged;
     public event Action<int, int, RunInput>? InputReceived;
 
     /// <summary>The snapshot buffer remains valid until the next snapshot starts arriving.</summary>
@@ -84,9 +88,9 @@ public sealed partial class CoopSession : IDisposable
     public void BroadcastEvents(ReadOnlySpan<byte> events)
     {
         if (_disposed || !IsHost || events.IsEmpty || events.Length > MaxEventBytes) return;
-        Span<byte> packet = stackalloc byte[HeaderBytes + events.Length];
-        Header(packet, Message.Events);
-        events.CopyTo(packet[HeaderBytes..]);
+        Span<byte> packet = stackalloc byte[RunHeaderBytes + events.Length];
+        WriteRunHeader(packet, Message.Events);
+        events.CopyTo(packet[RunHeaderBytes..]);
         for (int slot = 1; slot < MaxPlayers; slot++)
             if (_peerSlots[slot] is { } peer) _transport.Send(peer, packet, reliable: true);
     }
@@ -153,12 +157,12 @@ public sealed partial class CoopSession : IDisposable
         int sequence = ++_inputSequence;
         int count = Math.Min(sequence, RedundantInputs);
         _inputHistory[sequence % RedundantInputs] = Pack(input);
-        Span<byte> packet = stackalloc byte[6 + RedundantInputs];
-        Header(packet, Message.Inputs);
-        BinaryPrimitives.WriteInt32LittleEndian(packet[2..], sequence);
+        Span<byte> packet = stackalloc byte[InputHeaderBytes + RedundantInputs];
+        WriteRunHeader(packet, Message.Inputs);
+        BinaryPrimitives.WriteInt32LittleEndian(packet[RunHeaderBytes..], sequence);
         for (int i = 0; i < count; i++)
-            packet[6 + i] = _inputHistory[(sequence - count + 1 + i) % RedundantInputs];
-        _transport.Send(_hostPeerId!, packet[..(6 + count)], reliable: false);
+            packet[InputHeaderBytes + i] = _inputHistory[(sequence - count + 1 + i) % RedundantInputs];
+        _transport.Send(_hostPeerId!, packet[..(InputHeaderBytes + count)], reliable: false);
         return sequence;
     }
 
@@ -176,13 +180,13 @@ public sealed partial class CoopSession : IDisposable
             throw new ArgumentOutOfRangeException(nameof(snapshot));
 
         Span<byte> packet = stackalloc byte[MaxPacketBytes];
-        Header(packet, kind);
-        BinaryPrimitives.WriteInt32LittleEndian(packet[2..], tick);
-        BinaryPrimitives.WriteInt32LittleEndian(packet[6..], snapshot.Length);
+        WriteRunHeader(packet, kind);
+        BinaryPrimitives.WriteInt32LittleEndian(packet[RunHeaderBytes..], tick);
+        BinaryPrimitives.WriteInt32LittleEndian(packet[(RunHeaderBytes + sizeof(int))..], snapshot.Length);
         for (int offset = 0; offset < snapshot.Length; offset += FragmentBytes)
         {
             int length = Math.Min(FragmentBytes, snapshot.Length - offset);
-            BinaryPrimitives.WriteUInt16LittleEndian(packet[10..], (ushort)(offset / FragmentBytes));
+            BinaryPrimitives.WriteUInt16LittleEndian(packet[(SnapshotHeaderBytes - sizeof(ushort))..], (ushort)(offset / FragmentBytes));
             snapshot.Slice(offset, length).CopyTo(packet[SnapshotHeaderBytes..]);
             for (int slot = 1; slot < MaxPlayers; slot++)
                 if (_peerSlots[slot] is { } peer)
@@ -206,7 +210,7 @@ public sealed partial class CoopSession : IDisposable
             int slot = Array.IndexOf(_peerSlots, peer, 1);
             if (slot > 0)
             {
-                if (message == Message.Inputs) ReceiveInputs(slot, packet);
+                if (message == Message.Inputs && MatchesRun(packet)) ReceiveInputs(slot, packet);
                 if (message == Message.Profile) ReceiveProfile(slot, packet);
                 ReceivePing(peer, slot, message, packet);
                 if (message == Message.Heartbeat && packet.Length == HeaderBytes)
@@ -236,13 +240,21 @@ public sealed partial class CoopSession : IDisposable
                 };
                 _joining = false;
                 break;
-            case Message.Events when LocalPlayerSlot.HasValue && packet.Length > HeaderBytes:
-                EventsReceived?.Invoke(memory[HeaderBytes..]);
+            case Message.RunState when LocalPlayerSlot.HasValue && packet.Length == RunHeaderBytes:
+                uint state = BinaryPrimitives.ReadUInt32LittleEndian(packet[HeaderBytes..]);
+                if (state > _runState)
+                {
+                    ApplyRunState(state);
+                    RunStateChanged?.Invoke();
+                }
                 break;
-            case Message.Snapshot when LocalPlayerSlot.HasValue:
+            case Message.Events when LocalPlayerSlot.HasValue && packet.Length > RunHeaderBytes && MatchesRun(packet):
+                EventsReceived?.Invoke(memory[RunHeaderBytes..]);
+                break;
+            case Message.Snapshot when LocalPlayerSlot.HasValue && MatchesRun(packet):
                 ReceiveSnapshot(packet, _snapshot, SnapshotReceived);
                 break;
-            case Message.Keyframe when LocalPlayerSlot.HasValue:
+            case Message.Keyframe when LocalPlayerSlot.HasValue && MatchesRun(packet):
                 ReceiveSnapshot(packet, _keyframe, KeyframeReceived);
                 break;
             case Message.Roster when LocalPlayerSlot.HasValue:
@@ -305,20 +317,30 @@ public sealed partial class CoopSession : IDisposable
             _resumeDeadline[slot] = 0;
             PlayerCount++;
             if (resume) PeerResumed?.Invoke(slot);
-            else PeerJoined?.Invoke(slot);
+            else
+            {
+                _profiles[slot] = null;
+                PeerJoined?.Invoke(slot);
+            }
         }
         _lastPeerActivity[slot] = now;
         SendResponse(peer, Message.Welcome, (byte)slot, ProtocolVersion);
+        if (_runState != 0)
+        {
+            Span<byte> state = stackalloc byte[RunHeaderBytes];
+            WriteRunHeader(state, Message.RunState);
+            _transport.Send(peer, state, reliable: true);
+        }
         if (Paused) SendResponse(peer, Message.Pause, 1, ProtocolVersion);
         BroadcastRoster();
     }
 
     private void ReceiveInputs(int slot, ReadOnlySpan<byte> packet)
     {
-        if (packet.Length is < 7 or > 6 + RedundantInputs) return;
-        int latest = BinaryPrimitives.ReadInt32LittleEndian(packet[2..]);
+        if (packet.Length is < InputHeaderBytes + 1 or > InputHeaderBytes + RedundantInputs) return;
+        int latest = BinaryPrimitives.ReadInt32LittleEndian(packet[RunHeaderBytes..]);
         if (latest <= _lastInput[slot]) return;
-        var inputs = packet[6..];
+        var inputs = packet[InputHeaderBytes..];
         if (inputs.Length != Math.Min(latest, RedundantInputs)) return;
         foreach (byte packed in inputs)
             if (packed > 127 || (packed & 3) == 3 || ((packed >> 2) & 3) == 3) return;
@@ -332,6 +354,36 @@ public sealed partial class CoopSession : IDisposable
             byte packed = inputs[i];
             InputReceived?.Invoke(slot, sequence, new RunInput((packed & 3) - 1, ((packed >> 2) & 3) - 1, (packed & 16) != 0, packed >> 5));
         }
+    }
+
+    internal void SetRunActive(bool active)
+    {
+        if (!IsHost || ((_runState & 1) != 0) == active) return;
+        ApplyRunState(_runState + 1);
+        Span<byte> packet = stackalloc byte[RunHeaderBytes];
+        WriteRunHeader(packet, Message.RunState);
+        BroadcastControl(packet);
+    }
+
+    private void ApplyRunState(uint state)
+    {
+        _runState = state;
+        AcceptNewPlayers = (state & 1) == 0;
+        Paused = false;
+        _inputSequence = 0;
+        Array.Clear(_lastInput);
+        _snapshot.Reset();
+        _keyframe.Reset();
+    }
+
+    // Unreliable packets can arrive after the reliable control message for the next run.
+    private bool MatchesRun(ReadOnlySpan<byte> packet) =>
+        packet.Length >= RunHeaderBytes && BinaryPrimitives.ReadUInt32LittleEndian(packet[HeaderBytes..]) == _runState;
+
+    private void WriteRunHeader(Span<byte> packet, Message message)
+    {
+        Header(packet, message);
+        BinaryPrimitives.WriteUInt32LittleEndian(packet[HeaderBytes..], _runState);
     }
 
     private void ReceiveSnapshot(ReadOnlySpan<byte> packet, SnapshotAssembly assembly,
@@ -348,12 +400,14 @@ public sealed partial class CoopSession : IDisposable
         private readonly bool[] _received = new bool[(MaxSnapshotBytes + FragmentBytes - 1) / FragmentBytes];
         private int _tick = -1, _deliveredTick = -1, _length, _count;
 
+        public void Reset() => _tick = _deliveredTick = -1;
+
         public bool Receive(ReadOnlySpan<byte> packet, Action<int, ReadOnlyMemory<byte>>? completed)
         {
             if (packet.Length <= SnapshotHeaderBytes) return false;
-            int tick = BinaryPrimitives.ReadInt32LittleEndian(packet[2..]);
-            int total = BinaryPrimitives.ReadInt32LittleEndian(packet[6..]);
-            int index = BinaryPrimitives.ReadUInt16LittleEndian(packet[10..]);
+            int tick = BinaryPrimitives.ReadInt32LittleEndian(packet[RunHeaderBytes..]);
+            int total = BinaryPrimitives.ReadInt32LittleEndian(packet[(RunHeaderBytes + sizeof(int))..]);
+            int index = BinaryPrimitives.ReadUInt16LittleEndian(packet[(SnapshotHeaderBytes - sizeof(ushort))..]);
             if (tick <= _deliveredTick || tick < _tick || total is <= 0 or > MaxSnapshotBytes) return false;
             int offset = index * FragmentBytes;
             if (offset >= total || packet.Length != SnapshotHeaderBytes + Math.Min(FragmentBytes, total - offset)) return false;

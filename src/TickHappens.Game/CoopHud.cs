@@ -23,6 +23,7 @@ internal sealed class CoopHud(OnlineGame game, SettingsMenu settings)
 
     public void Read(GameWindow window, PixelRenderer renderer)
     {
+        if (game.World?.Phase == RunPhase.Dead) return;
         bool wasOpen = _pauseMenu.IsOpen;
         if (_pauseMenu.Read(window, renderer, canEnd: game.IsHost))
         {
@@ -59,6 +60,7 @@ internal sealed class CoopHud(OnlineGame game, SettingsMenu settings)
             }
             PixelFont.DrawCentered(ui, Localizer.Get("online.teamHint"), w / 2, h - 12, Foreground, Background);
         }
+        if (world.Phase == RunPhase.Dead) return;
         if (_pauseMenu.IsOpen) _pauseMenu.Draw(renderer, canEnd: game.IsHost);
         else if (game.Paused)
             PixelFont.DrawCentered(ui, Localizer.Get("online.pausedByHost"), w / 2, h / 2 - 4, Foreground, Background);

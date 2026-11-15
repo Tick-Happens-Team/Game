@@ -24,6 +24,46 @@ internal sealed partial class Hud
         ".######.." +
         "..####..." +
         "...##....";
+    private const string BladeIcon =
+        "......++." +
+        ".....+#+." +
+        "....+#+.." +
+        ".#.+#+..." +
+        "..##+...." +
+        "..##....." +
+        ".#..#....";
+    private const string BootIcon =
+        ".++++...." +
+        ".+###...." +
+        ".+###...." +
+        ".+####+.." +
+        ".+#+++++." +
+        ".+######+" +
+        ".########";
+    private const string TempoIcon =
+        ".....++.." +
+        "....+#..." +
+        "...+#...." +
+        "..+####.." +
+        "....#+..." +
+        "...#+...." +
+        "..#+.....";
+    private const string ShieldIcon =
+        ".+++++++." +
+        ".+#++##+." +
+        ".+#++##+." +
+        "..#++##.." +
+        "..#++##.." +
+        "...+##..." +
+        "....#....";
+    private const string WardIcon =
+        "....+...." +
+        "...+#+..." +
+        "..+#++#.." +
+        ".+##+##+." +
+        "..#++##.." +
+        "...+##..." +
+        "....#....";
     private const string ClockIcon =
         "..+++++.." +
         ".+#...#+." +
@@ -40,30 +80,53 @@ internal sealed partial class Hud
         "...#+#..." +
         "..#+++#.." +
         ".#######.";
+    // Counter sprites are 15 by 13 pixels. The letters index each sprite's palette.
     private const string CoinIcon =
-        "..+++++.." +
-        ".+#####.." +
-        "+###+###+" +
-        "+##++###+" +
-        "+###+###+" +
-        ".#######." +
-        "..#####..";
+        ".....ooooo....." +
+        "...oollllyoo..." +
+        "..olyyyyyyso..." +
+        ".olyyssssyyso.." +
+        ".lyysyyyyssyo.." +
+        "olyysyylyssyso." +
+        "olysyyllyssyso." +
+        "olysyylyyssyso." +
+        "oyyssylysysyso." +
+        ".syysssssyyso.." +
+        ".osyyyyyyysoo.." +
+        "..oosssssoo...." +
+        "....ooooo......";
     private const string ChestIcon =
-        "..+++++.." +
-        ".+#++##+." +
-        "+#######+" +
-        "++++#++++" +
-        "#...+...#" +
-        "#########" +
-        ".#######.";
+        "....ooooooo...." +
+        "...oslllllso..." +
+        "..osylsslyyso.." +
+        ".osyylsslyyso.." +
+        ".ollllsslllso.." +
+        "ooooooyyooooooo" +
+        "olyyyyllyyyyuso" +
+        "oswwwslllswwwso" +
+        "oswwssyysswwsso" +
+        "oswwssoosswwsso" +
+        "osuuwwwwwwwusso" +
+        "olsuuuuuuuussso" +
+        ".ooooooooooooo.";
     private const string SkullIcon =
-        "..+++++.." +
-        ".++####+." +
-        ".#.##.#.." +
-        ".###.##.." +
-        "..#####.." +
-        "..#.#.#.." +
-        "..#####..";
+        "....ooooooo...." +
+        "...ollllllso..." +
+        "..ollyyyyyyso.." +
+        ".ollyyyyyyyyso." +
+        ".olyyssyyssyso." +
+        ".oyysooysooyso." +
+        ".oyyoooysooyso." +
+        "..oyssyoyssso.." +
+        "...oyyoooyso..." +
+        "...osysysyo...." +
+        "...oyoyoyso...." +
+        "....osssso....." +
+        ".....oooo......";
+
+    private static readonly uint[] CoinPalette = [0xFF241327, 0xFFB2F5FF, 0xFF59CFFF, 0xFF2879C2];
+    private static readonly uint[] ChestPalette = [0xFF191224, 0xFFB0EBFF, 0xFF67B3F3, 0xFF456A9D, 0xFF214574, 0xFF345B91];
+    private static readonly uint[] SkullPalette = [0xFF241327, 0xFFF4F2FF, 0xFFCFCADFu, 0xFF9A819Fu];
     private const string LootIcon =
         "....+...." +
         "...+##..." +
@@ -123,22 +186,28 @@ internal sealed partial class Hud
         PixelFont.Draw(ui, hp, meterX + (meterWidth - PixelFont.Measure(hp)) / 2, meterY + 1, White, Ink);
 
         int right = width - HeaderMargin;
-        right = DrawCounter(ui, right, player.Kills, SkullIcon, Bone, White);
-        right = DrawCounter(ui, right, player.Wallet.NextPrice, ChestIcon, Brass, GoldLight);
-        DrawCounter(ui, right, player.Wallet.Gold, CoinIcon, Gold, GoldLight);
+        right = DrawCounter(ui, right, player.Kills, SkullIcon, SkullPalette, Bone, White);
+        right = DrawCounter(ui, right, player.Wallet.NextPrice, ChestIcon, ChestPalette, Brass, GoldLight);
+        DrawCounter(ui, right, player.Wallet.Gold, CoinIcon, CoinPalette, Gold, GoldLight);
     }
 
-    private static int DrawCounter(PixelCanvas ui, int right, int value, string icon, uint color, uint highlight)
+    private static int DrawCounter(PixelCanvas ui, int right, int value, string icon, ReadOnlySpan<uint> palette, uint color, uint highlight)
     {
         Span<char> buffer = stackalloc char[11];
         value.TryFormat(buffer, out int length, provider: CultureInfo.InvariantCulture);
         var number = buffer[..length];
         int textWidth = PixelFont.Measure(number);
-        int width = Math.Max(49, textWidth + 27);
+        int width = Math.Max(49, textWidth + 30);
         int x = right - width;
-        int textX = x + (width - textWidth + 14) / 2;
+        int textX = x + (width - textWidth + 19) / 2;
         HeaderPlate(ui, x, HeaderTop, width, HeaderHeight, color);
-        DrawIcon(ui, textX - 14, HeaderTop + 11, icon, color, highlight);
+        const int iconWidth = 15;
+        for (int i = 0; i < icon.Length; i++)
+        {
+            int shade = "olyswu".IndexOf(icon[i]);
+            if (shade >= 0)
+                ui.Set(textX - 19 + i % iconWidth, HeaderTop + 8 + i / iconWidth, palette[shade]);
+        }
         PixelFont.Draw(ui, number, textX, HeaderTop + 11, highlight, Ink);
         return x - 4;
     }

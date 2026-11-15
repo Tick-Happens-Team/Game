@@ -20,6 +20,9 @@ uniform float uVignette;
 uniform float uTiltShift;
 uniform float uAberration;
 uniform vec3 uFlash;
+uniform float uVisionScale; // world pixels per UI pixel, zero when disabled
+uniform vec4 uVisionPose;   // UI origin xy, facing zw
+uniform vec2 uVisionEdge;   // cosine of half-angle, inverse cosine falloff
 
 vec3 shoulder(vec3 c) {
     const float k = 0.82;
@@ -70,6 +73,14 @@ void main() {
     }
     // UI: integer-scaled, no camera offset, composited after grading so text stays exact.
     ivec2 ui = ivec2(floor(w / float(uUiScale)));
+    if (uVisionScale > 0.0) {
+        vec2 delta = vec2(ui) - uVisionPose.xy;
+        float distanceToHero = length(delta);
+        float nearFade = clamp((distanceToHero * uVisionScale - 12.0) / 10.0, 0.0, 1.0);
+        float direction = dot(delta, uVisionPose.zw) / max(distanceToHero, 1.0);
+        float angleFade = clamp((uVisionEdge.x - direction) * uVisionEdge.y, 0.0, 1.0);
+        c = mix(c, vec3(20.0, 11.0, 14.0) / 255.0, 0.78 * nearFade * angleFade);
+    }
     vec4 u = texelFetch(uUi, ui, 0);
     c = mix(c, u.rgb, u.a);
     oColor = vec4(c, 1.0);

@@ -62,6 +62,7 @@ internal sealed partial class RunView : IDisposable
     private readonly HeroPreview _preview;
 
     public PixelRenderer Renderer => _renderer;
+    internal HeroPreview Preview => _preview;
 
     public RunView(GL gl, AtlasData atlas, ContentSet content, GameSettings settings)
     {
@@ -439,7 +440,7 @@ internal sealed partial class RunView : IDisposable
     /// <summary>Draws a frame; with <paramref name="menuSelection"/> ≥ 0 the character select screen is drawn over the scene.</summary>
     public void Draw(int width, int height, RunWorld world, float alpha, bool paused, float frameDt,
         int menuSelection = -1, Action<PixelRenderer>? overlay = null, (float X, float Y)? menuMouse = null, bool online = false, string? interruption = null, bool canReconnect = false,
-        float? localAlpha = null, Vector2 localCorrection = default, CoopHud? coopHud = null, ItemPanel? itemPanel = null)
+        float? localAlpha = null, Vector2 localCorrection = default, CoopHud? coopHud = null, ItemPanel? itemPanel = null, bool showHeroMenu = true)
     {
         _time += paused ? 0 : frameDt;
         var p = world.Player;
@@ -778,10 +779,13 @@ internal sealed partial class RunView : IDisposable
         _renderer.BindLit();
         _particles.Draw(ox, oy, tw, th, _time);
 
-        if (menuSelection >= 0) _hud.DrawMenu(_renderer, world.Content, menuSelection, _preview, frameDt, menuMouse);
+        if (menuSelection >= 0)
+        {
+            if (showHeroMenu) _hud.DrawMenu(_renderer, world.Content, menuSelection, _preview, frameDt, menuMouse);
+        }
         else
         {
-            DrawVisionMask(world, hero);
+            SetVisionMask(world, hero);
             if (!paused && interruption is null) itemPanel?.Draw(_renderer, world, online);
             _hud.Draw(_renderer, world, hero, frameDt, paused, online, interruption, canReconnect, itemPanel?.IsOpen == true);
         }
@@ -790,7 +794,7 @@ internal sealed partial class RunView : IDisposable
         _renderer.Finish();
     }
 
-    private void DrawVisionMask(RunWorld world, Vector2 hero)
+    private void SetVisionMask(RunWorld world, Vector2 hero)
     {
         var player = world.Player;
         if (player.Hp <= 0) return;
@@ -799,31 +803,8 @@ internal sealed partial class RunView : IDisposable
             var effect = world.Content.Items[item].Effect!;
             if (effect.Kind != "weldingBlock") continue;
 
-            var (hx, hy) = _renderer.WorldToUi(hero.X, hero.Y);
-            var frame = _renderer.UiFrame;
-            var ui = PixelCanvas.ColorOf(frame);
-            float halfAngle = effect.Value * MathF.PI / 360f;
-            float inside = MathF.Cos(halfAngle);
-            float outside = MathF.Cos(Math.Min(MathF.PI, halfAngle + MathF.PI / 18f));
-            float angleRange = Math.Max(0.00001f, inside - outside);
-            float scale = _renderer.Scale / (float)_renderer.UiScale;
-            float clearRadius = 12 * scale;
-            float fadeRadius = 10 * scale;
-            for (int y = 0; y < frame.H; y++)
-            {
-                float dy = y - hy;
-                for (int x = 0; x < frame.W; x++)
-                {
-                    float dx = x - hx;
-                    float distance = MathF.Sqrt(dx * dx + dy * dy);
-                    if (distance <= clearRadius) continue;
-                    float direction = (dx * player.Facing.X + dy * player.Facing.Y) / distance;
-                    if (direction >= inside) continue;
-                    float angleFade = Math.Min(1, (inside - direction) / angleRange);
-                    float nearFade = Math.Min(1, (distance - clearRadius) / fadeRadius);
-                    ui.Blend(x, y, 0xFF0E0B14u, 0.78f * angleFade * nearFade);
-                }
-            }
+            _renderer.SetVisionCone(hero.X, hero.Y, player.Facing.X, player.Facing.Y,
+                effect.Value * MathF.PI / 360f);
             return;
         }
     }

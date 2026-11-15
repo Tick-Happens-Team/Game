@@ -73,11 +73,11 @@ public sealed class ContentLoaderTests
         Assert.Equal(DamageKind.Magical, kind);
 
         var watchman = Character(content, "watchman");
-        Assert.Equal(50f, watchman.Stats.AttackSpeed);
-        var perMinute = Assert.Single(watchman.Passives);
+        Assert.Equal(55f, watchman.Stats.AttackSpeed);
+        var perMinute = Assert.Single(watchman.Passives, passive => passive.Per == "runMinute");
         Assert.Equal("runMinute", perMinute.Per);
         Assert.Equal(0.75f, perMinute.Add);
-        Assert.Equal(0.25f, perMinute.PerLevel!.Add);
+        Assert.Null(perMinute.PerLevel);
 
         var nekochan = Character(content, "nekochan");
         Assert.Equal(175f, nekochan.Stats.MaxHp);

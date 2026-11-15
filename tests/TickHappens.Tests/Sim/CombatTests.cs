@@ -92,7 +92,7 @@ public sealed class CombatTests
 
     [Theory]
     [InlineData("octarine", 2f)]
-    [InlineData("swordsman", 2f)]
+    [InlineData("swordsman", 3f)]
     [InlineData("smith", 2.75f)]
     [InlineData("goflin", 2f)]
     [InlineData("celestial_mage", 1f)]
