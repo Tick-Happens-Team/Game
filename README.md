@@ -65,7 +65,7 @@ Set `TICKHAPPENS_ASSETS_ROOT` to the absolute path of an alternate Assets checko
 | F1 / F2 / F3 / F4 | Lighting / bloom / debug views / light bands |
 | N / Tab / F12 | Day-night / effects opacity / screenshot |
 
-Options include `--demo --frames N --screenshot PATH --enemies N --no-vsync --manual --art recipe|pxs`.
+Options include `--demo --frames N --screenshot PATH --enemies N --no-vsync --manual --art recipe|pxs --report PATH`. The bench writes per-frame interval, CPU, and VFX timings with min/avg/p99 to `.tmp/bench/frames.csv`.
 
 ## Documentation
 

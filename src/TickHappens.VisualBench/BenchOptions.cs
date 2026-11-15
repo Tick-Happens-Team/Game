@@ -10,6 +10,7 @@ public sealed class BenchOptions
     public string? Effect;
     public bool AutoCast = true;
     public string Art = "recipe";
+    public string Report = Path.Combine(".tmp", "bench", "frames.csv");
 
     public static BenchOptions Parse(string[] args)
     {
@@ -25,6 +26,7 @@ public sealed class BenchOptions
                 case "--effect": o.Effect = args[++i]; break;
                 case "--manual": o.AutoCast = false; break;
                 case "--art": o.Art = args[++i]; break;
+                case "--report": o.Report = args[++i]; break;
                 default: throw new ArgumentException($"unknown option {args[i]}");
             }
         return o;

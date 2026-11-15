@@ -12,6 +12,7 @@ using TickHappens.VisualBench;
 //   --enemies N   crowd size (default 1500)      --frames N   exit after N frames
 //   --screenshot PATH   save the last frame       --no-vsync   uncapped frame rate
 //   --demo        scripted showcase (auto-casts on fixed timings, deterministic)
+//   --report PATH frame timing CSV (default .tmp/bench/frames.csv)
 var opt = BenchOptions.Parse(args);
 using var window = new GameWindow("TickHappens - visual bench", 1600, 900, vsync: !opt.NoVsync);
 var gl = window.Gl;
@@ -35,7 +36,12 @@ var lights = new List<PointLight>(256);
 var rng = new Random(11);
 var clock = Stopwatch.StartNew();
 var vfxWatch = new Stopwatch();
+var frameWatch = new Stopwatch();
+var frameIntervals = new List<double>(4096);
+var cpuTimes = new List<double>(4096);
+var vfxTimes = new List<double>(4096);
 double last = clock.Elapsed.TotalSeconds, statTimer = 0, time = 0, nextCast = 1.0;
+double prevFrameStart = clock.Elapsed.TotalSeconds;
 int frames = 0, statFrames = 0;
 float shake = 0;
 uint effectSeed = 1;
@@ -137,8 +143,11 @@ void Explode(float x, float y, float size)
 
 while (!window.QuitRequested)
 {
+    frameWatch.Restart();
     window.PumpEvents();
     double now = clock.Elapsed.TotalSeconds;
+    double intervalMs = (now - prevFrameStart) * 1000;
+    prevFrameStart = now;
     float dt = opt.Demo ? 1f / 60f : (float)Math.Min(0.05, now - last);
     last = now;
     time += dt;
@@ -242,7 +251,8 @@ while (!window.QuitRequested)
     if (clock.Elapsed.TotalSeconds - statTimer > 0.5)
     {
         double span = clock.Elapsed.TotalSeconds - statTimer;
-        window.SetTitle($"TickHappens bench | {statFrames / Math.Max(span, 1e-3):F0} fps | vfx {vfxWatch.Elapsed.TotalMilliseconds:F2} ms ({effects.Count}) | " +
+        var (_, cpuAvg, cpuP99) = Summarize(cpuTimes);
+        window.SetTitle($"TickHappens bench | {statFrames / Math.Max(span, 1e-3):F0} fps | cpu {cpuAvg:F2} ms p99 {cpuP99:F2} | vfx {vfxWatch.Elapsed.TotalMilliseconds:F2} ms ({effects.Count}) | " +
                         $"sprites {batch.Sprites} | enemies {world.EnemyCount} | lights {renderer.LightCount} | x{renderer.Scale} {renderer.TargetW}x{renderer.TargetH} | " +
                         $"F1 light F2 bloom F3 view F4 bands N night Tab fx | Space boom 1 impact 2 slash 3 chain 4 strike 5 statue 6 pickup 7 energy 8 fire 9 power-up 0 embers F5 crackle");
         statTimer = clock.Elapsed.TotalSeconds;
@@ -257,6 +267,9 @@ while (!window.QuitRequested)
         new RgbaImage(w, h, px).Save(path);
         Console.WriteLine($"screenshot -> {path}");
     }
+    frameIntervals.Add(intervalMs);
+    cpuTimes.Add(frameWatch.Elapsed.TotalMilliseconds);
+    vfxTimes.Add(vfxWatch.Elapsed.TotalMilliseconds);
     window.Present();
     if (last1)
     {
@@ -264,4 +277,33 @@ while (!window.QuitRequested)
         break;
     }
 }
+
+if (cpuTimes.Count > 0)
+{
+    string? directory = Path.GetDirectoryName(opt.Report);
+    if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+    using (var report = new StreamWriter(opt.Report))
+    {
+        report.WriteLine("frame,interval_ms,cpu_ms,vfx_ms");
+        for (int i = 0; i < cpuTimes.Count; i++)
+            report.WriteLine($"{i},{frameIntervals[i]:F3},{cpuTimes[i]:F3},{vfxTimes[i]:F3}");
+    }
+    var (cpuMin, cpuAvg, cpuP99) = Summarize(cpuTimes);
+    var (vfxMin, vfxAvg, vfxP99) = Summarize(vfxTimes);
+    Console.WriteLine($"report -> {opt.Report} ({cpuTimes.Count} frames)");
+    Console.WriteLine($"cpu ms: min {cpuMin:F2} avg {cpuAvg:F2} p99 {cpuP99:F2}");
+    Console.WriteLine($"vfx ms: min {vfxMin:F2} avg {vfxAvg:F2} p99 {vfxP99:F2}");
+}
+
 return 0;
+
+static (double Min, double Avg, double P99) Summarize(List<double> samples)
+{
+    if (samples.Count == 0) return (0, 0, 0);
+    double[] sorted = samples.ToArray();
+    Array.Sort(sorted);
+    double sum = 0;
+    foreach (double sample in sorted) sum += sample;
+    int index = Math.Clamp((int)Math.Ceiling(sorted.Length * 0.99) - 1, 0, sorted.Length - 1);
+    return (sorted[0], sum / sorted.Length, sorted[index]);
+}
