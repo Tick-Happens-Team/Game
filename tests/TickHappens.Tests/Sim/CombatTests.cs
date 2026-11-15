@@ -136,6 +136,88 @@ public sealed class CombatTests
         Assert.True(watchman >= octarine * 1.8, $"watchman fired {watchman} bolts, octarine {octarine}");
     }
 
+    [Fact]
+    public void BoltCopiesFireAtDistinctTargetsAndProjectilesPierce()
+    {
+        var (world, enemy, item) = PrepareWeapon(new ItemWeapon
+        {
+            Kind = "bolt", Damage = 5, Range = 150, Speed = 240, Pierce = 2,
+        });
+        world.GiveItem(item);
+        int front = world.SpawnEnemy(enemy, world.Player.Pos + new Vector2(35, 0));
+        int behind = world.SpawnEnemy(enemy, world.Player.Pos + new Vector2(65, 0));
+        int other = world.SpawnEnemy(enemy, world.Player.Pos + new Vector2(0, 45));
+
+        world.Step(default);
+        Assert.Equal(2f, Assert.Single(world.Events, e => e.Kind == EventKind.Bolt).Value);
+        for (int i = 0; i < 12; i++) world.Step(default);
+
+        foreach (int slot in new[] { front, behind, other })
+            TestWorld.Close(world.EMaxHp[slot] - 5, world.EHp[slot]);
+    }
+
+    [Fact]
+    public void ChainCopiesAddHopsWithoutHittingTheSameEnemyTwice()
+    {
+        var (world, enemy, item) = PrepareWeapon(new ItemWeapon
+        {
+            Kind = "chain", Damage = 5, Range = 45, Area = 35,
+        });
+        world.GiveItem(item);
+        world.GiveItem(item);
+        int first = world.SpawnEnemy(enemy, world.Player.Pos + new Vector2(35, 0));
+        int second = world.SpawnEnemy(enemy, world.Player.Pos + new Vector2(60, 0));
+        int third = world.SpawnEnemy(enemy, world.Player.Pos + new Vector2(85, 0));
+        int outOfReach = world.SpawnEnemy(enemy, world.Player.Pos + new Vector2(140, 0));
+
+        world.Step(default);
+
+        var chain = Assert.Single(world.Events, e => e.Kind == EventKind.Chain);
+        Assert.Equal(4, chain.B); // four arc points, including the player
+        Assert.Equal(world.EnemyPos(third, 1) - new Vector2(0, 6), world.ChainPoints[chain.A + 3]);
+        foreach (int slot in new[] { first, second, third })
+            TestWorld.Close(world.EMaxHp[slot] - 5, world.EHp[slot]);
+        Assert.Equal(world.EMaxHp[outOfReach], world.EHp[outOfReach]);
+    }
+
+    [Fact]
+    public void BlastSelectsTheDensestClusterWithinCastRange()
+    {
+        var (world, enemy, _) = PrepareWeapon(new ItemWeapon
+        {
+            Kind = "blast", Damage = 5, Range = 150, Area = 30,
+        });
+        int lone = world.SpawnEnemy(enemy, world.Player.Pos + new Vector2(35, 0));
+        int center = world.SpawnEnemy(enemy, world.Player.Pos + new Vector2(115, 0));
+        int upper = world.SpawnEnemy(enemy, world.Player.Pos + new Vector2(115, -23));
+        int lower = world.SpawnEnemy(enemy, world.Player.Pos + new Vector2(115, 23));
+        for (int i = 0; i < 4; i++)
+            world.SpawnEnemy(enemy, world.Player.Pos + new Vector2(-175 - i * 12, 0));
+
+        world.Step(default);
+
+        var blast = Assert.Single(world.Events, e => e.Kind == EventKind.Blast);
+        Assert.Equal(world.EnemyPos(center, 1), new Vector2(blast.X, blast.Y));
+        Assert.Equal(world.EMaxHp[lone], world.EHp[lone]);
+        Assert.True(world.EHp[upper] < world.EMaxHp[upper]);
+        Assert.True(world.EHp[lower] < world.EMaxHp[lower]);
+    }
+
+    private static (RunWorld World, int Enemy, int Item) PrepareWeapon(ItemWeapon weapon)
+    {
+        var content = TestContent.LoadCore();
+        int enemy = content.EnemyIndex("gloombat");
+        content.Enemies[enemy].Hp = 100;
+        content.Enemies[enemy].Speed = 0;
+        content.Enemies[enemy].Armor = 0;
+        int item = content.Items.Count;
+        content.Items.Add(new ItemDef { Id = "test_weapon", Weapon = weapon });
+        var world = new RunWorld(content);
+        world.Player.AttackTimer = 100;
+        world.GiveItem(item);
+        return (world, enemy, item);
+    }
+
     /// <summary>Counts basic-attack bolts (item index -1) fired over three seconds at one enemy in range.</summary>
     private static int CountBasicBolts(string character)
     {

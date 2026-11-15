@@ -220,6 +220,8 @@ public sealed partial class RunWorld
         }
         SpawnEnemies();
         StepEnemies();
+        // Combat queries use enemy positions after movement.
+        BuildEnemyGrid();
         foreach (var p in _players)
             if (p.Active && p.Hp > 0) StepWeapons(p);
         StepProjectiles();
@@ -392,9 +394,11 @@ public sealed partial class RunWorld
         }
     }
 
+    private void BuildEnemyGrid() => _grid.Build(EX.AsSpan(0, _enemyHigh), EY.AsSpan(0, _enemyHigh));
+
     private void StepEnemies()
     {
-        _grid.Build(EX.AsSpan(0, _enemyHigh), EY.AsSpan(0, _enemyHigh));
+        BuildEnemyGrid();
         float arena = Rules.ArenaSize;
         for (int i = 0; i < _enemyHigh; i++)
         {

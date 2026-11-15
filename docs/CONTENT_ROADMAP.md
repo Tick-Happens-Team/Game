@@ -1,6 +1,6 @@
 # Content roadmap: characters, items, and enemies
 
-This plan orders the owner's character, item and enemy lists by how easy they are to add. Each tier builds on the engine systems introduced by the tiers before it, and every finished tier is playable content. Russian names are the canonical content names. Content is data in `content/core/*.json` (see the `add-content` skill); new behaviour is added as engine systems (S0–S14) shared by many entries.
+This plan orders the owner's character, item and enemy lists by how easy they are to add. Each tier builds on the engine systems introduced by the tiers before it, and every finished tier is playable content. Russian names are the canonical content names. Content is data in `content/core/*.json` (see the `add-content` skill); new behaviour is added as engine systems (S0–S13) shared by many entries.
 
 The [owner's Google Sheet](https://docs.google.com/spreadsheets/d/1q4DUxTFMWcSg_zevYYDIWf2DWFH_v2YpFHKe_LTDcOM/edit) is the source of truth for content names, stats, and effects. This roadmap tracks implementation order and status.
 
@@ -34,7 +34,6 @@ Milestone M1 is done: stat model v2 (S0), hero basic attack (S1), the damage pip
 | S11 | **Companions and summons:** an entity kind with HP, AI (follow, orbit, attack nearest, kamikaze, decoy, fetch XP), lifetime and respawn. Damage credits the owner. | S2, S5 | Gnome, drone and decoy work in solo play. Summon kills credit their owner's gold. |
 | S12 | **Allies:** an "ally" query covering co-op players and summons, radius auras, ally buffs, and heal sharing. Auras include their owner in solo. | S11, P3 for co-op | Auras affect summons in solo and players in co-op. |
 | S13 | **Economy and loot:** gold multiplier, refund on spend, chest loot tables by rarity (Common, Rare, Epic, Mythic, Legendary), item stacking, and cursed boss drops. | S0; E6 for boss drops | Chest rewards match the sheet's rarity chances, and bosses drop their assigned cursed items. |
-| S14 | **Cursor targeting (Scope):** a manual aim point for abilities that support it. This is the only manual targeting allowed by AGENTS.md. | S6 | With Scope, `bolt`, `cone`, `melee` and `snipe` aim at the cursor. Without it, they auto-target. |
 
 ## 3. Character stat model (S0)
 
@@ -102,7 +101,7 @@ Stats are copied from the owner's table. Growth means the per-level value of the
 
 ## 5. Items ordered by ease
 
-There are 61 items: 56 in the chest rarity pool and five cursed boss drops. The sheet sets chest rarity chances at 40% common, 25% rare, 17% epic, 12% mythic, and 6% legendary. The current build uses weights of 55/25/12/6/2 in `rules.json`; matching the sheet is pending under S13. A damage type of «—» means the item deals no damage.
+There are 60 planned items: 55 in the chest rarity pool and five cursed boss drops. The sheet sets chest rarity chances at 40% common, 25% rare, 17% epic, 12% mythic, and 6% legendary. The current build uses weights of 55/25/12/6/2 in `rules.json`; matching the sheet is pending under S13. A damage type of «—» means the item deals no damage.
 
 ### Tier I1: stat items (S0, S10 for dash cooldown)
 
@@ -189,12 +188,6 @@ There are 61 items: 56 in the chest rarity pool and five cursed boss drops. The 
 | New Rocks (spiked boots) | Mythic | +55 attack speed to allies within 500; 7% chance to reflect a physical hit above 35 at its source | aura plus reflect (S9) | [ ] |
 | Dominator Helm | Legendary | +15% physical resistance to allies within 700/800/900 (wider with more enemies near the hero); 5% chance to block a physical attack on the owner | aura plus block (S9) | [ ] |
 
-### Special: manual targeting (S14)
-
-| Item | Rarity | Effect | Status |
-|---|---|---|---|
-| Scope | Rare | aims abilities at the cursor point | [ ] |
-
 ### Tier I7: cursed boss drops (E6, S13)
 
 | Item | Boss | Effect | Implementation | Status |
@@ -205,7 +198,7 @@ There are 61 items: 56 in the chest rarity pool and five cursed boss drops. The 
 | Разбитые часы | Хранитель времени | Every 15 s resets one item that is already on cooldown | periodic cooldown reset (S5) | [ ] |
 | Сердце Пожирателя | Пожиратель | Below 25% HP, devours a random non-boss enemy and restores 15% HP; 60 s cooldown | HP threshold trigger, filtered execute, and heal (S4–S6) | [ ] |
 
-**Coverage:** 6 + 10 + 11 + 9 + 8 + 11 + 1 + 5 = 61 items.
+**Coverage:** 6 + 10 + 11 + 9 + 8 + 11 + 5 = 60 items.
 
 ## 6. Enemies ordered by ease
 
@@ -304,7 +297,6 @@ Each milestone is playable content.
 | Boss rewards | E6, S13, relevant I7 effect systems | Five cursed items | Each boss drops its assigned reward. Старатель's reward requires chest reward choices. |
 | M5 "Companions" | S11 | Items I5; Иллюзионист | Summon AI and owner credit tests. 50 summons stay within budget. |
 | M6 "Allies" | S12 (+P3 co-op) | Items I6; Nekotyan, Puppeteer, Necromancer | Auras work in solo (summons) and in a 2-player loopback test. |
-| M7 "Aim" | S14 | Scope | Cursor aim without breaking passive play. |
 
 Art for every character, enemy and summon goes through recipes (`art-recipe` skill) alongside its milestone.
 

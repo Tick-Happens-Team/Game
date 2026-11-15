@@ -47,14 +47,14 @@
 | 2.2 | [x] Data loader for built-in core mod | P! | 2.1 | content/core JSON for characters, weapons, items, enemies, waves, rules. ContentLoader reports file, id and field for unknown references, stats, wave gaps, duplicates and the fixed 1.5 chest growth. |
 | 2.3 | [x] Movement, enemy collisions, contact damage, HP, and death | P! | 2.1 | Seek plus SpatialGrid separation, contact damage with armor and i-frames, regen, death screen with results and R for a new run. |
 | 2.3a | [x] Dash/dodge | P+ | 2.3 | Space dashes along facing with invulnerability and cooldown bar. Movement and dash are the only manual gameplay actions. |
-| 2.4 | [~] Projectile, area, and chain-lightning auto-attacks with VFX | P! | 2.2, 0.12 | JSON weapons with levels: bolt (pierce, multi-target), pulse, chain (hops), blast (densest spot), with impact, lightning arc, explosion and particle VFX from events. Cursor targeting with the Scope item remains. |
-| 2.5 | [~] RunClock and time-based waves, stats, and bosses | P! | 2.2 | Run clock = ticks + statue bonus; wave table without gaps, HP/damage scaling per minute, timed elites. Bosses with patterns remain (5.3). Tests cover HpScale following the clock, not the level. |
+| 2.4 | [x] Projectile, area, and chain-lightning auto-attacks with VFX | P! | 2.2, 0.12 | Data-driven bolt (pierce, multi-target), pulse, chain (hops), and blast (densest enemy cluster in range). Item copies upgrade attacks. Impact, lightning, explosion, and particle VFX consume combat events. |
+| 2.5 | [x] RunClock and time-based waves, stats, and elites | P! | 2.2 | Run clock = ticks + statue bonus; wave table without gaps, HP/damage scaling per minute, timed elites. Tests cover scaling and elite spawns after a statue advances the clock. Boss encounters are tracked in 5.3. |
 | 2.6 | [x] Time statues advance RunClock | P! | 2.5 | Standing near a statue for 1 s adds 2 minutes, HUD shows the bonus and a notice; tests verify BonusSeconds and HpScale. |
 | 2.7 | [x] XP drops, magnet, level-up, and upgrade choice | P! | 2.3 | Crystals with magnet pull and XP curve. Owner decision: level-ups apply table growth automatically and level-up cards were removed. The prototype awards items from chests; cursed boss drops are planned in P5. |
 | 2.8 | [x] Ordered additive and multiplicative StatBlock modifiers and event-based passives | P! | 2.2 | (base + Σadd) × (1 + Σpct), cooldown floor, order-independent; levelUp passive (+1 armor per level) tested. |
 | 2.9 | [x] Chests and loot tables | P+ | 2.8 | Chests open passively when affordable and grant one item rolled by rarity weights (rules.json); copies stack. Killer-owned gold with the gold multiplier, 1.5× price per player. |
 | 2.10 | [x] HUD clock, level, HP, XP, and results screen | P+ | 1.9 | XP bar, level, run clock with statue bonus, gold and chest price, kills, loadout, HP and dash bars, notices, pause and death results. |
-| 2.11 | [~] Simulation performance | P! | 2.3 | Release demo renders ~1,000 FPS with ~490 enemies on the developer PC. A per-tick timing report at 2,000 enemies remains (with 1.8). |
+| 2.11 | [x] Simulation performance | P! | 2.3 | Headless Release benchmark reports per-tick timings for 2,000 active enemies. Local run: 1.45 ms average, 2.24 ms p99, zero allocations over 600 measured ticks. GPU/frame profiling is tracked in 1.8. |
 
 ## P3. Co-op for 2–4 players
 
@@ -83,10 +83,10 @@
 
 ## P5. Content and progression
 
-Depends on P2. The owner's [Google Sheet](https://docs.google.com/spreadsheets/d/1q4DUxTFMWcSg_zevYYDIWf2DWFH_v2YpFHKe_LTDcOM/edit) is the source of truth for content design. The [content roadmap](docs/CONTENT_ROADMAP.md) orders the 17 characters, 61 items and 23 enemies by ease of implementation, lists the engine systems (S0–S14 for heroes and items, E0–E7 for enemies) they need, groups them into milestones, and records owner decisions and open questions. Content is data-driven, with stat application tests for each item and character.
+Depends on P2. The owner's [Google Sheet](https://docs.google.com/spreadsheets/d/1q4DUxTFMWcSg_zevYYDIWf2DWFH_v2YpFHKe_LTDcOM/edit) is the source of truth for content design. The [content roadmap](docs/CONTENT_ROADMAP.md) orders the 17 characters, 60 items and 23 enemies by ease of implementation, lists the engine systems (S0–S13 for heroes and items, E0–E7 for enemies) they need, groups them into milestones, and records owner decisions and open questions. Content is data-driven, with stat application tests for each item and character.
 
 - [~] 5.1 Characters with unique passives: six C1 heroes (Octarine, Swordsman, Smith, Goflin, Celestial Mage, Watchman) playable with table stats, passives, sprites and a character select screen; eleven remain (content roadmap C2–C4).
-- [~] 5.2 Weapons, items, evolutions, and combinations: chest loot by rarity with stacking items; six I1 stat items playable; I2–I6, Scope, and five cursed boss drops (I7) remain. Chest rarity chances still need to match the sheet.
+- [~] 5.2 Weapons, items, evolutions, and combinations: chest loot by rarity with stacking items; six I1 stat items playable; I2–I6 and five cursed boss drops (I7) remain. Chest rarity chances still need to match the sheet.
 - [ ] 5.3 Enemies and bosses based on run time: 23 owner enemies, including five bosses, in tiers E1–E5 (see the content roadmap).
 - [ ] 5.4 Balance using local run logs under .tmp/.
 - [ ] 5.5 Metaprogression pending owner decision.

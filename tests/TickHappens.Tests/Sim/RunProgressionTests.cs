@@ -234,6 +234,47 @@ public sealed class RunProgressionTests
     }
 
     [Fact]
+    public void StatueTimeJumpTriggersEarlierElitesEvenWhenScheduleIsUnsorted()
+    {
+        string dir = TestContent.CreateScratchCopy();
+        try
+        {
+            TestContent.EditJson(dir, "waves.json", root =>
+            {
+                var elites = root["elites"]!.AsArray();
+                elites[0]!["at"] = 3;
+                elites[1]!["at"] = 1.5f;
+            });
+            var content = ContentLoader.Load(dir);
+            var world = new RunWorld(content, seed: 5);
+            world.Player.Pos = world.Statues[0];
+
+            int ticks = (int)(world.Rules.Statue.HoldSeconds * RunWorld.TicksPerSecond) + 2;
+            for (int i = 0; i < ticks && !world.StatueActive[0]; i++) world.Step(default);
+            Assert.True(world.StatueActive[0]);
+            Assert.DoesNotContain(world.Events, e => e.Kind == EventKind.Elite);
+            world.Step(default);
+
+            var spawns = world.Events.Where(e => e.Kind == EventKind.Elite).ToArray();
+            Assert.Equal(2, spawns.Length);
+            var elite = content.Enemies[content.EnemyIndex("duskslime")];
+            foreach (var spawn in spawns)
+            {
+                TestWorld.Close(elite.Hp * world.HpScale, world.EMaxHp[spawn.A]);
+                TestWorld.Close(elite.Damage * world.DamageScale, world.EDamage[spawn.A]);
+            }
+
+            world.ClearEvents();
+            world.Step(default);
+            Assert.DoesNotContain(world.Events, e => e.Kind == EventKind.Elite);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
     public void DifficultyScalesWithRunTimeNotPlayerLevel()
     {
         var content = TestContent.LoadCore();

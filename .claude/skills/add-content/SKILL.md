@@ -10,6 +10,6 @@ Owner table → JSON:
 - Items: rarity Common/Rare/Epic/Mythic/Legendary → common/rare/epic/mythic/legendary; stat effects → `mods`; attacking items → `weapon` (bolt/pulse/chain/blast) or a new engine kind (S6).
 - Enemies: Move speed → `speed` (same units), Lifesteal → `lifesteal`, Magic resist/Armor → fractions, БОСС → `boss: true`.
 
-Rules: items come only from chests and stack; attacks, items, pickups and chests are passive (manual: movement, dash, cursor targeting via Scope later). Gold belongs to the killer. Difficulty follows the run clock, never the player level. Units: px/s = Move speed × 3, attacks/s = Attack speed / 25, defences capped at 90%.
+Rules: items come only from chests and stack; attacks, items, pickups and chests are passive (manual: movement and dash). Gold belongs to the killer. Difficulty follows the run clock, never the player level. Units: px/s = Move speed × 3, attacks/s = Attack speed / 25, defences capped at 90%.
 
 Steps: edit JSON → `build-test` (errors name file, id and field) → `play-capture` with `--demo --character ID` and `--menu` → check the HUD and the character screen. A new stat, trigger or behaviour needs C# (StatBlock/RunWorld) plus tests. A new sprite needs an Assets recipe (`art-recipe` skill), merged in Assets before the Game PR.

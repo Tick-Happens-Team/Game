@@ -21,6 +21,14 @@ Pick one of six heroes from the owner roster (Octarine, Swordsman, Smith, Goflin
 
 Content (6 heroes, 6 items, enemies, waves, rules) is data in `content/core/*.json`, the built-in `core` mod; the full plan is the [content roadmap](docs/CONTENT_ROADMAP.md). Autopilot and captures: `--demo --character ID --menu --frames N --screenshot PATH --seed S --no-vsync`.
 
+Measure a dense single-player simulation in Release without an SDL window or the asset atlas:
+
+```powershell
+dotnet run -c Release --project src/TickHappens.Game -- --sim-bench ../.tmp/bench/single-player.csv
+```
+
+The benchmark keeps 2,000 moving enemies alive around a stationary hero using auto-attacks. It warms up for 300 ticks, writes the next 600 tick timings to CSV, and prints min, average, p99, max, and managed allocations.
+
 ## Online co-op
 
 Choose English or Russian from the launcher language selector or press **F4** on the game's character selection screen. Both applications use the same saved language. On first launch they use the system UI language when supported, with English as the fallback.
