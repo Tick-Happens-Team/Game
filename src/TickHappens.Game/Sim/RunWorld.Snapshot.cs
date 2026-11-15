@@ -7,7 +7,7 @@ namespace TickHappens.Game.Sim;
 public sealed partial class RunWorld
 {
     public const int SnapshotCapacity = 64 * 1024;
-    private const byte SnapshotVersion = 3;
+    private const byte SnapshotVersion = 4;
     private int _replicaTick = -1;
     private readonly ushort[] _enemySnapshotSlots = new ushort[ushort.MaxValue / 8];
 
@@ -45,6 +45,16 @@ public sealed partial class RunWorld
                 w.Float(p.AcceleratorSpeedBonus);
                 w.Float(p.Shield);
                 w.Float(p.BonusShield);
+                w.Int(p.GhostUntilTick);
+                w.Int(p.HeroAttackTick);
+                switch (p.Character.Id)
+                {
+                    case "diver": w.Float(p.HeroDistance); break;
+                    case "necromancer": w.Int(p.Souls); break;
+                    case "cybernetic_cube":
+                        foreach (float bonus in p.CubeBonuses) w.Float(bonus);
+                        break;
+                }
                 w.Int(p.IllusionUntilTick);
                 WritePoint(ref w, p.IllusionPosition.X, p.IllusionPosition.Y);
                 w.Int(p.NearbyChest);
@@ -100,7 +110,7 @@ public sealed partial class RunWorld
                 if (!ally.Active) continue;
                 w.Byte((byte)i);
                 w.Int(ally.Id);
-                w.Short(ally.Item);
+                w.Short(ally.Item & ushort.MaxValue);
                 w.Byte((byte)(ally.Owner | (ally.FacingLeft ? 4 : 0)));
                 WritePoint(ref w, ally.Pos.X, ally.Pos.Y);
             }
@@ -225,8 +235,9 @@ public sealed partial class RunWorld
         {
             int slot = r.Byte(), id = r.Int(), item = r.Short(), flags = r.Byte();
             var pos = ReadPoint(ref r);
+            if (item > ushort.MaxValue - SoulCompanions.Length) item -= ushort.MaxValue + 1;
             Require(slot > lastCompanion && slot < CompanionCapacity && id > 0 && flags <= 7 &&
-                (flags & 3) < playerCount && item < Content.Items.Count && Content.Items[item].Companion != null);
+                (flags & 3) < playerCount && (item < 0 || item < Content.Items.Count && Content.Items[item].Companion != null));
             lastCompanion = slot;
             if (!apply) continue;
             aliveCompanions |= 1UL << slot;
@@ -299,6 +310,20 @@ public sealed partial class RunWorld
         int dashTotal = r.Int(), dashChargesUsed = r.Int(), cooldown = r.Int();
         int dashSpeed = r.Int(), accelerator = r.Int();
         float speedBonus = r.Float(), shield = r.Float(), bonusShield = r.Float();
+        Require(character < Content.Characters.Count);
+        int ghostUntil = r.Int(), attackTick = r.Int();
+        string hero = Content.Characters[character].Id;
+        float distance = hero == "diver" ? r.Float() : 0;
+        int souls = hero == "necromancer" ? r.Int() : 0;
+        Span<float> cube = stackalloc float[CubeStats.Length + 1];
+        if (hero == "cybernetic_cube")
+        {
+            for (int i = 0; i < cube.Length; i++)
+            {
+                cube[i] = r.Float();
+                Require(cube[i] >= 0);
+            }
+        }
         int illusionUntil = r.Int();
         var illusionPos = ReadPoint(ref r);
         int chest = r.Int(), item = r.Int();
@@ -308,7 +333,7 @@ public sealed partial class RunWorld
         var facing = DecodeAngle(r.Short());
         var dashDirection = DecodeAngle(r.Short());
         int equipped = r.Short();
-        Require(character < Content.Characters.Count && hp >= 0 && level > 0 && xp >= 0 && xpNext > 0 &&
+        Require(ghostUntil >= 0 && attackTick >= -1 && distance >= 0 && souls >= 0 && hp >= 0 && level > 0 && xp >= 0 && xpNext > 0 &&
             kills >= 0 && gold >= 0 && price > 0 && invulnerable >= 0 && dash >= 0 && cooldown >= 0 &&
             chest >= -1 && chest < Chests.Length && item >= -1 && item < Content.Items.Count && flags <= 7 && lastAppliedInput >= 0 &&
             dashTotal >= dash && dashChargesUsed is >= 0 and <= 9 && dashSpeed >= 0 && accelerator >= 0 &&
@@ -352,6 +377,11 @@ public sealed partial class RunWorld
             p.AcceleratorSpeedBonus = speedBonus;
             p.Shield = shield;
             p.BonusShield = bonusShield;
+            p.GhostUntilTick = ghostUntil;
+            p.HeroAttackTick = attackTick;
+            p.HeroDistance = distance;
+            p.Souls = souls;
+            if (hero == "cybernetic_cube") cube.CopyTo(p.CubeBonuses);
             p.IllusionUntilTick = illusionUntil;
             p.IllusionPosition = illusionPos;
             p.NearbyChest = chest;

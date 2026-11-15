@@ -10,6 +10,7 @@ public struct Companion
     public Vector2 Pos, Prev;
     internal float Health, MaxHealth, AuraCapacity, Shield, AttackTimer, Life;
     internal int Target, TargetUid, HurtTick;
+    internal float DamageBonus, AttackSpeedBonus;
     internal float Armor, BlockChance, AttackSpeed, PhysicalDamage, Lifesteal, DamageReduction;
 }
 
@@ -40,12 +41,15 @@ public sealed partial class RunWorld
         }
     }
 
+    private CompanionDef GetCompanionDef(int item) =>
+        item < 0 ? SoulCompanions[-1 - item] : Content.Items[item].Companion!;
+
     private bool SpawnCompanion(int owner, int item, Vector2 position, float health)
     {
         for (int i = 0; i < CompanionCapacity; i++)
         {
             if (_companions[i].Active) continue;
-            var def = Content.Items[item].Companion!;
+            var def = GetCompanionDef(item);
             position = Vector2.Clamp(position, new Vector2(8), new Vector2(Rules.ArenaSize - 8));
             _companions[i] = new Companion
             {
@@ -64,7 +68,7 @@ public sealed partial class RunWorld
             ref var ally = ref _companions[i];
             if (!ally.Active) continue;
             var owner = _players[ally.Owner];
-            var def = Content.Items[ally.Item].Companion!;
+            var def = GetCompanionDef(ally.Item);
             if (!owner.Active || owner.Hp <= 0 || (def.Duration > 0 && (ally.Life -= Dt) <= 0))
             {
                 ally.Active = false;
@@ -74,7 +78,9 @@ public sealed partial class RunWorld
             UpdateCompanionAuras(ref ally);
             ally.AttackTimer -= Dt;
             Vector2 goal = owner.Pos + new Vector2(MathF.Cos(Tick * Dt * 2 + i) * 20, MathF.Sin(Tick * Dt * 2 + i) * 14);
-            if (def.Kind == "leech")
+            if (def.Kind == "soulHealer")
+                goal = HealWithSoul(ref ally, owner);
+            else if (def.Kind == "leech")
             {
                 float drain = Math.Min(def.Damage * Dt, ally.Health);
                 RestorePlayer(owner, drain);
@@ -145,14 +151,15 @@ public sealed partial class RunWorld
         if (ally.AttackTimer > 0 && def.Kind != "eagle") return ally.Pos;
 
         var source = new DamageSourceRef(owner.Id, ally.Item, SuppressProcs: true, CompanionSlot: slot);
+        float damage = ally.Item < 0 ? ally.MaxHealth : def.Damage;
         var kind = Kind(def.DamageType);
         if (def.Area > 0)
         {
             float radius = def.Area * owner.Stats[Stat.Area];
-            AreaItemHit(pos, radius, def.Damage, kind, source, def.Slow, def.Stun);
+            AreaItemHit(pos, radius, damage, kind, source, def.Slow, def.Stun);
             Emit(def.Kind == "drone" ? EventKind.DroneBlast : EventKind.Blast, pos.X, pos.Y, radius);
         }
-        else DamageEnemy(target, def.Damage, kind, source, ally.Pos.X, ally.Pos.Y);
+        else DamageEnemy(target, damage, kind, source, ally.Pos.X, ally.Pos.Y);
         if (def.Kind == "drone")
         {
             ally.Active = false;
@@ -160,7 +167,7 @@ public sealed partial class RunWorld
         }
         else if (def.Kind == "eagle") ally.Target = -1;
         else ally.AttackTimer = owner.Stats[Stat.Cooldown] /
-            (1 / Math.Max(0.05f, def.AttackInterval) + ally.AttackSpeed * Rules.Units.AttacksPerUnit);
+            ((1 / Math.Max(0.05f, def.AttackInterval) + ally.AttackSpeed * Rules.Units.AttacksPerUnit) * (1 + ally.AttackSpeedBonus));
         return ally.Pos;
     }
 
@@ -194,8 +201,8 @@ public sealed partial class RunWorld
         {
             ref var ally = ref _companions[i];
             if (!ally.Active || !_players[ally.Owner].Active || ally.Health <= 0 || Vector2.DistanceSquared(enemy, ally.Pos) >= radius * radius) continue;
-            var def = Content.Items[ally.Item].Companion!;
-            if (def.Kind is "leech" or "eagle" or "drone" or "dog") continue;
+            var def = GetCompanionDef(ally.Item);
+            if (def.Kind is "leech" or "eagle" or "drone" or "dog" or "soulHealer") continue;
             if (Tick - ally.HurtTick < TicksPerSecond / 2 || kind == DamageKind.Physical && RollChance(ally.BlockChance))
                 return true;
             ally.HurtTick = Tick;

@@ -40,6 +40,7 @@ public sealed partial class RunWorld
             int count = a.Count + (int)p.Stats[Stat.Amount];
             if (FireBolts(p.Stats[Stat.Damage], Kind(a.DamageType), new DamageSourceRef(p.Id), count, a.Speed, a.Range, a.Pierce))
             {
+                p.HeroAttackTick = Tick;
                 p.AttackTimer = 1f / MathF.Max(0.05f, p.Stats[Stat.AttackSpeed] * Rules.Units.AttacksPerUnit);
                 ProcAttackItems(p);
                 FireIllusion(p);
@@ -233,15 +234,18 @@ public sealed partial class RunWorld
     }
 
     /// <summary>Fires up to <paramref name="count"/> projectiles at the nearest distinct enemies. Returns false when nothing is in range.</summary>
-    private bool FireBolts(float damage, DamageKind kind, DamageSourceRef src, int count, float speed, float range, int pierce)
+    private bool FireBolts(float damage, DamageKind kind, DamageSourceRef src, int count, float speed, float range, int pierce,
+        Vector2? origin = null, ProjectileStyle style = ProjectileStyle.Bolt)
     {
         var p = _players[src.PlayerId];
+        Vector2 position = origin ?? p.Pos;
+        Vector2 muzzle = position + new Vector2(0, -10);
         count = Math.Clamp(count, 1, 16);
         Span<int> targets = stackalloc int[count];
         int n = 0;
         for (; n < count; n++)
         {
-            int t = Nearest(p.Pos, range, targets[..n]);
+            int t = Nearest(position, range, targets[..n]);
             if (t < 0) break;
             targets[n] = t;
         }
@@ -249,13 +253,13 @@ public sealed partial class RunWorld
         for (int k = 0; k < count; k++)
         {
             int t = targets[k % n];
-            var dir = new Vector2(EX[t], EY[t] - 6) - (p.Pos + new Vector2(0, -10));
+            var dir = new Vector2(EX[t], EY[t] - 6) - muzzle;
             if (dir.LengthSquared() < 0.01f) dir = p.Facing;
             dir = Vector2.Normalize(dir);
             if (k >= n) dir = Rotate(dir, (k - n + 1) * 0.18f * (k % 2 == 0 ? 1 : -1));
-            SpawnProjectile(p.Pos + new Vector2(0, -10), dir * speed, damage, kind, src, pierce, range / speed);
+            SpawnProjectile(muzzle, dir * speed, damage, kind, src, pierce, range / speed, style);
         }
-        Emit(EventKind.Bolt, p.Pos.X, p.Pos.Y - 10, n, a: src.ItemDef);
+        Emit(EventKind.Bolt, muzzle.X, muzzle.Y, n, a: src.ItemDef);
         return true;
     }
 

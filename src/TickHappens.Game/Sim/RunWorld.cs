@@ -112,6 +112,7 @@ public sealed partial class RunWorld
             ItemPulseTimers = new float[Content.Items.Count],
             Pos = new Vector2(center + (id % 2) * 16, center + (id / 2) * 16),
             XpNext = XpForLevel(1),
+            NextHeroPassiveTick = Tick + (character.Id == "necromancer" ? 30 : 15) * TicksPerSecond,
         };
         p.Prev = p.Pos;
         var cs = character.Stats;
@@ -124,6 +125,7 @@ public sealed partial class RunWorld
         ApplyLevelStats(p);
         UpdateDynamicStats(p);
         p.Hp = MaxHealthFor(p);
+        if (character.Id == "masochist") UpdateDynamicStats(p);
         return p;
     }
 
@@ -144,6 +146,7 @@ public sealed partial class RunWorld
             return;
         }
         _players[id].Active = false;
+        for (int i = 0; i < TrailCapacity; i++) _heroTrail[id, i] = default;
         for (int i = 0; i < PickupCapacity; i++)
             if (GAlive[i] && GOwner[i] == id) GAlive[i] = false;
         for (int i = 0; i < ProjectileCapacity; i++)
@@ -201,7 +204,7 @@ public sealed partial class RunWorld
     /// <summary>Final max HP: (maxHp from table and items) × hpMultiplier.</summary>
     public float MaxHealth => MaxHealthFor(Player);
     internal static float MaxHealthFor(PlayerState p) => p.Stats[Stat.MaxHp] * p.Stats[Stat.HpMultiplier];
-    public float MoveSpeedPx => Player.Stats[Stat.MoveSpeed] * Rules.Units.MoveSpeedScale;
+    public float MoveSpeedPx => MovementSpeed(Player) * Rules.Units.MoveSpeedScale;
     public float AttacksPerSecond => Player.Stats[Stat.AttackSpeed] * Rules.Units.AttacksPerUnit;
 
     /// <summary>Table stats that grow per level: max HP and basic attack damage ("base/+per level").</summary>
@@ -225,6 +228,7 @@ public sealed partial class RunWorld
             if (pas.Per == "runMinute") { add *= Minutes; pct *= Minutes; }
             p.Stats.ApplyDynamic(s, add, pct);
         }
+        ApplyHeroStats(p);
     }
 
     public void Step(RunInput input)
@@ -241,6 +245,12 @@ public sealed partial class RunWorld
         if (Phase == RunPhase.Dead) return;
         if (inputs.Length < _players.Length) throw new ArgumentException("Each player slot needs an input.", nameof(inputs));
         Tick++;
+        foreach (var player in _players)
+        {
+            if (player.GhostUntilTick == 0 || player.GhostUntilTick > Tick) continue;
+            player.GhostUntilTick = 0;
+            player.Hp = 0;
+        }
         UpdateAllPlayerStats();
         foreach (var p in _players)
         {
@@ -258,7 +268,11 @@ public sealed partial class RunWorld
         // Combat queries use enemy positions after movement.
         BuildEnemyGrid();
         foreach (var p in _players)
-            if (p.Active && p.Hp > 0) StepWeapons(p);
+        {
+            if (!p.Active) continue;
+            if (p.Hp > 0 || p.Character.Id == "miner") StepHeroPassive(p);
+            if (p.Hp > 0) StepWeapons(p);
+        }
         foreach (var p in _players)
             if (p.Active && p.Hp > 0) StepCompanionItems(p);
         StepCompanions();
@@ -275,6 +289,10 @@ public sealed partial class RunWorld
         if (_replicaTick >= 0 && Phase == RunPhase.Playing && Player.Active && Player.Hp > 0)
             StepPlayer(Player, input, predict: true);
     }
+
+    private static float MovementSpeed(PlayerState player) => player.Character.Id == "diver"
+        ? player.Character.Stats.MoveSpeed
+        : player.Stats[Stat.MoveSpeed];
 
     private void StepPlayer(PlayerState p, RunInput input, bool predict = false)
     {
@@ -323,13 +341,15 @@ public sealed partial class RunWorld
         {
             float speedBonus = p.DashSpeedTicks > 0 ? p.Stats[Stat.DashSpeedBonus] : 0;
             if (p.AcceleratorTicks > 0) speedBonus += p.AcceleratorSpeedBonus;
-            move = dir * p.Stats[Stat.MoveSpeed] * (1 + speedBonus) * Rules.Units.MoveSpeedScale * Dt;
+            float speed = MovementSpeed(p) * (p.Character.Id == "diver" ? 1 : 1 + speedBonus);
+            move = dir * speed * Rules.Units.MoveSpeedScale * Dt;
         }
         float a = Rules.ArenaSize;
         p.Pos = Vector2.Clamp(p.Pos + move, new Vector2(12), new Vector2(a - 12));
         p.Walking = p.Pos != p.Prev;
         if (!predict)
         {
+            if (p.Character.Id == "diver") p.HeroDistance += Vector2.Distance(p.Prev, p.Pos);
             float regen = p.Stats[Stat.Regen];
             if (!p.Walking) regen += p.Stats[Stat.StationaryRegen] * MaxHealthFor(p);
             p.Hp = Math.Min(p.Hp, MaxHealthFor(p));
@@ -353,7 +373,7 @@ public sealed partial class RunWorld
     /// <summary>Damages the player after defences; returns the damage actually dealt (0 while invulnerable).</summary>
     private float HurtPlayer(PlayerState p, float amount, DamageKind kind, float fromX, float fromY, int enemy)
     {
-        if (p.InvulnTicks > 0 || p.Hp <= 0) return 0;
+        if (p.InvulnTicks > 0 || p.Hp <= 0 || p.GhostUntilTick > Tick) return 0;
         float dmg = amount * (1 - Resist(kind, p.Stats[Stat.Armor], p.Stats[Stat.MagicResist])) * p.Stats[Stat.DamageTaken];
         if (kind == DamageKind.Physical && p.Stats[Stat.PhysicalBlock] > 0 && Tick >= p.PhysicalBlockTick)
         {
@@ -371,6 +391,7 @@ public sealed partial class RunWorld
         p.Hp -= dmg;
         p.InvulnTicks = (int)MathF.Round(Rules.InvulnerableSeconds * TicksPerSecond);
         if (p.Hp <= 0) TryRevive(p);
+        OnHeroDamaged(p, dmg);
         p.HurtTick = Tick;
         Emit(EventKind.PlayerHurt, p.Pos.X, p.Pos.Y, dmg, x2: fromX, y2: fromY);
         return dmg;
@@ -523,7 +544,7 @@ public sealed partial class RunWorld
             int target = NearestLivingPlayer(new Vector2(EX[i], EY[i]));
             if (target < 0) break;
             var player = _players[target];
-            var p = player.Pos;
+            var p = EnemyTarget(new Vector2(EX[i], EY[i]), player, out var decoy);
             float dx = p.X - EX[i], dy = p.Y - EY[i], dist = MathF.Sqrt(dx * dx + dy * dy);
             float vx = 0, vy = 0;
             bool stunned = _enemyStunUntil[i] > Tick;
@@ -554,6 +575,16 @@ public sealed partial class RunWorld
                 TryHitCompanion(new Vector2(EX[i], EY[i]), d.Radius + CompanionRadius, EDamage[i], _enemyKind[EDef[i]])) continue;
             if (!stunned && dist < d.Radius + PlayerRadius)
             {
+                if (decoy != null)
+                {
+                    if (Tick >= decoy.IllusionHurtTick)
+                    {
+                        decoy.IllusionHurtTick = Tick + TicksPerSecond / 2;
+                        decoy.IllusionHealth -= EDamage[i];
+                        if (decoy.IllusionHealth <= 0) decoy.IllusionUntilTick = 0;
+                    }
+                    continue;
+                }
                 float dealt = HurtPlayer(player, EDamage[i], _enemyKind[EDef[i]], EX[i], EY[i], i);
                 // Enemy lifesteal (Вампиризм) heals the attacker by its share of the damage dealt.
                 if (!EAlive[i]) continue;
@@ -583,12 +614,12 @@ public sealed partial class RunWorld
     public Vector2 EnemyPos(int i, float alpha) => new(_prevX[i] + (EX[i] - _prevX[i]) * alpha, _prevY[i] + (EY[i] - _prevY[i]) * alpha);
 
     /// <summary>Outgoing multiplier for a hit: might × damage-type bonus × item bonus (for item sources).</summary>
-    public float OutgoingMultiplier(DamageKind kind, bool fromItem) => OutgoingMultiplier(Player, kind, fromItem);
+    public float OutgoingMultiplier(DamageKind kind, bool fromItem) => OutgoingMultiplier(Player, kind, fromItem) * (1 + Player.PuppeteerDamageBonus);
 
     private static float OutgoingMultiplier(PlayerState p, DamageKind kind, bool fromItem)
     {
         var s = p.Stats;
-        float m = s[Stat.Might] * kind switch
+        float m = s[Stat.Might] * (1 + p.Souls * (0.005f + 0.001f * (p.Level - 1))) * kind switch
         {
             DamageKind.Physical => s[Stat.PhysicalDamage],
             DamageKind.Magical => s[Stat.MagicalDamage],
@@ -619,6 +650,7 @@ public sealed partial class RunWorld
         float largestEnemyBonus = p.Stats[Stat.HighestHealthDamage];
         if (largestEnemyBonus > 1 && i == HighestHealthEnemy()) raw *= largestEnemyBonus;
         float outgoing = OutgoingMultiplier(p, kind, source.FromItem);
+        outgoing *= 1 + (source.CompanionSlot >= 0 ? _companions[source.CompanionSlot].DamageBonus : p.PuppeteerDamageBonus);
         if (kind == DamageKind.Physical && source.CompanionSlot >= 0)
             outgoing *= (1 + _companions[source.CompanionSlot].PhysicalDamage) / (1 + p.PhysicalAuraBonus);
         float amount = raw * critical * outgoing * (1 - Resist(kind, def.Armor, def.MagicResist));
@@ -675,7 +707,9 @@ public sealed partial class RunWorld
         var d = Content.Enemies[EDef[i]];
         if ((uint)credit < (uint)_players.Length)
         {
-            _players[credit].Kills++;
+            var killer = _players[credit];
+            killer.Kills++;
+            if (killer.Character.Id == "necromancer") killer.Souls++;
             DropPickup(PickupKind.Xp, EX[i], EY[i], d.Xp, -1);
             uint dropSeed = _rng.State;
             if (d.Gold > 0 && _rng.Next() < d.GoldChance)
