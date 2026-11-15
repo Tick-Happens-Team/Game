@@ -172,6 +172,11 @@ internal sealed class RunView : IDisposable
                     AddFlash(e.X, e.Y - 8, 150, 1.6f, 0.9f, 0.4f, 0.4f);
                     ScreenFlash(0.08f, 0xFF60C0FFu);
                     break;
+                case EventKind.DroneBlast:
+                    if (_effects.Count < MaxCpuEffects)
+                        _effects.Add(new ExplosionEffect(new ExplosionOptions { X = e.X * 2, Y = e.Y * 2, Size = 0.85f, Seed = e.Seed }));
+                    Burst(e.X, e.Y, 22, 90, 0xFFFFE4ACu, 0xFF2855D5u, 1.2f);
+                    break;
                 case EventKind.Chain:
                 {
                     var pts = world.ChainPoints;

@@ -150,7 +150,7 @@ public sealed partial class RunWorld
         {
             float radius = def.Area * owner.Stats[Stat.Area];
             AreaItemHit(pos, radius, def.Damage, kind, source, def.Slow, def.Stun);
-            Emit(EventKind.Blast, pos.X, pos.Y, radius);
+            Emit(def.Kind == "drone" ? EventKind.DroneBlast : EventKind.Blast, pos.X, pos.Y, radius);
         }
         else DamageEnemy(target, def.Damage, kind, source, ally.Pos.X, ally.Pos.Y);
         if (def.Kind == "drone")
