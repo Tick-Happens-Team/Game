@@ -13,7 +13,7 @@ public enum LightningKind
     Impact,
     /// <summary>Chain of arcs hopping between points.</summary>
     Arc,
-    /// <summary>Sustained crackle around a radius.</summary>
+    /// <summary>Sustained crackle around a sprite outline or radius.</summary>
     Crackle,
 }
 
@@ -66,6 +66,9 @@ public sealed class LightningOptions
 
     /// <summary>Crackle radius in simulation units.</summary>
     public float Radius = 36;
+
+    /// <summary>Current actor frame for crackle. An empty frame uses the radius fallback.</summary>
+    public Func<ActorSilhouette?>? Silhouette;
 
     /// <summary>Optional arc source that follows a moving hand.</summary>
     public Func<(float X, float Y)>? Hand;
@@ -700,7 +703,16 @@ public sealed class LightningEffect : IPixelEffect
             var R = _c.R;
             _edge.Clear();
             float cx = (_c.O.X ?? 640) / PX, cy = (_c.O.Y ?? 540) / PX;
-            for (int i = 0; i < 48; i++)
+            if (_c.O.Silhouette?.Invoke() is { } sprite)
+            {
+                for (int y = 0; y < sprite.Height; y++)
+                    for (int x = 0; x < sprite.Width; x++)
+                        if (sprite.IsOpaque(x, y) &&
+                            (!sprite.IsOpaque(x - 1, y) || !sprite.IsOpaque(x + 1, y) ||
+                             !sprite.IsOpaque(x, y - 1) || !sprite.IsOpaque(x, y + 1)))
+                            _edge.Add((sprite.X + x + 0.5f, sprite.Y + y + 0.5f));
+            }
+            for (int i = 0, fallbackCount = _edge.Count == 0 ? 48 : 0; i < fallbackCount; i++)
             {
                 float a = R.Range(0, Tau), d = _rad * MathF.Sqrt(R.Next());
                 _edge.Add((cx + MathF.Cos(a) * d, cy + MathF.Sin(a) * d));

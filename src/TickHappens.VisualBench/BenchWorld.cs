@@ -1,4 +1,5 @@
 using TickHappens.Engine.Assets;
+using TickHappens.Engine.Vfx;
 using TickHappens.Engine.Graphics;
 using TickHappens.Engine.Spatial;
 
@@ -150,6 +151,20 @@ public sealed class BenchWorld
 
     public bool HeroFacingLeft => _heroFlip;
 
+    private int HeroFrame()
+    {
+        var anim = _hero.Anims[_heroMoving ? "walk" : "idle"];
+        return anim.Frames[(int)(_heroAnim * anim.Fps) % anim.Frames.Count];
+    }
+
+    public ActorSilhouette HeroSilhouette(RgbaImage atlas)
+    {
+        var uv = _hero.Frames[HeroFrame()];
+        return new ActorSilhouette((int)MathF.Floor(HeroX - _hero.Origin[0]),
+            (int)MathF.Floor(HeroY - _hero.Origin[1]), _hero.W, _hero.H,
+            atlas.Px, atlas.W, uv[1] * atlas.W + uv[0], _heroFlip);
+    }
+
     public (float X, float Y) NearestStatue() =>
         _statues.MinBy(s => (s.X - HeroX) * (s.X - HeroX) + (s.Y - HeroY) * (s.Y - HeroY));
 
@@ -232,9 +247,7 @@ public sealed class BenchWorld
             }
             else if (id == baseIdx)
             {
-                var anim = _hero.Anims[_heroMoving ? "walk" : "idle"];
-                int f = anim.Frames[(int)(_heroAnim * anim.Fps) % anim.Frames.Count];
-                b.Draw(_hero, f, HeroX - ox, HeroY - oy, _heroFlip);
+                b.Draw(_hero, HeroFrame(), HeroX - ox, HeroY - oy, _heroFlip);
             }
             else if (id < baseIdx + 32)
             {
