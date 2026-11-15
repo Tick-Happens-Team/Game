@@ -318,11 +318,17 @@ public sealed class RunProgressionTests
 
         Assert.True(world.StatueActive[0], "the statue must be active before difficulty is compared");
         Assert.True(world.HpScale > before, $"hp scale {world.HpScale} should exceed {before} after the statue bonus");
-        Assert.Equal(1f + content.Waves.HpPerMinute * world.Minutes, world.HpScale);
+        float minutes = world.Minutes;
+        float linearScale = 1f + content.Waves.HpPerMinute * minutes;
+        Assert.True(world.HpScale > linearScale);
+        TestWorld.Close(linearScale + content.Waves.HpPerMinuteSquared * minutes * minutes, world.HpScale);
 
         float afterStatue = world.HpScale;
         world.GainXp(world.XpForLevel(1) * 3);
         Assert.True(world.Player.Level > 1, "the player should have levelled up");
         Assert.Equal(afterStatue, world.HpScale);
+
+        content.Waves.HpPerMinuteSquared = 0;
+        TestWorld.Close(linearScale, world.HpScale);
     }
 }

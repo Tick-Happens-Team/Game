@@ -1,50 +1,51 @@
 {
   "hpPerMinute": 0.18,
-  "damagePerMinute": 0.1,
+  "hpPerMinuteSquared": 0.045,
+  "damagePerMinute": 0.14,
   "maxAlive": 900,
   "waves": [
     {
       "from": 0,
-      "to": 1,
+      "to": 0.75,
       "perSecond": 1.4,
       "mix": {
         "gloombat": 1
       }
     },
     {
-      "from": 1,
+      "from": 0.75,
       "to": 3,
-      "perSecond": 2.8,
+      "perSecond": 3.4,
       "mix": {
         "gloombat": 3,
-        "amberslime": 1
+        "amberslime": 2
       }
     },
     {
       "from": 3,
       "to": 6,
-      "perSecond": 5.0,
+      "perSecond": 6.2,
       "mix": {
         "gloombat": 2,
-        "amberslime": 2
+        "amberslime": 3
       }
     },
     {
       "from": 6,
       "to": 10,
-      "perSecond": 8.0,
+      "perSecond": 9.6,
       "mix": {
         "gloombat": 3,
-        "amberslime": 3
+        "amberslime": 5
       }
     },
     {
       "from": 10,
       "to": 999,
-      "perSecond": 12.0,
+      "perSecond": 14.5,
       "mix": {
         "gloombat": 2,
-        "amberslime": 3
+        "amberslime": 5
       }
     }
   ],

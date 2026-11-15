@@ -42,10 +42,13 @@ The built-in `core` mod (`Game/content/core/`) uses exactly this format. Validat
 | `characters.json` | `id`, `name`, `sprite`, designer `passive` and `growth` text, table `stats` (`maxHp`/`maxHpPerLevel`, `moveSpeed` Move speed, `attackSpeed` Attack speed, `armor` and `magicResist` as fractions, `damage`/`damagePerLevel`), optional basic `attack` override (damage type, speed, range, pierce, count), `passives`, optional ally `aura` |
 | `items.json` | `id`, `name`, `rarity` (common, rare, epic, mythic, legendary), `description`, stat `mods` applied once per copy, optional `weapon` (kind `bolt`, `pulse`, `chain` or `blast`, damage type and parameters) |
 | `enemies.json` | `id`, sprite and animation, optional tint, HP, `speed` in Move speed, damage and type, `armor`/`magicResist`, `lifesteal`, radius, XP, gold chance, `boss` flag |
-| `waves.json` | Wave mix by run-clock minute, HP and damage growth per minute, max alive, timed elites |
+| `waves.json` | Wave mix by run-clock minute, HP and damage growth, max alive, timed elites |
 | `rules.json` | Arena, XP curve, unit scales (`units`), basic attack defaults, dash, statues, chests with `rarityWeights` (price growth fixed at 1.5) |
 | `sprites/*.png` and `*.sprite.json` | Frames, origin, animations, emission, normals |
 | `sfx/*.ogg` | Sound effects |
+
+Enemy HP scales by `1 + hpPerMinute × minutes + hpPerMinuteSquared × minutes²` at spawn.
+Omitting `hpPerMinuteSquared` keeps linear HP growth.
 
 A passive is a level-scaled stat formula: `{"stat": "armor", "add": 0, "pct": 0, "perLevel": {"add": 0.01}, "per": "runMinute"}`. Its value is `base + perLevel × (level − 1)`; with `"per": "runMinute"` it is multiplied by the run clock in minutes. Stats are `(base + Σadd) × (1 + Σpct)`. Damage passes through might, the type multiplier and, for items, item damage, then the target's armor (physical) or magic resist (magical), capped at 90%. Pure damage ignores defences. Units: px/s = Move speed × 3; attacks per second = Attack speed / 25. Standard items come from chests and stack. Cursed items use `rarity: "cursed"` and a `bossDrop` enemy ID. They are excluded from chest rolls and drop for the player credited with the matching boss kill. See [the content roadmap](CONTENT_ROADMAP.md) for the systems that later tiers add.
 

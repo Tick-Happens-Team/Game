@@ -215,6 +215,9 @@ public static class ContentLoader
             CheckResist(w, "armor", en.Armor);
             CheckResist(w, "magicResist", en.MagicResist);
         }
+        if (!float.IsFinite(c.Waves.HpPerMinuteSquared) || c.Waves.HpPerMinuteSquared < 0)
+            e.Add("waves.json: hpPerMinuteSquared must be finite and non-negative");
+
         float prevTo = 0;
         foreach (var wv in c.Waves.Waves.OrderBy(x => x.From))
         {

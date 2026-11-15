@@ -242,6 +242,7 @@ public sealed class EliteDef
 public sealed class WaveTable
 {
     [JsonPropertyName("hpPerMinute")] public float HpPerMinute { get; set; }
+    [JsonPropertyName("hpPerMinuteSquared")] public float HpPerMinuteSquared { get; set; }
     [JsonPropertyName("damagePerMinute")] public float DamagePerMinute { get; set; }
     [JsonPropertyName("maxAlive")] public int MaxAlive { get; set; } = 800;
     [JsonPropertyName("waves")] public List<WaveDef> Waves { get; set; } = [];

@@ -384,7 +384,14 @@ public sealed partial class RunWorld
         return Content.Waves.Waves[^1];
     }
 
-    public float HpScale => 1 + Content.Waves.HpPerMinute * Minutes;
+    public float HpScale
+    {
+        get
+        {
+            float minutes = Minutes;
+            return 1 + minutes * (Content.Waves.HpPerMinute + Content.Waves.HpPerMinuteSquared * minutes);
+        }
+    }
     public float DamageScale => 1 + Content.Waves.DamagePerMinute * Minutes;
 
     private void SpawnEnemies()
