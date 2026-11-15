@@ -125,6 +125,7 @@ internal sealed class GameAudio : IDisposable
                     break;
                 case EventKind.BoarStomp:
                 case EventKind.WoodShockwave:
+                case EventKind.EnemyQuake:
                     Play("hit", 0.55f * near, pan, 0.08f, 2, 0.65f);
                     break;
                 case EventKind.Revival:

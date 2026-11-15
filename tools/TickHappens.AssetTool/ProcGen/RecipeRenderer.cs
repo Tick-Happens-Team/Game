@@ -214,6 +214,7 @@ public sealed class RecipeRenderer
         PixelCleanup.Despeckle(color, 3, protectedPx);
         PixelCleanup.FillHoles(color);
         AddOutline(color, part, parts);
+        PixelCleanup.FillHoles(color); // The outline can close a narrow gap around a transparent pixel.
         // Emission only where the final sprite is opaque.
         for (int i = 0; i < n; i++) if (RgbaImage.A(color.Px[i]) == 0) emit.Px[i] = 0;
 

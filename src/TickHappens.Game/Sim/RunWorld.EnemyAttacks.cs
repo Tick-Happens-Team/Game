@@ -7,6 +7,8 @@ public sealed partial class RunWorld
 {
     public const int EnemyWindupTicks = 8;
     public const int KamikazeFuseTicks = TicksPerSecond;
+    private const int WitchCooldownTicks = 5 * TicksPerSecond;
+    private const int ContactCooldownTicks = TicksPerSecond;
     private const int CloudPulseTicks = TicksPerSecond / 5;
 
     public record struct EnemyShot(Vector2 Pos, Vector2 Velocity, int Life, float Damage, DamageKind Kind, int Source = -1, int SourceUid = 0);
@@ -38,7 +40,7 @@ public sealed partial class RunWorld
         var aim = targetPosition - pos;
         float distance = aim.Length();
         float range = def.DetonateRange > 0 ? def.DetonateRange :
-            def.ShotRange > 0 ? def.ShotRange : def.Radius + PlayerRadius;
+            def.ShotRange > 0 ? def.ShotRange : def.Radius + PlayerRadius + ContactTolerance;
         if (_enemyAttackTicks[slot] == 0)
         {
             if (Tick >= _enemyAttackReady[slot] && distance <= range)
@@ -58,7 +60,8 @@ public sealed partial class RunWorld
         if (def.Behavior == "ancient" && _enemyAbilities[slot].Group > 0) attackSpeed += 20;
         if (IsCultist(def) && target.CultistMarkUntil > Tick) attackSpeed *= 1.15f;
         float attacksPerSecond = attackSpeed * Rules.Units.AttacksPerUnit;
-        _enemyAttackReady[slot] = Tick + Math.Max(1, (int)MathF.Round(TicksPerSecond / attacksPerSecond) - EnemyWindupTicks);
+        int interval = def.Behavior == "witch" ? WitchCooldownTicks : (int)MathF.Round(TicksPerSecond / attacksPerSecond);
+        _enemyAttackReady[slot] = Tick + Math.Max(1, interval - EnemyWindupTicks);
         if (distance > range) return;
         var kind = _enemyKind[EDef[slot]];
         if (def.Behavior == "witch" && decoy == null)

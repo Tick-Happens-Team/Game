@@ -12,7 +12,7 @@ public enum EventKind : byte
 {
     Hit, Kill, Bolt, Pulse, Chain, Blast, LevelUp, Statue, Chest, PlayerHurt, Dash, Pickup, Elite, Melee, ItemBeam, Flame, Frost, BossReward,
     DroneBlast, HeroFireTrail, EnemyBlast,
-    EagleDive, BoarStomp, RocketImpact, WoodShockwave, WildAura, Laser, Rifle, CaneStrike, Revival,
+    EagleDive, BoarStomp, RocketImpact, WoodShockwave, WildAura, Laser, Rifle, CaneStrike, Revival, EnemyQuake,
 }
 
 public enum BlastStyle { Default, SodaSplash }

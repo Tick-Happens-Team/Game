@@ -21,6 +21,7 @@ internal sealed partial class RunView
         float duration = e.Kind switch
         {
             EventKind.Revival => 0.95f,
+            EventKind.EnemyQuake => 0.52f,
             EventKind.WildAura => 0.65f,
             EventKind.Laser or EventKind.Rifle or EventKind.RocketImpact => 0.28f,
             _ => 0.5f,
@@ -133,6 +134,32 @@ internal sealed partial class RunView
                     float bend = a + (i % 2 == 0 ? 0.8f : -0.8f);
                     color.Line(fx, fy, fx - MathF.Cos(bend) * 26 * fade, fy - MathF.Sin(bend) * 26 * fade, main);
                     color.AlphaDisc(fx, fy, (stomp ? 4 : 2) * fade, tip, fade);
+                }
+                break;
+            }
+            case EventKind.EnemyQuake:
+            {
+                const uint Crust = 0xFFAD8967u, Fissure = 0xFF231B25u, Dust = 0xFFD1AE7Du;
+                const int cracks = 8;
+                for (int i = 0; i < cracks; i++)
+                {
+                    float heading = i * (MathF.Tau / cracks) + rng.Range(-0.22f, 0.22f);
+                    var direction = new Vector2(MathF.Cos(heading), MathF.Sin(heading));
+                    var across = new Vector2(-direction.Y, direction.X);
+                    float length = radius * spread * rng.Range(0.72f, 1);
+                    var start = new Vector2(x, y) + direction * 2;
+                    for (int j = 1; j <= 3; j++)
+                    {
+                        var end = new Vector2(x, y) + direction * (length * j / 3) +
+                            across * (spread * rng.Range(-5, 5));
+                        if (t < 0.76f)
+                        {
+                            color.Line(start.X, start.Y + 1, end.X, end.Y + 1, Crust);
+                            color.Line(start.X, start.Y, end.X, end.Y, Fissure);
+                        }
+                        start = end;
+                    }
+                    color.AlphaDisc(start.X, start.Y - t * 7, fade * 3.2f, Dust, fade * 0.64f);
                 }
                 break;
             }
