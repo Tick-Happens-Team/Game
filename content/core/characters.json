@@ -257,7 +257,7 @@
       "maxHpPerLevel": 5,
       "regen": 3,
       "moveSpeed": 25,
-      "attackSpeed": 10,
+      "attackSpeed": 15,
       "armor": 0.1,
       "magicResist": 0.05,
       "damage": 15,
@@ -265,11 +265,11 @@
     },
     "attack": {
       "damageType": "physical",
-      "range": 15,
+      "range": 30,
       "meleeAngle": 120,
       "rangePerLevel": 0.25
     },
-    "passive": "Экскалибур заменяет снаряды физическим ударом перед Артуром. Базовый радиус 15.",
+    "passive": "Экскалибур заменяет снаряды физическим ударом перед Артуром. Базовый радиус 30.",
     "growth": "+0,25 к радиусу Экскалибура за уровень."
   }
 ]

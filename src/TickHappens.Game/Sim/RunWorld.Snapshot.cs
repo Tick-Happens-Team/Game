@@ -170,6 +170,7 @@ public sealed partial class RunWorld
         {
             ReadSnapshot(source, apply: false, previousAlpha);
             ReadSnapshot(source, apply: true, previousAlpha);
+            BuildEnemyGrid();
             return true;
         }
         catch (InvalidDataException) { return false; }
@@ -223,6 +224,7 @@ public sealed partial class RunWorld
         }
         int count = r.Short();
         Require(count <= EnemyCapacity && count <= _enemySnapshotSlots.Length);
+        if (apply) _timekeepersAlive = 0;
         int prev = -1;
         for (int j = 0; j < count; j++)
         {
@@ -241,6 +243,7 @@ public sealed partial class RunWorld
             EX[slot] = position.X;
             EY[slot] = position.Y;
             EDef[slot] = (short)def;
+            if (Content.Enemies[def].Behavior == "timekeeper") _timekeepersAlive++;
             EUid[slot] = uid;
             EFlash[slot] = (status & 64) == 0 ? (byte)0 : (byte)3;
             _enemyAttackTicks[slot] = (byte)windup;

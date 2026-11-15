@@ -1,5 +1,6 @@
 using System.Numerics;
 using TickHappens.Game.Content;
+using TickHappens.Game.Online;
 using TickHappens.Game.Sim;
 
 namespace TickHappens.Tests;
@@ -52,6 +53,132 @@ public sealed class EnemyAttacksTests
         Assert.Equal(0, world.EnemyShots.Length);
     }
 
+    [Fact]
+    public void WitchLightningHitsThePrimaryTargetBeforeChainingToNearbyPlayers()
+    {
+        var world = IsolatedWorld(playerCount: 2);
+        world.SetPlayerActive(1, true);
+        var primary = world.Players[1];
+        var secondary = world.Players[0];
+        primary.Pos = secondary.Pos + new Vector2(80, 0);
+        primary.AttackTimer = 100;
+        int witchType = world.Content.EnemyIndex("witch");
+        world.Content.Enemies[witchType].Speed = 0;
+        var witchPos = primary.Pos + new Vector2(180, 0);
+        world.SpawnEnemy(witchType, witchPos);
+
+        for (int i = 0; i <= RunWorld.EnemyWindupTicks; i++)
+            world.StepCoop([default, default]);
+
+        var beams = world.Events.Where(e => e.Kind == EventKind.ItemBeam).ToArray();
+        Assert.Equal(2, beams.Length);
+        Assert.Equal(witchPos.X, beams[0].X);
+        Assert.Equal(primary.Pos.X, beams[0].X2);
+        Assert.Equal(primary.Pos.X, beams[1].X);
+        Assert.Equal(secondary.Pos.X, beams[1].X2);
+        Assert.Equal(2, world.Events.Count(e => e.Kind == EventKind.PlayerHurt));
+        world.ClearEvents();
+        for (int i = 0; i < 5 * RunWorld.TicksPerSecond - 1; i++)
+            world.StepCoop([default, default]);
+        Assert.DoesNotContain(world.Events, e => e.Kind == EventKind.ItemBeam);
+        world.StepCoop([default, default]);
+        Assert.Equal(2, world.Events.Count(e => e.Kind == EventKind.ItemBeam));
+    }
+
+    [Fact]
+    public void JumperQuakeIsCenteredOnItsLandingAndReplicates()
+    {
+        var world = IsolatedWorld();
+        var start = world.Player.Pos + new Vector2(86, 0);
+        int slot = world.SpawnEnemy(world.Content.EnemyIndex("jumper"), start);
+        Advance(world, 10);
+        Assert.DoesNotContain(world.Events, e => e.Kind == EventKind.EnemyQuake || e.Kind == EventKind.PlayerHurt);
+
+        world.Step(default);
+        var quake = Assert.Single(world.Events, e => e.Kind == EventKind.EnemyQuake);
+        Assert.Equal(new Vector2(world.EX[slot], world.EY[slot]), new Vector2(quake.X, quake.Y));
+        Assert.Equal(50, quake.Value);
+        Assert.Contains(world.Events, e => e.Kind == EventKind.PlayerHurt);
+        Assert.DoesNotContain(world.Events, e => e.Kind == EventKind.EnemyBlast);
+        Span<byte> packet = stackalloc byte[CoopSession.MaxEventBytes];
+        int next = 0;
+        int bytes = world.WriteEvents(packet, ref next);
+        var replica = IsolatedWorld();
+        Assert.True(replica.TryApplyEvents(packet[..bytes]));
+        Assert.Contains(replica.Events, e => e.Kind == EventKind.EnemyQuake);
+    }
+
+    [Theory]
+    [InlineData("gloombat")]
+    [InlineData("amberslime")]
+    public void ContactEnemyWaitsOneSecondBetweenHits(string enemyId)
+    {
+        var world = IsolatedWorld();
+        world.SpawnEnemy(world.Content.EnemyIndex(enemyId), world.Player.Pos);
+
+        Advance(world, RunWorld.TicksPerSecond);
+        Assert.Single(world.Events, e => e.Kind == EventKind.PlayerHurt);
+        world.Step(default);
+        Assert.Equal(2, world.Events.Count(e => e.Kind == EventKind.PlayerHurt));
+    }
+
+    [Fact]
+    public void DashStopsAtEnemiesAndTheCrowdKeepsItsDistance()
+    {
+        var world = IsolatedWorld();
+        var player = world.Player;
+        player.Facing = Vector2.UnitX;
+        int def = world.Content.EnemyIndex("gloombat");
+        float enemyRadius = world.Content.Enemies[def].Radius;
+        world.Content.Enemies[def].Speed = 0;
+        var start = player.Pos;
+        int front = world.SpawnEnemy(def, start + new Vector2(22, 0));
+        int rear = world.SpawnEnemy(def, start + new Vector2(35, 0));
+        world.EKx[rear] = -1000;
+
+        world.Step(new RunInput(1, 0, Dash: true));
+        Advance(world, 8);
+
+        Assert.InRange(player.Pos.X, start.X, world.EX[front] - RunWorld.PlayerRadius - enemyRadius + 0.01f);
+        Assert.True(world.EX[rear] - world.EX[front] >= 2 * enemyRadius - 0.01f);
+    }
+
+    [Fact]
+    public void CoopTeammatesBlockMovementOnBothHostAndReplica()
+    {
+        var host = IsolatedWorld(playerCount: 2);
+        host.SetPlayerActive(1, true);
+        host.Players[1].Pos = host.Player.Pos + new Vector2(14, 0);
+        var replica = IsolatedWorld(playerCount: 2);
+        Span<byte> packet = new byte[RunWorld.SnapshotCapacity];
+        Assert.True(replica.TryApplySnapshot(packet[..host.WriteSnapshot(packet)]));
+        var input = new RunInput(1, 0);
+        host.StepCoop([input, default]);
+        replica.PredictLocalMovement(input);
+        Assert.InRange(Vector2.Distance(host.Player.Pos, replica.Player.Pos), 0, 0.03f);
+        TestWorld.Close(2 * RunWorld.PlayerRadius, host.Players[1].Pos.X - host.Player.Pos.X);
+        Assert.InRange(Vector2.Distance(replica.Players[1].Pos, replica.Player.Pos), 11.99f, 12.01f);
+    }
+
+    [Fact]
+    public void TimekeeperAccelerationIsVisibleOnReplicasUntilTheBossDies()
+    {
+        var host = IsolatedWorld();
+        var replica = IsolatedWorld();
+        int boss = host.SpawnEnemy(host.Content.EnemyIndex("timekeeper"), host.Player.Pos + new Vector2(400, 0));
+        host.Step(default);
+        Span<byte> packet = new byte[RunWorld.SnapshotCapacity];
+        Assert.True(replica.TryApplySnapshot(packet[..host.WriteSnapshot(packet)]));
+        Assert.True(replica.TimeAccelerated);
+        TestWorld.Close(2 * RunWorld.Dt, replica.RunSeconds);
+
+        host.DamageEnemy(boss, 10_000, DamageKind.Pure, new DamageSourceRef(0), 0, 0);
+        host.Step(default);
+        Assert.True(replica.TryApplySnapshot(packet[..host.WriteSnapshot(packet)]));
+        Assert.False(replica.TimeAccelerated);
+        TestWorld.Close(3 * RunWorld.Dt, replica.RunSeconds);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -59,10 +186,12 @@ public sealed class EnemyAttacksTests
     {
         var world = IsolatedWorld();
         int kamikaze = world.Content.EnemyIndex("kamikaze");
+        int rot = world.Content.EnemyIndex("rot");
+        world.Content.Enemies[rot].Speed = 0;
         var pos = world.Player.Pos;
         int bomber = world.SpawnEnemy(kamikaze, pos + new Vector2(20, 0));
-        int nearby = world.SpawnEnemy(world.Content.EnemyIndex("rot"), pos + new Vector2(43, 0));
-        int distant = world.SpawnEnemy(world.Content.EnemyIndex("rot"), pos + new Vector2(74, 0));
+        int nearby = world.SpawnEnemy(rot, pos + new Vector2(43, 0));
+        int distant = world.SpawnEnemy(rot, pos + new Vector2(74, 0));
         if (killedByPlayer)
         {
             Kill(world, bomber);
@@ -110,12 +239,12 @@ public sealed class EnemyAttacksTests
         TestWorld.Close(firstStep * 1.01f, start.X - world.EX[enemy], 3);
     }
 
-    private static RunWorld IsolatedWorld()
+    private static RunWorld IsolatedWorld(int playerCount = 1)
     {
         var content = TestContent.LoadCore();
         foreach (var wave in content.Waves.Waves) wave.PerSecond = 0;
         content.Characters[0].Stats.Regen = 0;
-        var world = new RunWorld(content);
+        var world = new RunWorld(content, playerCount: playerCount);
         world.Player.AttackTimer = 100;
         return world;
     }

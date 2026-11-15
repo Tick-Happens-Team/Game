@@ -23,6 +23,7 @@ public sealed class ItemSheetTests
         world.Step(default);
         world.Step(default);
         Assert.Equal(firstHit, world.Player.HurtTick);
+        world.SpawnEnemy(0, world.Player.Pos);
         world.Step(default);
         Assert.Equal(firstHit + 3, world.Player.HurtTick);
     }

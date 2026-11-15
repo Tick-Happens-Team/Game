@@ -96,7 +96,7 @@ internal sealed partial class Hud(GameSettings settings)
         Localizer.Content("items", item.Id, "name", string.IsNullOrEmpty(item.Name) ? item.Id : item.Name);
 
     public void Draw(PixelRenderer renderer, RunWorld world, Vector2 hero, float dt, bool paused, bool online, string? interruption, bool canReconnect,
-        bool itemsOpen)
+        ItemPanel? itemPanel)
     {
         var ui = PixelCanvas.ColorOf(renderer.UiFrame);
         int w = renderer.UiW, h = renderer.UiH;
@@ -132,7 +132,8 @@ internal sealed partial class Hud(GameSettings settings)
         DrawRunHeader(ui, world, w);
         int bossBarsBottom = DrawBossBars(ui, world, w);
 
-        if (!itemsOpen) DrawItemSummary(ui, world, h);
+        if (!paused && interruption is null) itemPanel?.Draw(renderer, world, online, bossBarsBottom);
+        if (itemPanel?.IsOpen != true) DrawItemSummary(ui, world, h);
 
         // Chest hint and notices.
         if (world.NearbyChest >= 0)
@@ -230,7 +231,8 @@ internal sealed partial class Hud(GameSettings settings)
         var titleLines = Wrap(title, columns).ToArray();
         var descriptionLines = Wrap(description, columns).ToArray();
         uint rarityColor = RarityColor(item.Rarity);
-        Box(ui, x, top, width, 12 + (titleLines.Length + descriptionLines.Length) * PixelFont.LineHeight, rarityColor);
+        Box(ui, x, top, width, 12 + (titleLines.Length + descriptionLines.Length) * PixelFont.LineHeight,
+            rarityColor, fill: 0xB0000000u | (Panel & 0x00FFFFFFu));
         int y = top + 5;
         foreach (string line in titleLines)
         {
@@ -496,11 +498,11 @@ internal sealed partial class Hud(GameSettings settings)
             for (int x = 0; x < w; x++) ui.Blend(x, y, 0xFF140A10u, a);
     }
 
-    private static void Box(PixelCanvas ui, int x, int y, int bw, int bh, uint border)
+    private static void Box(PixelCanvas ui, int x, int y, int bw, int bh, uint border, uint fill = Panel)
     {
         for (int yy = 0; yy < bh; yy++)
             for (int xx = 0; xx < bw; xx++)
-                ui.Set(x + xx, y + yy, xx == 0 || yy == 0 || xx == bw - 1 || yy == bh - 1 ? border : Panel);
+                ui.Set(x + xx, y + yy, xx == 0 || yy == 0 || xx == bw - 1 || yy == bh - 1 ? border : fill);
     }
 
     private static void DrawResults(PixelCanvas ui, RunWorld world, int w, int h, bool online, string? interruption, bool canReconnect)

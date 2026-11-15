@@ -39,6 +39,7 @@ internal sealed partial class RunView : IDisposable
     private uint _flashColor;
     private Vector2 _camera, _kick;
     private bool _cameraValid;
+    private bool _timeWasAccelerated;
 
     /// <summary>A short-lived point light from a combat event (kills, blasts, dashes) that fades out.</summary>
     private struct Flash
@@ -151,6 +152,7 @@ internal sealed partial class RunView : IDisposable
         _aberration = _flash = 0;
         _kick = default;
         _cameraValid = false;
+        _timeWasAccelerated = false;
     }
 
     private void AddFlash(float x, float y, float radius, float r, float g, float b, float life)
@@ -180,6 +182,9 @@ internal sealed partial class RunView : IDisposable
     /// <summary>Turns the simulation's events into local cosmetics and HUD notices. Call once per frame, then clear the world's events.</summary>
     public void Consume(RunWorld world)
     {
+        if (world.TimeAccelerated && !_timeWasAccelerated)
+            ScreenFlash(0.2f, 0xFF8FF0DEu);
+        _timeWasAccelerated = world.TimeAccelerated;
         int impacts = 0;
         foreach (var e in world.Events)
         {
@@ -216,6 +221,11 @@ internal sealed partial class RunView : IDisposable
                 case EventKind.CaneStrike:
                 case EventKind.Revival:
                     AddItemEffect(e);
+                    break;
+                case EventKind.EnemyQuake:
+                    AddItemEffect(e);
+                    float reach = e.Value + 30;
+                    if (Vector2.DistanceSquared(world.Player.Pos, new Vector2(e.X, e.Y)) <= reach * reach) Shake(0.18f);
                     break;
                 case EventKind.DroneBlast:
                     AddItemEffect(e);
@@ -327,6 +337,11 @@ internal sealed partial class RunView : IDisposable
                     }
                     break;
                 case EventKind.PlayerHurt:
+                    if (e.Value <= 0)
+                    {
+                        Burst(e.X, e.Y - 10, 8, 55, 0xFFFFD18Au, 0xFFDC703Du, 1.2f);
+                        break;
+                    }
                     Burst(e.X, e.Y - 10, 12, 80, 0xFF6060FFu, 0xFF1A1A8Au, 1.6f);
                     if (e.A == world.Player.Id)
                     {
@@ -604,11 +619,11 @@ internal sealed partial class RunView : IDisposable
                     int duration = RunWorld.EnemyWindupDuration(world.Content.Enemies[def]);
                     frame = attack.Frames[(duration - windup) * attack.Frames.Count / duration];
                 }
-                uint tint = world.EFlash[id] > 0 ? 0x00FFFFFFu : _enemyTint[def];
+                uint tint = _enemyTint[def];
                 var enemy = world.Content.Enemies[def];
-                float scale = enemy.Behavior == "devourer" ? 3.2f : (enemy.Boss || enemy.Behavior == "illusion" ? 2.5f : 1);
+                float scale = EnemyScale(enemy, _enemySprites[def].W);
                 bool goldFever = enemy.Behavior == "prospector" && world.EHp[id] <= world.EMaxHp[id] * 0.35f;
-                if (goldFever && world.EFlash[id] == 0) tint = 0xFF9BE6FFu;
+                if (goldFever) tint = 0xFF9BE6FFu;
                 _batch.Draw(_enemySprites[def], frame, pos.X - ox, pos.Y - oy, flipX: pos.X > hero.X,
                     tint: tint, emissionBoost: goldFever ? (byte)48 : (byte)0, scale: scale);
             }
@@ -655,7 +670,8 @@ internal sealed partial class RunView : IDisposable
                 int c = ChestBase - id;
                 int frame = world.IsBossChest(c) ? _bossChestFrame : world.IsRareChest(c) ? _rareChestFrame : world.IsFreeChest(c) ? _freeChestFrame : 0;
                 uint tint = frame >= 0 ? 0xFFFFFFFFu : world.IsRareChest(c) ? 0xFFFFA6FFu : 0xFFB5FFB5u;
-                _batch.Draw(_chest, Math.Max(0, frame), world.Chests[c].X - ox, world.Chests[c].Y - oy, tint: tint);
+                _batch.Draw(_chest, Math.Max(0, frame), world.Chests[c].X - ox, world.Chests[c].Y - oy, tint: tint,
+                    emissionBoost: world.IsFreeChest(c) ? (byte)56 : (byte)0);
             }
             else
             {
@@ -808,7 +824,12 @@ internal sealed partial class RunView : IDisposable
                     : new PointLight { X = world.Statues[s].X, Y = world.Statues[s].Y - 18, Radius = 90, R = 1.05f, G = 0.82f, B = 0.35f, Height = 18 });
         for (int c = 0; c < world.Chests.Length; c++)
             if (!world.ChestOpen[c] && Visible(world.Chests[c].X, world.Chests[c].Y))
-                _lights.Add(new PointLight { X = world.Chests[c].X, Y = world.Chests[c].Y - 8, Radius = 40, R = 0.5f, G = 0.4f, B = 0.15f, Height = 10 });
+            {
+                var chest = world.Chests[c];
+                _lights.Add(world.IsFreeChest(c)
+                    ? new PointLight { X = chest.X, Y = chest.Y - 8, Radius = 66, R = 0.38f, G = 1.32f * flick, B = 0.77f, Height = 14 }
+                    : new PointLight { X = chest.X, Y = chest.Y - 8, Radius = 40, R = 0.5f, G = 0.4f, B = 0.15f, Height = 10 });
+            }
         for (int i = 0; i < world.EnemyHighWater; i++)
             if (world.EAlive[i] && world.Content.Enemies[world.EDef[i]].Boss && Visible(world.EX[i], world.EY[i]))
                 _lights.Add(new PointLight { X = world.EX[i], Y = world.EY[i] - 25, Radius = 50,
@@ -826,13 +847,70 @@ internal sealed partial class RunView : IDisposable
         else
         {
             SetVisionMask(world, hero);
+            if (!paused && interruption is null) DrawBossMarkers(world, alpha);
             coopHud?.DrawTeammates(_renderer, world, _displayPlayers);
-            if (!paused && interruption is null) itemPanel?.Draw(_renderer, world, online);
-            _hud.Draw(_renderer, world, hero, frameDt, paused, online, interruption, canReconnect, itemPanel?.IsOpen == true);
+            _hud.Draw(_renderer, world, hero, frameDt, paused, online, interruption, canReconnect, itemPanel);
         }
-        coopHud?.Draw(_renderer, world, frameDt);
+        coopHud?.Draw(_renderer, world, frameDt, itemPanel?.IsOpen == true);
         overlay?.Invoke(_renderer);
         _renderer.Finish();
+    }
+
+    private static float EnemyScale(EnemyDef enemy, int spriteWidth)
+    {
+        if (!enemy.Boss && enemy.Behavior != "illusion") return 1;
+        if (spriteWidth >= 64) return enemy.Behavior == "devourer" ? 1.18f : 1;
+        return enemy.Behavior == "devourer" ? 3.2f : 2.5f;
+    }
+
+    private void DrawBossMarkers(RunWorld world, float alpha)
+    {
+        const uint Marker = 0xFF70CEFFu, Border = 0xFF281622u;
+        var color = PixelCanvas.ColorOf(_renderer.UiFrame);
+        var min = new Vector2(19, Hud.RunHeaderBottom + 28);
+        var max = new Vector2(_renderer.UiW - 19, _renderer.UiH - 25);
+        var center = (min + max) * 0.5f;
+        var half = (max - min) * 0.5f;
+        bool phantomHasDecoys = false;
+        for (int i = 0; i < world.EnemyHighWater && !phantomHasDecoys; i++)
+            phantomHasDecoys = world.EAlive[i] && world.Content.Enemies[world.EDef[i]].Behavior == "illusion";
+        for (int i = 0; i < world.EnemyHighWater; i++)
+        {
+            if (!world.EAlive[i]) continue;
+            var enemy = world.Content.Enemies[world.EDef[i]];
+            if (!enemy.Boss || (phantomHasDecoys && enemy.Behavior == "phantom")) continue;
+            var sprite = _enemySprites[world.EDef[i]];
+            var p = world.EnemyPos(i, alpha);
+            var (x, y) = _renderer.WorldToUi(p.X, p.Y);
+            var target = new Vector2(x, y);
+            var tip = target;
+            Vector2 direction;
+            if (Vector2.Clamp(target, min, max) == target)
+            {
+                float height = sprite.Origin[1] * EnemyScale(enemy, sprite.W);
+                var (_, head) = _renderer.WorldToUi(p.X, p.Y - height - 4);
+                tip.Y = Math.Max(min.Y, head);
+                direction = Vector2.UnitY;
+            }
+            else
+            {
+                var delta = target - center;
+                direction = Vector2.Normalize(delta);
+                float edge = MathF.Min(half.X / MathF.Max(1, MathF.Abs(delta.X)),
+                    half.Y / MathF.Max(1, MathF.Abs(delta.Y)));
+                tip = center + delta * edge;
+            }
+            var tangent = new Vector2(-direction.Y, direction.X);
+            var tail = tip - direction * 9;
+            color.Disc(tail.X, tail.Y, 8, Border);
+            for (int row = 0; row <= 8; row++)
+            {
+                var point = tip - direction * row;
+                float width = row * 0.7f;
+                color.Line(point.X - tangent.X * width, point.Y - tangent.Y * width,
+                    point.X + tangent.X * width, point.Y + tangent.Y * width, Marker);
+            }
+        }
     }
 
     private void DrawLeechBeams(RunWorld world, PixelCanvas color, PixelCanvas light, float alpha)
@@ -926,8 +1004,16 @@ internal sealed partial class RunView : IDisposable
 
         for (int i = 0; i < world.EnemyHighWater; i++)
         {
-            if (!world.EAlive[i] || world.EnemyWindup(i) == 0) continue;
-            float radius = world.Content.Enemies[world.EDef[i]].BlastRadius;
+            if (!world.EAlive[i]) continue;
+            var enemy = world.Content.Enemies[world.EDef[i]];
+            if (enemy.Behavior == "timekeeper")
+            {
+                var aura = world.EnemyPos(i, alpha);
+                if (VisibleArea(aura, RunWorld.TimekeeperAuraRadius))
+                    DrawTimekeeperAura(color, aura);
+            }
+            if (world.EnemyWindup(i) == 0) continue;
+            float radius = enemy.BlastRadius;
             var pos = world.EnemyPos(i, alpha);
             if (radius <= 0 || !VisibleArea(pos, radius)) continue;
             float charge = 1 - world.EnemyWindup(i) / (float)RunWorld.KamikazeFuseTicks;
@@ -951,6 +1037,21 @@ internal sealed partial class RunView : IDisposable
             color.Disc(pos.X, pos.Y, 2, 0xFF3DC2FFu);
             color.Set(pos.X - 1, pos.Y - 1, 0xFFA6F3FFu);
             light.Glow(pos.X, pos.Y, 9, 0xFF3DC2FFu, 0.7f);
+        }
+    }
+
+    private void DrawTimekeeperAura(PixelCanvas color, Vector2 center)
+    {
+        const int ticks = 24;
+        const uint Brass = 0xFF84D5F4u, Jade = 0xFFB4F9A8u;
+        for (int i = 0; i < ticks; i++)
+        {
+            float angle = i * (MathF.Tau / ticks) - _time * 0.9f;
+            var direction = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+            bool major = i % 6 == 0;
+            var from = center + direction * (RunWorld.TimekeeperAuraRadius - (major ? 8 : 3));
+            var to = center + direction * RunWorld.TimekeeperAuraRadius;
+            color.Line(from.X, from.Y, to.X, to.Y, major ? Brass : Jade);
         }
     }
 

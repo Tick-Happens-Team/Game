@@ -139,15 +139,16 @@ public sealed class BossAndChestTests
         content.Enemies[0].Speed = 0;
         var world = new RunWorld(content, character: "king_arthur");
         world.Player.Facing = Vector2.UnitX;
-        int front = world.SpawnEnemy(0, world.Player.Pos + new Vector2(17, 0));
-        int back = world.SpawnEnemy(0, world.Player.Pos - new Vector2(17, 0));
+        int front = world.SpawnEnemy(0, world.Player.Pos + new Vector2(28, 0));
+        int back = world.SpawnEnemy(0, world.Player.Pos - new Vector2(28, 0));
+        Assert.Equal(15, world.Player.Stats[Stat.AttackSpeed]);
 
         world.Step(default);
 
         Assert.False(world.EAlive[front]);
         Assert.True(world.EAlive[back]);
         Assert.DoesNotContain(world.PAlive, active => active);
-        Assert.Contains(world.Events, e => e.Kind == EventKind.Melee && e.Value == 15);
+        Assert.Contains(world.Events, e => e.Kind == EventKind.Melee && e.Value == 30);
     }
 
     private static int CountRewards(RunWorld world, int item) => Enumerable.Range(0, RunWorld.PickupCapacity)

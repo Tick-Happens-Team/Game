@@ -17,6 +17,7 @@ public sealed partial class RunWorld
     private readonly bool[] _enemyHidden;
     private readonly int _phantomIllusion, _goldVein, _juniorCultist, _seniorCultist, _cultistShaman;
     private int _timekeepersAlive, _timekeeperTicks, _guardiansAlive;
+    internal const float TimekeeperAuraRadius = 250f / 3;
 
     private void InitEnemyAbility(int slot, EnemyDef def)
     {
@@ -85,7 +86,7 @@ public sealed partial class RunWorld
         if (_timekeepersAlive == 0 && _replicaTick < 0) return false;
         for (int i = 0; i < _enemyHigh; i++)
             if (EAlive[i] && Content.Enemies[EDef[i]].Behavior == "timekeeper" &&
-                Vector2.DistanceSquared(player.Pos, new(EX[i], EY[i])) <= 83.333f * 83.333f)
+                Vector2.DistanceSquared(player.Pos, new(EX[i], EY[i])) <= TimekeeperAuraRadius * TimekeeperAuraRadius)
                 return true;
         return false;
     }
@@ -144,7 +145,6 @@ public sealed partial class RunWorld
                 {
                     goal = state.Destination;
                     speed = Vector2.Distance(pos, goal) / ((state.Expires - Tick + 1) * Dt);
-                    if (Tick == state.Expires) EnemyAreaAttack(goal, 50, EDamage[slot], DamageKind.Physical);
                 }
                 break;
             case "siphoner":
@@ -378,9 +378,10 @@ public sealed partial class RunWorld
             SpawnEnemy(def, EnemyPointAround(pos, 12, 26));
     }
 
-    private void EnemyAreaAttack(Vector2 center, float radius, float damage, DamageKind kind, bool mark = false)
+    private void EnemyAreaAttack(Vector2 center, float radius, float damage, DamageKind kind, bool mark = false,
+        EventKind effect = EventKind.EnemyBlast)
     {
-        Emit(EventKind.EnemyBlast, center.X, center.Y, radius);
+        Emit(effect, center.X, center.Y, radius);
         foreach (var player in _players)
         {
             if (!player.Active || Vector2.DistanceSquared(player.Pos, center) > radius * radius) continue;

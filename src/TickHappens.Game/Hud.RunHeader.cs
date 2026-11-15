@@ -151,17 +151,24 @@ internal sealed partial class Hud
             player.Xp / MathF.Max(1, player.XpNext), Teal, HeaderEdge);
 
         // Size counters for their contents and reserve the middle for the clock.
-        int clockWidth = Math.Max(102, PixelFont.Measure(time, 2) + 29);
+        bool accelerated = world.TimeAccelerated;
+        int badgeWidth = accelerated ? 24 : 0;
+        uint clockAccent = accelerated
+            ? (world.Tick % (RunWorld.TicksPerSecond / 2) < 7 ? Teal : GoldLight)
+            : Brass;
+        int clockWidth = Math.Max(102, PixelFont.Measure(time, 2) + 29) + badgeWidth;
         int clockX = (width - clockWidth) / 2;
-        HeaderPlate(ui, clockX, HeaderTop, clockWidth, HeaderHeight, Brass);
+        HeaderPlate(ui, clockX, HeaderTop, clockWidth, HeaderHeight, clockAccent);
         int clockY = bonus > 0 ? HeaderTop + 3 : HeaderTop + 8;
-        int timeX = clockX + (clockWidth - PixelFont.Measure(time, 2) + 13) / 2;
-        DrawIcon(ui, timeX - 14, clockY + 3, ClockIcon, Brass, GoldLight);
-        PixelFont.Draw(ui, time, timeX, clockY, White, Ink, 2);
+        int timeX = clockX + (clockWidth - badgeWidth - PixelFont.Measure(time, 2) + 13) / 2;
+        DrawIcon(ui, timeX - 14, clockY + 3, ClockIcon, clockAccent, GoldLight);
+        PixelFont.Draw(ui, time, timeX, clockY, accelerated ? clockAccent : White, Ink, 2);
+        if (accelerated)
+            PixelFont.Draw(ui, "×2", clockX + clockWidth - badgeWidth + 3, HeaderTop + 11, clockAccent, Ink);
         if (bonus > 0)
         {
             var extra = bonusBuffer[..bonusLength];
-            int bonusX = clockX + (clockWidth - PixelFont.Measure(extra) + 13) / 2;
+            int bonusX = clockX + (clockWidth - badgeWidth - PixelFont.Measure(extra) + 13) / 2;
             DrawIcon(ui, bonusX - 14, HeaderTop + 21, HourglassIcon, TealDark, Teal);
             PixelFont.Draw(ui, extra, bonusX, HeaderTop + 21, Teal, Ink);
         }

@@ -104,13 +104,16 @@ internal sealed class CoopHud(OnlineGame game, SettingsMenu settings)
         return top <= Hud.RunHeaderBottom ? Math.Max(below, Hud.RunHeaderBottom + 1) : top;
     }
 
-    public void Draw(PixelRenderer renderer, RunWorld world, float frameDt)
+    public void Draw(PixelRenderer renderer, RunWorld world, float frameDt, bool itemsOpen)
     {
         var ui = PixelCanvas.ColorOf(renderer.UiFrame);
         int w = renderer.UiW, h = renderer.UiH;
         if (!game.Interrupted)
         {
             DrawDeathNotices(ui, world, w, frameDt);
+        }
+        if (!game.Interrupted && !itemsOpen)
+        {
             const int arrowGutter = 46;
             string ping = game.LocalPing is int ms ? Localizer.Format("online.ping", Localizer.Format("online.ms", ms))
                 : Localizer.Format("online.ping", "-");

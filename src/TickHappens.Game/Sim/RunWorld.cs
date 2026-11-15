@@ -23,6 +23,7 @@ public sealed partial class RunWorld
     /// <summary>Run clock in seconds: real elapsed time plus time effects. Drives difficulty.</summary>
     public float RunSeconds => (Tick + _timekeeperTicks) * Dt + BonusSeconds;
     public float Minutes => RunSeconds / 60f;
+    public bool TimeAccelerated => _timekeepersAlive > 0;
     public uint Seed { get; private set; }
     private readonly PlayerState[] _players;
     private readonly int _localPlayerId;
@@ -103,6 +104,7 @@ public sealed partial class RunWorld
         Array.Fill(EX, -1e6f);
         Array.Fill(EY, -1e6f);
         _grid = new SpatialGrid(0, 0, arena, arena, 24);
+        _maxEnemyRadius = content.Enemies.Select(enemy => enemy.Radius).DefaultIfEmpty(0).Max();
         _enemyKind = [.. content.Enemies.Select(en => ContentLoader.TryParseDamage(en.DamageType, out var k) ? k : DamageKind.Physical)];
         InitPickups();
         PlaceStatuesAndChests();
@@ -266,6 +268,7 @@ public sealed partial class RunWorld
             player.Hp = 0;
         }
         UpdateAllPlayerStats();
+        BuildEnemyGrid();
         foreach (var p in _players)
         {
             if (!p.Active || p.Hp <= 0) continue;
@@ -366,7 +369,9 @@ public sealed partial class RunWorld
             move = dir * speed * Rules.Units.MoveSpeedScale * Dt;
         }
         float a = Rules.ArenaSize;
-        p.Pos = Vector2.Clamp(p.Pos + move, new Vector2(12), new Vector2(a - 12));
+        var min = new Vector2(12);
+        var max = new Vector2(a - 12);
+        p.Pos = Vector2.Clamp(MoveBody(p.Pos, Vector2.Clamp(p.Pos + move, min, max), PlayerRadius, player: p.Id), min, max);
         p.Walking = p.Pos != p.Prev;
         if (!predict)
         {
@@ -556,7 +561,11 @@ public sealed partial class RunWorld
         }
     }
 
-    private void BuildEnemyGrid() => _grid.Build(EX.AsSpan(0, _enemyHigh), EY.AsSpan(0, _enemyHigh));
+    private void BuildEnemyGrid()
+    {
+        _grid.Build(EX.AsSpan(0, _enemyHigh), EY.AsSpan(0, _enemyHigh));
+        _enemyGridShift = 0;
+    }
 
     private void StepEnemies()
     {
@@ -605,16 +614,25 @@ public sealed partial class RunWorld
             float distanceToGoal = direction.Length();
             if (distanceToGoal > 0.01f) { vx = direction.X / distanceToGoal * speed; vy = direction.Y / distanceToGoal * speed; }
             var sep = new Separation(this, i, d.Radius);
-            _grid.Query(EX[i], EY[i], d.Radius * 2 + 2, ref sep);
+            _grid.Query(EX[i], EY[i], d.Radius + _maxEnemyRadius + _enemyGridShift, ref sep);
             if (d.Behavior == "vein") continue;
-            EX[i] = Math.Clamp(EX[i] + (vx + EKx[i]) * Dt + sep.Px * 0.5f, 4, arena - 4);
-            EY[i] = Math.Clamp(EY[i] + (vy + EKy[i]) * Dt + sep.Py * 0.5f, 4, arena - 4);
+            var start = SeparateFromPlayers(new Vector2(EX[i], EY[i]), d.Radius, i);
+            var move = new Vector2(vx + EKx[i], vy + EKy[i]) * Dt + new Vector2(sep.Px, sep.Py) * 0.5f;
+            var min = new Vector2(4);
+            var max = new Vector2(arena - 4);
+            var end = Vector2.Clamp(MoveBody(start, Vector2.Clamp(start + move, min, max), d.Radius, enemy: i), min, max);
+            (EX[i], EY[i]) = (end.X, end.Y);
+            _enemyGridShift = Math.Max(_enemyGridShift, Vector2.Distance(pos, end));
+            if (_enemyGridShift > 24) BuildEnemyGrid();
+            dist = Vector2.Distance(p, end);
+            if (!stunned && d.Behavior == "jumper" && Tick == _enemyAbilities[i].Expires)
+                EnemyAreaAttack(end, 50, EDamage[i], DamageKind.Physical, effect: EventKind.EnemyQuake);
             EKx[i] *= 0.82f;
             EKy[i] *= 0.82f;
             for (int j = 0; j < _players.Length; j++)
             {
                 var runner = _players[j];
-                float contactRadius = d.Radius + PlayerRadius;
+                float contactRadius = d.Radius + PlayerRadius + ContactTolerance;
                 if (!runner.Active || runner.Hp <= 0 || runner.AcceleratorTicks <= 0 ||
                     _acceleratorContact[j, i] == EUid[i] ||
                     Vector2.DistanceSquared(runner.Pos, new Vector2(EX[i], EY[i])) >= contactRadius * contactRadius) continue;
@@ -633,17 +651,21 @@ public sealed partial class RunWorld
                 if (EAlive[i] && !d.Boss && dist > 700) Kill(i, credit: -1, deathEffects: false);
                 continue;
             }
-            if (d.Damage <= 0)
+            if (d.Damage <= 0 || d.Behavior == "jumper")
             {
                 if (dist > 700) Kill(i, credit: -1, deathEffects: false);
                 continue;
             }
-            if (!stunned && hasCompanions &&
-                TryHitCompanion(new Vector2(EX[i], EY[i]), d.Radius + CompanionRadius, EDamage[i], _enemyKind[EDef[i]])) continue;
-            if (!stunned && dist < d.Radius + PlayerRadius)
+            if (!stunned && Tick >= _enemyAttackReady[i])
             {
-                HitPlayerWithEnemy(i, d, player, decoy, enemyLifestealCap);
-                if (!EAlive[i]) continue;
+                if (hasCompanions && TryHitCompanion(end, d.Radius + CompanionRadius, EDamage[i], _enemyKind[EDef[i]]))
+                    _enemyAttackReady[i] = Tick + ContactCooldownTicks;
+                else if (dist <= d.Radius + PlayerRadius + ContactTolerance)
+                {
+                    _enemyAttackReady[i] = Tick + ContactCooldownTicks;
+                    HitPlayerWithEnemy(i, d, player, decoy, enemyLifestealCap);
+                    if (!EAlive[i]) continue;
+                }
             }
             // Enemies left far behind are recycled closer to the action (keeps pressure constant).
             if (!d.Boss && dist > 700) { Kill(i, credit: -1, deathEffects: false); }
