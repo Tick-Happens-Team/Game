@@ -13,7 +13,8 @@ namespace TickHappens.Game;
 internal sealed class Hud(GameSettings settings)
 {
     private const uint Ink = 0xFF22141Au, White = 0xFFEAECF4u, Teal = 0xFFDEF08Fu, TealDark = 0xFF6A8A1Fu, Gold = 0xFF3DC2FFu,
-        Red = 0xFF2028C9u, RedDark = 0xFF17128Au, Grey = 0xFF857A6Cu, Panel = 0xFF331B2Bu;
+        Red = 0xFF2028C9u, RedDark = 0xFF17128Au, Grey = 0xFF857A6Cu, Panel = 0xFF331B2Bu,
+        PanelLit = 0xFF4A2A40u, PanelEdge = 0xFF5A4050u;
 
     private struct Floater { public float X, Y, Age; public int Value; public uint Color; }
     private struct RingFx { public float X, Y, R, Age; }
@@ -211,56 +212,155 @@ internal sealed class Hud(GameSettings settings)
         }
     }
 
-    /// <summary>Character select: list on the left, the highlighted hero's table stats, passive and growth on the right.</summary>
-    public void DrawMenu(PixelRenderer renderer, ContentSet content, int selected)
+    // ---------------------------------------------------------------- character screen
+    private const int RosterX = 14, RosterY = 54, RosterW = 156, RowH = 30;
+    private const int PanelW = 252, StartW = 120, StartH = 18;
+    private float _menuTime;
+
+    private static int PanelX(int w) => w - PanelW - 14;
+    private static int StageX(int w) => (RosterX + RosterW + PanelX(w)) / 2;
+    // Under the info panel, clear of the settings and online buttons at the bottom centre.
+    private static (int X, int Y) StartButton(int w, int h) => (PanelX(w) + PanelW - StartW, h - 66);
+
+    /// <summary>Roster row under a normalized window point, or -1.</summary>
+    public static int MenuRowAt(PixelRenderer renderer, (float X, float Y)? point, int count)
     {
+        if (point is not { } p) return -1;
+        float x = p.X * renderer.UiW, y = p.Y * renderer.UiH;
+        if (x < RosterX || x >= RosterX + RosterW || y < RosterY) return -1;
+        int row = (int)((y - RosterY) / RowH);
+        return row < count ? row : -1;
+    }
+
+    /// <summary>True when a normalized window point is on the start button.</summary>
+    public static bool MenuStartAt(PixelRenderer renderer, (float X, float Y)? point)
+    {
+        if (point is not { } p) return false;
+        var (bx, by) = StartButton(renderer.UiW, renderer.UiH);
+        float x = p.X * renderer.UiW, y = p.Y * renderer.UiH;
+        return x >= bx && x < bx + StartW && y >= by && y < by + StartH;
+    }
+
+    /// <summary>
+    /// Character select: a roster on the left, the selected hero's own sprite enlarged on a lit pedestal in the middle,
+    /// and its table stats, passive and growth on the right.
+    /// </summary>
+    public void DrawMenu(PixelRenderer renderer, ContentSet content, int selected, HeroPreview preview, float frameDt, (float X, float Y)? mouse)
+    {
+        _menuTime += frameDt;
         var ui = PixelCanvas.ColorOf(renderer.UiFrame);
         int w = renderer.UiW, h = renderer.UiH;
-        for (int y = 0; y < h; y++)
-            for (int x = 0; x < w; x++)
-                if (x < w / 2 - 40 || x > w / 2 + 40 || y < h / 2 - 50 || y > h / 2 + 20) ui.Blend(x, y, 0xFF140A10u, 0.55f);
+        Dim(ui, w, h, 0.78f);
+        DrawMenuBackdrop(ui, w, h);
+
         PixelFont.DrawCentered(ui, Localizer.Get("app.title"), w / 2, 12, Teal, Ink, 2);
         PixelFont.DrawCentered(ui, Localizer.Get("menu.pick"), w / 2, 32, Grey, Ink);
 
-        int lx = 16, ly = 60;
+        // Roster: the hero's sprite and name per row; the selected hero animates, the mouse highlights a row.
+        int hover = MenuRowAt(renderer, mouse, content.Characters.Count);
         for (int i = 0; i < content.Characters.Count; i++)
         {
+            int y = RosterY + i * RowH;
             bool sel = i == selected;
-            if (sel) for (int y = -2; y < PixelFont.LineHeight; y++) for (int x = -4; x < 130; x++) ui.Set(lx + x, ly + y, Panel);
-            PixelFont.Draw(ui, Localizer.Format("menu.row", sel ? ">" : " ", CharacterName(content.Characters[i])), lx, ly, sel ? White : Grey, Ink);
-            ly += PixelFont.LineHeight + 4;
+            Frame(ui, RosterX, y, RosterW, RowH - 3, sel ? Teal : i == hover ? TealDark : PanelEdge, sel ? PanelLit : Panel);
+            preview.DrawHero(ui, i, sel ? _menuTime : 0, RosterX + 14, y + 25, 1);
+            PixelFont.Draw(ui, CharacterName(content.Characters[i]), RosterX + 32, y + 10, sel ? White : Grey, Ink);
         }
 
+        // Stage: the hero's in-game sprite, five times larger, on a glowing pedestal.
+        int sx = StageX(w), foot = h - 92;
+        for (int r = 46; r > 0; r -= 3) ui.AlphaDisc(sx, foot - 50, r, TealDark, 0.05f);
+        Pedestal(ui, sx, foot, 40, 10);
+        float bob = MathF.Sin(_menuTime * 2.2f);
+        for (int i = 0; i < 6; i++)
+        {
+            float a = _menuTime * 0.7f + i * MathF.Tau / 6;
+            float px = sx + MathF.Cos(a) * 44, py = foot - 6 + MathF.Sin(a) * 9 - (i % 3) * 18 - (_menuTime * 9 + i * 13) % 60;
+            ui.Blend(px, py, Teal, 0.55f);
+        }
+        preview.DrawHero(ui, selected, _menuTime, sx, foot + 2 - (bob > 0.6f ? 1 : 0), 5);
+        var (bx, by) = StartButton(w, h);
+        bool startHover = MenuStartAt(renderer, mouse);
+        Frame(ui, bx, by, StartW, StartH, Teal, startHover ? PanelLit : Panel);
+        PixelFont.DrawCentered(ui, Localizer.Get("menu.start"), bx + StartW / 2, by + 5, startHover ? White : Teal, Ink);
+
+        // Info panel: name, table stats, passive and growth.
         var c = content.Characters[selected];
         var s = c.Stats;
-        int px = w - 250, py = 60, pw = 236;
-        Box(ui, px - 8, py - 8, pw + 16, h - py - 30, Teal);
-        PixelFont.Draw(ui, CharacterName(c), px, py, White, Ink, 2);
-        py += 22;
-        PixelFont.Draw(ui, Localizer.Format("menu.healthDamage", F(s.MaxHp), F(s.MaxHpPerLevel), F(s.Damage), F(s.DamagePerLevel)), px, py, White, Ink);
-        py += PixelFont.LineHeight + 2;
-        PixelFont.Draw(ui, Localizer.Format("menu.speed", F(s.MoveSpeed), F(s.AttackSpeed)), px, py, White, Ink);
-        py += PixelFont.LineHeight + 2;
-        PixelFont.Draw(ui, Localizer.Format("menu.resist", Pct(s.Armor), Pct(s.MagicResist)), px, py, White, Ink);
-        py += PixelFont.LineHeight + 8;
-        PixelFont.Draw(ui, Localizer.Get("menu.passive"), px, py, Teal, Ink);
-        py += PixelFont.LineHeight + 1;
-        foreach (var line in Wrap(Localizer.Content("characters", c.Id, "passive", c.Passive), pw / PixelFont.Advance))
+        int px0 = PanelX(w), py0 = RosterY, ph = h - py0 - 74;
+        Frame(ui, px0, py0, PanelW, ph, Teal, Panel);
+        int tx = px0 + 10, ty = py0 + 10;
+        PixelFont.Draw(ui, CharacterName(c), tx, ty, White, Ink, 2);
+        for (int x = tx; x < px0 + PanelW - 10; x++) ui.Set(x, ty + 18, TealDark);
+        int ly = ty + 26;
+        PixelFont.Draw(ui, Localizer.Format("menu.health", F(s.MaxHp), F(s.MaxHpPerLevel)), tx, ly, White, Ink);
+        PixelFont.Draw(ui, Localizer.Format("menu.damage", F(s.Damage), F(s.DamagePerLevel)), tx, ly + PixelFont.LineHeight + 2, White, Ink);
+        PixelFont.Draw(ui, Localizer.Format("menu.speed", F(s.MoveSpeed), F(s.AttackSpeed)), tx, ly + 2 * (PixelFont.LineHeight + 2), White, Ink);
+        PixelFont.Draw(ui, Localizer.Format("menu.resist", Pct(s.Armor), Pct(s.MagicResist)), tx, ly + 3 * (PixelFont.LineHeight + 2), White, Ink);
+
+        int ix = px0 + 10, iy = ly + 4 * (PixelFont.LineHeight + 2) + 8, iw = PanelW - 20;
+        PixelFont.Draw(ui, Localizer.Get("menu.passive"), ix, iy, Teal, Ink);
+        iy += PixelFont.LineHeight + 1;
+        foreach (var line in Wrap(Localizer.Content("characters", c.Id, "passive", c.Passive), iw / PixelFont.Advance))
         {
-            PixelFont.Draw(ui, line, px, py, Grey, Ink);
-            py += PixelFont.LineHeight;
+            PixelFont.Draw(ui, line, ix, iy, White, Ink);
+            iy += PixelFont.LineHeight;
         }
-        py += 6;
-        PixelFont.Draw(ui, Localizer.Get("menu.growth"), px, py, Teal, Ink);
-        py += PixelFont.LineHeight + 1;
-        foreach (var line in Wrap(Localizer.Content("characters", c.Id, "growth", c.Growth), pw / PixelFont.Advance))
+        iy += 6;
+        PixelFont.Draw(ui, Localizer.Get("menu.growth"), ix, iy, Teal, Ink);
+        iy += PixelFont.LineHeight + 1;
+        foreach (var line in Wrap(Localizer.Content("characters", c.Id, "growth", c.Growth), iw / PixelFont.Advance))
         {
-            PixelFont.Draw(ui, line, px, py, Grey, Ink);
-            py += PixelFont.LineHeight;
+            PixelFont.Draw(ui, line, ix, iy, Grey, Ink);
+            iy += PixelFont.LineHeight;
         }
-        PixelFont.DrawCentered(ui, Localizer.Format("menu.language", Localizer.Get("language." + Localizer.Language)),
-            w / 2, h - 50, White, Ink);
-        PixelFont.DrawCentered(ui, Localizer.Get("menu.help"), w / 2, h - 14, Teal, Ink);
+
+        string language = Localizer.Format("menu.language", Localizer.Get("language." + Localizer.Language));
+        PixelFont.Draw(ui, language, w - 14 - PixelFont.Measure(language), 14, Grey, Ink);
+        PixelFont.DrawCentered(ui, Localizer.Get("menu.help"), w / 2, h - 16, Teal, Ink);
+    }
+
+    /// <summary>Slow diagonal light bands and a darker rim behind the menu panels (cosmetic, menu clock only).</summary>
+    private void DrawMenuBackdrop(PixelCanvas ui, int w, int h)
+    {
+        float shift = _menuTime * 6;
+        for (int y = 0; y < h; y += 2)
+            for (int x = 0; x < w; x += 2)
+            {
+                float band = MathF.Sin((x + y * 0.6f + shift) * 0.035f);
+                if (band > 0.82f) ui.Blend(x, y, TealDark, 0.08f);
+            }
+        for (int y = 0; y < h; y++)
+        {
+            float k = MathF.Abs(y - h / 2f) / (h / 2f);
+            if (k < 0.75f) continue;
+            for (int x = 0; x < w; x++) ui.Blend(x, y, 0xFF0A0508u, (k - 0.75f) * 1.4f);
+        }
+    }
+
+    private static void Pedestal(PixelCanvas ui, int cx, int cy, int rx, int ry)
+    {
+        for (int y = -ry; y <= ry + 3; y++)
+            for (int x = -rx; x <= rx; x++)
+            {
+                float top = (x * x) / (float)(rx * rx) + (y * y) / (float)(ry * ry);
+                float side = (x * x) / (float)(rx * rx) + ((y - 3) * (y - 3)) / (float)(ry * ry);
+                if (top <= 1) ui.Set(cx + x, cy + y, top > 0.8f ? Teal : top > 0.55f ? PanelLit : PanelEdge);
+                else if (side <= 1 && y > 0) ui.Set(cx + x, cy + y, Ink);
+            }
+    }
+
+    /// <summary>Panel with a 1px border and darker inner corner pixels (bevelled look).</summary>
+    private static void Frame(PixelCanvas ui, int x, int y, int fw, int fh, uint border, uint fill)
+    {
+        for (int yy = 0; yy < fh; yy++)
+            for (int xx = 0; xx < fw; xx++)
+            {
+                bool edge = xx == 0 || yy == 0 || xx == fw - 1 || yy == fh - 1;
+                bool corner = (xx == 0 || xx == fw - 1) && (yy == 0 || yy == fh - 1);
+                if (corner) continue;
+                ui.Set(x + xx, y + yy, edge ? border : yy == 1 ? VfxMath.Mix(fill, 0xFFFFFFFFu, 0.08f) : fill);
+            }
     }
 
     private static void Bar(PixelCanvas ui, int x, int y, int width, int height, float k, uint fill, uint back)

@@ -103,5 +103,6 @@ Depends on P2. The owner's [Google Sheet](https://docs.google.com/spreadsheets/d
 - [~] 6.7 Public Game, Assets, and Mods repositories in Tick-Happens-Team, with dev/stable for Game and Assets and main for Mods. Complete release tag rules, the signing environment, and Mods Pages alongside their publishing workflows.
 - [~] 6.8 Local Game/Assets split and checkout selection are in place. Pin the exact Assets revision for CI and publish the migration after 6.7.
 - [~] 6.9 Windows launcher, signed release packaging, game and launcher updates, and local item mod selection. Complete protected signing and publication, player-facing rollback, and clean Windows release acceptance.
+- [~] 6.11 Polished menus. The hero screen is restyled: a roster with each hero's sprite, the selected hero's in-game sprite enlarged ×5 with its idle animation on a lit pedestal (`HeroPreview` draws atlas sprites on the CPU UI layer), a framed stats, passive and growth panel, mouse hover, click to select and a start button. A styled title menu (play, online, settings, quit), screen transitions and gamepad navigation (after 1.2) remain. Large separate showcase art and status-bar portraits were tried and dropped by the owner in favour of the in-game sprite.
 
 See [release design](docs/RELEASING.md) for the publication and update contracts.

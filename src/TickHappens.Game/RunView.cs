@@ -56,6 +56,8 @@ internal sealed class RunView : IDisposable
     private readonly List<Ghost> _ghosts = new(64);
     private const float GhostLife = 0.3f;
 
+    private readonly HeroPreview _preview;
+
     public PixelRenderer Renderer => _renderer;
 
     public RunView(GL gl, AtlasData atlas, ContentSet content, GameSettings settings)
@@ -78,7 +80,9 @@ internal sealed class RunView : IDisposable
         _enemyTint = [.. content.Enemies.Select(e => e.Tint is { } t ? TintFromHex(t) : 0xFFFFFFFFu)];
 
         var shaders = AssetPaths.Get("shaders");
-        _albedo = Texture2D.FromImage(gl, RgbaImage.Load(AssetPaths.Get("atlas", "main.png")));
+        var albedo = RgbaImage.Load(AssetPaths.Get("atlas", "main.png"));
+        _albedo = Texture2D.FromImage(gl, albedo);
+        _preview = new HeroPreview(albedo, content, S);
         _normals = Texture2D.FromImage(gl, RgbaImage.Load(AssetPaths.Get("atlas", "main_n.png")));
         _emission = Texture2D.FromImage(gl, RgbaImage.Load(AssetPaths.Get("atlas", "main_e.png")));
         _shader = ShaderProgram.FromFiles(gl, Path.Combine(shaders, "sprite.vert"), Path.Combine(shaders, "sprite.frag"));
@@ -360,7 +364,7 @@ internal sealed class RunView : IDisposable
 
     /// <summary>Draws a frame; with <paramref name="menuSelection"/> ≥ 0 the character select screen is drawn over the scene.</summary>
     public void Draw(int width, int height, RunWorld world, float alpha, bool paused, float frameDt,
-        int menuSelection = -1, Action<PixelRenderer>? overlay = null, bool online = false, string? interruption = null, bool canReconnect = false,
+        int menuSelection = -1, Action<PixelRenderer>? overlay = null, (float X, float Y)? menuMouse = null, bool online = false, string? interruption = null, bool canReconnect = false,
         float? localAlpha = null, Vector2 localCorrection = default, CoopHud? coopHud = null)
     {
         _time += paused ? 0 : frameDt;
@@ -509,7 +513,8 @@ internal sealed class RunView : IDisposable
             {
                 var player = world.Players[HeroBase - id];
                 bool blink = player.InvulnTicks > 0 && player.DashTicks == 0 && (world.Tick / 2) % 2 == 0;
-                if (blink || player.Hp <= 0) continue;
+                // The character screen shows the hero enlarged on its own stage instead.
+                if (blink || player.Hp <= 0 || menuSelection >= 0) continue;
                 var sprite = _heroSprites[world.Content.CharacterIndex(player.Character.Id)];
                 var anim = sprite.Anims[player.Walking && sprite.Anims.ContainsKey("walk") ? "walk" : "idle"];
                 int frame = anim.Frames[(int)(_time * anim.Fps) % anim.Frames.Count];
@@ -690,7 +695,7 @@ internal sealed class RunView : IDisposable
         _renderer.BindLit();
         _particles.Draw(ox, oy, tw, th, _time);
 
-        if (menuSelection >= 0) _hud.DrawMenu(_renderer, world.Content, menuSelection);
+        if (menuSelection >= 0) _hud.DrawMenu(_renderer, world.Content, menuSelection, _preview, frameDt, menuMouse);
         else
         {
             DrawVisionMask(world, hero);
