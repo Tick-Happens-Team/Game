@@ -37,5 +37,211 @@
     "id": "nekochan", "sprite": "char_nekochan",
     "stats": { "maxHp": 175, "maxHpPerLevel": 3.5, "regen": 0.15, "moveSpeed": 45, "attackSpeed": 35, "armor": 0.025, "magicResist": 0.025, "damage": 15, "damagePerLevel": 1.5 },
     "aura": { "radius": 200, "radiusPerLevel": 1.25, "damageReduction": 0.08, "damageReductionPerLevel": 0.003, "regen": 1.75, "regenPerLevel": 0.25, "selfMultiplier": 1.75 }
+  },
+  {
+    "id": "pig",
+    "name": "Свинья",
+    "sprite": "char_pig",
+    "stats": {
+      "maxHp": 200,
+      "maxHpPerLevel": 4,
+      "regen": 1.75,
+      "moveSpeed": 30,
+      "attackSpeed": 20,
+      "armor": 0.075,
+      "magicResist": 0.08,
+      "damage": 5,
+      "damagePerLevel": 8.25
+    },
+    "passive": "Удерживается в мире как призрак на 5 с после смертельного удара.",
+    "growth": "+0,25 с за уровень."
+  },
+  {
+    "id": "miner",
+    "name": "Шахтёр",
+    "sprite": "char_miner",
+    "stats": {
+      "maxHp": 300,
+      "maxHpPerLevel": 3,
+      "regen": 4.75,
+      "moveSpeed": 25,
+      "attackSpeed": 20,
+      "armor": 0.06,
+      "magicResist": 0.04,
+      "damage": 10,
+      "damagePerLevel": 1
+    },
+    "passive": "Взрывается за каждые 50 потерянных ОЗ, нанося 5 урона в радиусе 50.",
+    "growth": "+2,5 урона и радиуса за уровень."
+  },
+  {
+    "id": "necromancer",
+    "name": "Некромант",
+    "sprite": "char_necromancer",
+    "stats": {
+      "maxHp": 200,
+      "maxHpPerLevel": 5,
+      "regen": 1,
+      "moveSpeed": 30,
+      "attackSpeed": 25,
+      "armor": 0,
+      "magicResist": 0.15,
+      "damage": 15,
+      "damagePerLevel": 1
+    },
+    "passive": "Каждое убийство даёт душу и +0,5% урона. Раз в 30 с души призывают духа: до 20 — целитель, до 50 — воин, от 51 — призрак с атакой по площади.",
+    "growth": "Ещё +0,1% урона за душу с каждым уровнем."
+  },
+  {
+    "id": "vampire",
+    "name": "Вампир",
+    "sprite": "char_vampire",
+    "stats": {
+      "maxHp": 175,
+      "maxHpPerLevel": 5,
+      "regen": 2,
+      "moveSpeed": 35,
+      "attackSpeed": 30,
+      "armor": 0.05,
+      "magicResist": 0,
+      "damage": 15,
+      "damagePerLevel": 1.5
+    },
+    "passive": "Восстанавливает 10% от нанесённого урона.",
+    "growth": "+1,05 п. п. вампиризма за уровень.",
+    "passives": [
+      {
+        "stat": "lifesteal",
+        "add": 0.1,
+        "perLevel": {
+          "add": 0.0105
+        }
+      }
+    ]
+  },
+  {
+    "id": "puppeteer",
+    "name": "Кукловод",
+    "sprite": "char_puppeteer",
+    "stats": {
+      "maxHp": 200,
+      "maxHpPerLevel": 3,
+      "regen": 1,
+      "moveSpeed": 30,
+      "attackSpeed": 20,
+      "armor": 0.05,
+      "magicResist": 0.05,
+      "damage": 20,
+      "damagePerLevel": 1
+    },
+    "passive": "Союзники и их призванные существа получают +10% урона и скорости атаки.",
+    "growth": "Ещё +1 п. п. к обоим бонусам за уровень."
+  },
+  {
+    "id": "cybernetic_cube",
+    "name": "Кибернетический куб",
+    "sprite": "char_cybernetic_cube",
+    "stats": {
+      "maxHp": 150,
+      "maxHpPerLevel": 5,
+      "regen": 2,
+      "moveSpeed": 25,
+      "attackSpeed": 30,
+      "armor": 0.1,
+      "magicResist": 0.1,
+      "damage": 0,
+      "damagePerLevel": 0.1
+    },
+    "passive": "Первое повышение можно получить за 15 с выживания. Каждый уровень даёт урон и одну случайную характеристику на 1–5.",
+    "growth": "Границы броска случайно растут на 0,25–2,5 за уровень."
+  },
+  {
+    "id": "masochist",
+    "name": "Мазохист",
+    "sprite": "char_masochist",
+    "stats": {
+      "maxHp": 190,
+      "maxHpPerLevel": 4,
+      "regen": 0.5,
+      "moveSpeed": 20,
+      "attackSpeed": 35,
+      "armor": 0.01,
+      "magicResist": 0.01,
+      "damage": 13.5,
+      "damagePerLevel": 2.15
+    },
+    "passive": "Потерянное здоровье повышает регенерацию, скорость движения и атаки, а также урон.",
+    "growth": "Коэффициент конверсии растёт на 0,15 п. п. за уровень."
+  },
+  {
+    "id": "diver",
+    "name": "Водолаз",
+    "sprite": "char_diver",
+    "stats": {
+      "maxHp": 200,
+      "maxHpPerLevel": 5.5,
+      "regen": 7,
+      "moveSpeed": 10,
+      "attackSpeed": 15,
+      "armor": 0.07,
+      "magicResist": 0.07,
+      "damage": 25,
+      "damagePerLevel": 1
+    },
+    "passive": "Фиксированная скорость движения. Пройденное расстояние повышает броню.",
+    "growth": "+0,25 п. п. отражения урона за уровень.",
+    "passives": [
+      {
+        "stat": "damageReflection",
+        "perLevel": {
+          "add": 0.0025
+        }
+      }
+    ]
+  },
+  {
+    "id": "skater",
+    "name": "Скейтер",
+    "sprite": "char_skater",
+    "stats": {
+      "maxHp": 200,
+      "maxHpPerLevel": 3,
+      "regen": 2,
+      "moveSpeed": 25,
+      "attackSpeed": 25,
+      "armor": 0.05,
+      "magicResist": 0.05,
+      "damage": 20,
+      "damagePerLevel": 1
+    },
+    "passive": "Движется на 25% быстрее и оставляет огонь на 3 с. След наносит 5 урона в секунду.",
+    "growth": "+1 п. п. скорости и +3 урона в секунду за уровень.",
+    "passives": [
+      {
+        "stat": "moveSpeed",
+        "pct": 0.25,
+        "perLevel": {
+          "pct": 0.01
+        }
+      }
+    ]
+  },
+  {
+    "id": "illusionist",
+    "name": "Иллюзионист",
+    "sprite": "char_illusionist",
+    "stats": {
+      "maxHp": 175,
+      "maxHpPerLevel": 3,
+      "regen": 2,
+      "moveSpeed": 30,
+      "attackSpeed": 30,
+      "armor": 0.05,
+      "magicResist": 0.15,
+      "damage": 15,
+      "damagePerLevel": 1.5
+    },
+    "passive": "Каждые 15 с создаёт копию на 8 с. Копия имеет 30% ОЗ героя, отвлекает врагов и повторяет атаки с 25% урона.",
+    "growth": "+0,25 п. п. к урону копии за уровень."
   }
 ]
