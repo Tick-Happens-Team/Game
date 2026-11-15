@@ -28,7 +28,7 @@
 | ID | Task | Priority | Depends on | Acceptance |
 |---|---|---|---|---|
 | 1.1 | [x] SDL3 window, GL 4.3 context, keyboard | P! | — | Bench opens and responds. |
-| 1.2 | [ ] SDL3 gamepad and rebinding | P+ | 1.1 | Stick movement and menu navigation. |
+| 1.2 | [ ] SDL3 gamepad support and rebinding | P+ | 1.1 | SDL3 gamepads (Xbox, PlayStation, Switch Pro, and generic devices with SDL mappings) connect and reconnect while running. The left stick moves with a radial dead zone and feeds the same quantized input as the keyboard, so prediction and replay stay deterministic. A face button dashes. The right stick aims the Прицел cursor. Menus, the hero screen, co-op rooms, settings, and the launcher are navigable without a mouse. Prompts show glyphs for the active device and switch on the last used input. Keyboard and gamepad bindings can be rebound and are saved with the settings. Tests cover dead-zone mapping and input quantization. A capture shows a full run and menu pass on a gamepad. |
 | 1.3 | [x] 30 Hz fixed step, interpolation, and pause | P! | 1.1 | Simulation produces identical positions at different render rates. |
 | 1.4 | [x] Instanced SpriteBatch, atlas, animation | P! | — | About 2,850 sprites per draw in the bench. |
 | 1.5 | [ ] Back and front CPU VFX passes | P+ | 0.11 | Scorch below enemies and sparks above in a screenshot. |
