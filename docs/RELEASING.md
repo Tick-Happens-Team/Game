@@ -37,6 +37,9 @@ Use clean, exact Game and Assets checkouts and PowerShell 7.3 or later. Run `dot
     -Output .tmp/release-v0.1.0
 ```
 
+To include EOS in a signed Windows build, add `-EosSdkArchive` with the path to the official C# archive `EOS-SDK-CSharp-58105819-Release-v1.19.2.1.zip`. Supply the archive from restricted storage in the protected signing environment. The packer checks the pinned SHA-256 before extraction and verifies that the ZIP staging contains the managed wrapper, Win64 shipping DLL, and SDK notices. Upload only the intended artifacts from the `release` output directory. EOS runtime configuration stays external to the package. See [local EOS configuration](NETWORKING.md#local-windows-eos-build).
+
+
 Publish `launcher-win-x64.zip`, `game-win-x64.zip`, `assets.zip`, `channel.json`, and `channel.json.sig` from the output's `release` directory. The adjacent ZIP reference JSON files are packaging intermediates. Test away from the source checkouts before promoting a release to latest. For a local smoke test, point both the package URLs and `TICKHAPPENS_CHANNEL_URL` at the same loopback HTTP file server and use a disposable test key.
 
 ## Install, repair, and run
