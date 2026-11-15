@@ -9,7 +9,7 @@ public sealed partial class RunWorld
     public const int KamikazeFuseTicks = TicksPerSecond;
     private const int CloudPulseTicks = TicksPerSecond / 5;
 
-    public record struct EnemyShot(Vector2 Pos, Vector2 Velocity, int Life, float Damage, DamageKind Kind);
+    public record struct EnemyShot(Vector2 Pos, Vector2 Velocity, int Life, float Damage, DamageKind Kind, int Source = -1, int SourceUid = 0);
     public record struct EnemyCloud(Vector2 Pos, float Radius, int Life, float Dps);
     private readonly record struct EnemyBlast(Vector2 Pos, float Radius, float Damage, DamageKind Kind, int Credit);
 
@@ -53,21 +53,50 @@ public sealed partial class RunWorld
             return;
         }
 
-        float attacksPerSecond = def.AttackSpeed * Rules.Units.AttacksPerUnit;
+        float attackSpeed = def.AttackSpeed;
+        if (def.Behavior == "prospector" && EHp[slot] < EMaxHp[slot] * 0.35f) attackSpeed = 40;
+        if (def.Behavior == "ancient" && _enemyAbilities[slot].Group > 0) attackSpeed += 20;
+        if (IsCultist(def) && target.CultistMarkUntil > Tick) attackSpeed *= 1.15f;
+        float attacksPerSecond = attackSpeed * Rules.Units.AttacksPerUnit;
         _enemyAttackReady[slot] = Tick + Math.Max(1, (int)MathF.Round(TicksPerSecond / attacksPerSecond) - EnemyWindupTicks);
         if (distance > range) return;
         var kind = _enemyKind[EDef[slot]];
+        if (def.Behavior == "witch" && decoy == null)
+        {
+            var from = pos;
+            foreach (var player in _players)
+            {
+                if (!player.Active || player.Hp <= 0 || (player != target && Vector2.DistanceSquared(player.Pos, target.Pos) > 90 * 90)) continue;
+                Emit(EventKind.ItemBeam, from.X, from.Y, x2: player.Pos.X, y2: player.Pos.Y);
+                HealFromEnemyHit(slot, def, HurtPlayer(player, EDamage[slot], kind, from.X, from.Y, slot), lifestealCap);
+                from = player.Pos;
+            }
+            return;
+        }
         if (def.ShotRange > 0)
         {
-            if (_enemyShotCount == _enemyShots.Length) return;
-            var direction = distance > 0.01f ? aim / distance : Vector2.UnitX;
-            var velocity = direction * def.ShotSpeed;
-            int life = (int)MathF.Ceiling((def.ShotRange + PlayerRadius) / (def.ShotSpeed * Dt));
-            _enemyShots[_enemyShotCount++] = new EnemyShot(pos, velocity, life, EDamage[slot], kind);
+            if (def.Behavior == "ancient")
+            {
+                Vector2 lateral = distance > 0.01f ? new Vector2(-aim.Y, aim.X) / distance : Vector2.UnitY;
+                FireEnemyShot(slot, def, pos - lateral * 25, targetPosition, kind);
+                FireEnemyShot(slot, def, pos + lateral * 25, targetPosition, kind);
+            }
+            else FireEnemyShot(slot, def, pos, targetPosition, kind);
             return;
         }
 
         HitPlayerWithEnemy(slot, def, target, decoy, lifestealCap);
+    }
+
+    private void FireEnemyShot(int slot, EnemyDef def, Vector2 origin, Vector2 target, DamageKind kind)
+    {
+        if (_enemyShotCount == _enemyShots.Length) return;
+        var aim = target - origin;
+        float distance = aim.Length();
+        var direction = distance > 0.01f ? aim / distance : Vector2.UnitX;
+        var velocity = direction * def.ShotSpeed;
+        int life = (int)MathF.Ceiling((Math.Max(def.ShotRange, distance) + PlayerRadius) / (def.ShotSpeed * Dt));
+        _enemyShots[_enemyShotCount++] = new EnemyShot(origin, velocity, life, EDamage[slot], kind, slot, EUid[slot]);
     }
 
     private void HitPlayerWithEnemy(int slot, EnemyDef def, PlayerState target, PlayerState? decoy, float lifestealCap)
@@ -83,12 +112,26 @@ public sealed partial class RunWorld
             return;
         }
 
-        float damage = HurtPlayer(target, EDamage[slot], _enemyKind[EDef[slot]], EX[slot], EY[slot], slot);
+        bool critical = def.Behavior == "sheWolf" && RollChance(0.33f);
+        float damage = HurtPlayer(target, EDamage[slot] * (critical ? 2 : 1), _enemyKind[EDef[slot]], EX[slot], EY[slot], slot);
         if (!EAlive[slot] || damage <= 0) return;
-        if (def.Lifesteal > 0)
-            EHp[slot] = MathF.Min(EMaxHp[slot], EHp[slot] + damage * Math.Min(lifestealCap, def.Lifesteal));
+        HealFromEnemyHit(slot, def, damage, lifestealCap);
+        if (def.Behavior == "ninja")
+        {
+            _enemyHidden[slot] = false;
+            _enemyAbilities[slot].SecondaryReady = Tick + 10 * TicksPerSecond;
+            target.EnemySlowUntil = Tick + 2 * TicksPerSecond;
+        }
+        if (def.Behavior == "sheWolf" && ++_enemyAbilities[slot].Hits % 3 == 0)
+            target.EnemyRootUntil = Tick + 2 * TicksPerSecond;
         float reflected = damage * target.Stats[Stat.DamageReflection];
         if (reflected > 0) ApplyEnemyHit(slot, reflected, DamageKind.Pure, target.Id, target.Pos.X, target.Pos.Y, 0);
+    }
+
+    private void HealFromEnemyHit(int slot, EnemyDef def, float damage, float cap)
+    {
+        float lifesteal = def.Lifesteal + (def.Behavior == "ancient" && _enemyAbilities[slot].Group > 0 ? 0.15f : 0);
+        if (EAlive[slot] && lifesteal > 0 && damage > 0) HealEnemy(slot, damage * Math.Min(cap, lifesteal));
     }
 
     private void QueueEnemyDeathEffect(int slot, EnemyDef def, int credit)
@@ -158,7 +201,19 @@ public sealed partial class RunWorld
                 first = t;
                 hit = player;
             }
-            if (hit != null) HurtPlayer(hit, shot.Damage, shot.Kind, previous.X, previous.Y, -1);
+            if (hit != null)
+            {
+                int source = shot.Source;
+                bool sourceAlive = source >= 0 && EAlive[source] && EUid[source] == shot.SourceUid;
+                float damage = HurtPlayer(hit, shot.Damage, shot.Kind, previous.X, previous.Y, sourceAlive ? source : -1);
+                if (sourceAlive && damage > 0)
+                {
+                    float cap = float.PositiveInfinity;
+                    foreach (var player in _players)
+                        if (player.Active && player.Hp > 0 && player.Stats[Stat.EnemyLifestealCap] > 0) cap = 0.2f;
+                    HealFromEnemyHit(source, Content.Enemies[EDef[source]], damage, cap);
+                }
+            }
             if (--shot.Life <= 0 || hit != null || shot.Pos.X < 0 || shot.Pos.Y < 0 ||
                 shot.Pos.X > Rules.ArenaSize || shot.Pos.Y > Rules.ArenaSize)
                 shot = _enemyShots[--_enemyShotCount];

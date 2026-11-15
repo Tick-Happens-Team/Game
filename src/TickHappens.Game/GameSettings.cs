@@ -5,13 +5,13 @@ using TickHappens.Localization;
 
 namespace TickHappens.Game;
 
-internal enum RunAction { Up, Down, Left, Right, Dash, Chest1, Chest2, Chest3 }
+internal enum RunAction { Up, Down, Left, Right, Dash, Chest1, Chest2, Chest3, OpenChest }
 
 internal sealed class GameSettings
 {
     private static readonly string Pathname = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TickHappens", "game-settings.json");
-    private static readonly Key[] DefaultKeys = [Key.W, Key.S, Key.A, Key.D, Key.Space, Key.D1, Key.D2, Key.D3];
+    private static readonly Key[] DefaultKeys = [Key.W, Key.S, Key.A, Key.D, Key.Space, Key.D1, Key.D2, Key.D3, Key.E];
     private static readonly Key[] Arrows = [Key.Up, Key.Down, Key.Left, Key.Right];
     internal static readonly Key[] BindableKeys = Enum.GetValues<Key>().Where(key =>
         key is >= Key.A and <= Key.Z and not Key.P
@@ -32,6 +32,11 @@ internal sealed class GameSettings
             settings.Master = Math.Clamp(settings.Master, 0, 100);
             settings.Music = Math.Clamp(settings.Music, 0, 100);
             settings.Effects = Math.Clamp(settings.Effects, 0, 100);
+            if (settings.Keys is { Length: 8 } old)
+            {
+                var freeKey = old.Contains(Key.E) ? BindableKeys.First(key => !old.Contains(key)) : Key.E;
+                settings.Keys = [.. old, freeKey];
+            }
             if (settings.Keys?.Length != DefaultKeys.Length || settings.Keys.Distinct().Count() != DefaultKeys.Length ||
                 settings.Keys.Any(key => !BindableKeys.Contains(key)))
                 settings.ResetKeys();
@@ -79,7 +84,7 @@ internal sealed class GameSettings
         var dash = Keys[(int)RunAction.Dash];
         return new RunInput((Held(RunAction.Right) ? 1 : 0) - (Held(RunAction.Left) ? 1 : 0),
             (Held(RunAction.Down) ? 1 : 0) - (Held(RunAction.Up) ? 1 : 0),
-            window.IsDown(dash) || window.WasPressed(dash), choice);
+            window.IsDown(dash) || window.WasPressed(dash), choice, window.WasPressed(Keys[(int)RunAction.OpenChest]));
 
         bool Held(RunAction action)
         {

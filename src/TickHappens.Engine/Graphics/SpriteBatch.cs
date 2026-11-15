@@ -76,13 +76,13 @@ public sealed unsafe class SpriteBatch : IDisposable
         Sprites = 0;
     }
 
-    public void Draw(AtlasSprite s, int frame, float x, float y, bool flipX = false, uint tint = 0xFFFFFFFF, byte emissionBoost = 0)
+    public void Draw(AtlasSprite s, int frame, float x, float y, bool flipX = false, uint tint = 0xFFFFFFFF, byte emissionBoost = 0, float scale = 1)
     {
         if (_count == MaxInstances) throw new InvalidOperationException("sprite batch overflow; call Flush");
         var f = s.Frames[frame];
         _items[_count++] = new SpriteInstance
         {
-            X = MathF.Floor(x - s.Origin[0]), Y = MathF.Floor(y - s.Origin[1]), W = s.W, H = s.H,
+            X = MathF.Floor(x - s.Origin[0] * scale), Y = MathF.Floor(y - s.Origin[1] * scale), W = s.W * scale, H = s.H * scale,
             U = f[0], V = f[1], Uw = s.W, Vh = s.H, Tint = tint, Flags = (flipX ? 1u : 0u) | ((uint)emissionBoost << 8),
         };
     }

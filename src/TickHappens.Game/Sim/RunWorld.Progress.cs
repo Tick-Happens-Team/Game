@@ -24,9 +24,14 @@ public sealed partial class RunWorld
     public float[] StatueHold { get; private set; } = [];
     public Vector2[] Chests { get; private set; } = [];
     public bool[] ChestOpen { get; private set; } = [];
+    public bool IsBossChest(int slot) => slot >= Rules.Chests.Count;
+    public bool IsRareChest(int slot) => Rules.Chests.RareFreeChest && slot == Rules.Chests.Count - 1;
+    public bool IsFreeChest(int slot) => slot >= Rules.Chests.Count - Rules.Chests.FreeCount - (Rules.Chests.RareFreeChest ? 1 : 0);
+    private SimRng _chestRng;
+    internal const int MaxChestSlots = 1000;
     private const int ChestCooldownTicks = 60 * TicksPerSecond;
     private int[] _chestReadyTick = [];
-    /// <summary>Unopened chest the player stands at but cannot afford yet (-1 if none).</summary>
+    /// <summary>Closest chest in interaction range (-1 if none).</summary>
     public int NearbyChest => Player.NearbyChest;
 
     private void InitPickups() { }
@@ -50,8 +55,57 @@ public sealed partial class RunWorld
         StatueHold = new float[sc];
         Chests = new Vector2[cc];
         for (int i = 0; i < cc; i++) Chests[i] = Ring(i, cc, 110, 600);
-        ChestOpen = new bool[cc];
+        _chestRng = rng;
+        if (cc > 0 && IsRareChest(cc - 1)) Chests[cc - 1] = RandomChestPosition(cc - 1, hidden: true);
+        ChestOpen = new bool[Chests.Length];
         _chestReadyTick = new int[cc];
+    }
+
+    private Vector2 RandomChestPosition(int slot, bool hidden)
+    {
+        float margin = Math.Min(40, Rules.ArenaSize * 0.1f);
+        float farEdge = Rules.ArenaSize - margin;
+        float clear = Rules.Chests.Radius * 2;
+        var center = new Vector2(Rules.ArenaSize / 2f);
+        var position = Chests[slot];
+        for (int attempt = 0; attempt < 48; attempt++)
+        {
+            position = new Vector2(_chestRng.Range(margin, farEdge), _chestRng.Range(margin, farEdge));
+            if (hidden && Vector2.DistanceSquared(position, center) < MathF.Pow(Rules.ArenaSize * 0.32f, 2)) continue;
+            bool clearSpot = true;
+            for (int i = 0; i < Rules.Chests.Count; i++)
+                clearSpot &= Vector2.DistanceSquared(Chests[i], position) > clear * clear;
+            foreach (var statue in Statues) clearSpot &= Vector2.DistanceSquared(statue, position) > clear * clear;
+            foreach (var player in _players)
+                if (player.Active) clearSpot &= Vector2.DistanceSquared(player.Pos, position) > clear * clear;
+            if (clearSpot) break;
+        }
+        return position;
+    }
+
+    private void ResizeChests(int count)
+    {
+        var positions = Chests;
+        var inactive = ChestOpen;
+        int previousCount = positions.Length;
+        Array.Resize(ref positions, count);
+        Array.Resize(ref inactive, count);
+        Array.Fill(inactive, true, previousCount, count - previousCount);
+        Chests = positions;
+        ChestOpen = inactive;
+    }
+
+    private void DropBossChest(Vector2 position)
+    {
+        int slot = Array.IndexOf(ChestOpen, true, Rules.Chests.Count);
+        if (slot < 0)
+        {
+            slot = Chests.Length;
+            if (slot == MaxChestSlots) return;
+            ResizeChests(Math.Min(MaxChestSlots, slot + 4));
+        }
+        Chests[slot] = position;
+        ChestOpen[slot] = false;
     }
 
     private void DropPickup(PickupKind kind, float x, float y, int value, int owner)
@@ -181,7 +235,7 @@ public sealed partial class RunWorld
                 p.ItemTimers[def] = companion.Interval * p.Stats[Stat.Cooldown];
         }
         foreach (var m in item.Mods)
-            if (ContentLoader.TryParseStat(m.Stat, out var s)) p.Stats.Apply(s, m.Add, m.Pct);
+            if (ItemEnabled(p, def) && ContentLoader.TryParseStat(m.Stat, out var s)) p.Stats.Apply(s, m.Add, m.Pct);
         // Max HP increases also heal by the same amount; decreases clamp.
         float after = MaxHealthFor(p);
         p.Hp = after >= before ? p.Hp + (after - before) : MathF.Min(p.Hp, after);
@@ -194,7 +248,7 @@ public sealed partial class RunWorld
     /// <summary>Rolls a weighted rarity, then a uniform item within that rarity.</summary>
     public int RollChestItem() => RollChestItem(-1, -1);
 
-    private int RollChestItem(int excluded, int alsoExcluded)
+    private int RollChestItem(int excluded, int alsoExcluded, bool rare = false)
     {
         var weights = Rules.Chests.RarityWeights;
         float total = 0;
@@ -205,11 +259,11 @@ public sealed partial class RunWorld
         {
             if (i == excluded || i == alsoExcluded) continue;
             int rarityIndex = Array.IndexOf(rarities, Content.Items[i].Rarity);
-            if (rarityIndex >= 0) counts[rarityIndex]++;
+            if (rarityIndex >= 0 && (!rare || rarities[rarityIndex] != "common")) counts[rarityIndex]++;
         }
         for (int i = 0; i < rarities.Length; i++)
             if (counts[i] > 0) total += weights.GetValueOrDefault(rarities[i]);
-        if (total <= 0) return -1;
+        if (total <= 0) return rare ? RollChestItem(excluded, alsoExcluded) : -1;
         float roll = _rng.Next() * total;
         for (int rarity = 0; rarity < rarities.Length; rarity++)
         {
@@ -242,8 +296,12 @@ public sealed partial class RunWorld
 
     private void StepChests(ReadOnlySpan<RunInput> inputs)
     {
-        for (int i = 0; i < Chests.Length; i++)
-            ChestOpen[i] = Tick < _chestReadyTick[i];
+        for (int i = 0; i < _chestReadyTick.Length; i++)
+        {
+            if (!ChestOpen[i] || Tick < _chestReadyTick[i]) continue;
+            Chests[i] = RandomChestPosition(i, IsRareChest(i));
+            ChestOpen[i] = false;
+        }
 
         foreach (var p in _players)
         {
@@ -268,24 +326,38 @@ public sealed partial class RunWorld
                 }
                 continue;
             }
-            var area = CombatArea.Circle(p.Pos, Rules.Chests.Radius);
+            int closest = -1;
+            float closestDistance = Rules.Chests.Radius * Rules.Chests.Radius;
             for (int i = 0; i < Chests.Length; i++)
             {
-                if (ChestOpen[i] || !area.Contains(Chests[i], out _)) continue;
-                int price = p.Wallet.NextPrice;
-                if (!p.Wallet.TryPay()) { p.NearbyChest = i; continue; }
-                float refund = price * Math.Min(1, p.Stats[Stat.GoldRefund]) + p.RefundCarry;
-                int coins = (int)MathF.Floor(refund);
-                p.RefundCarry = refund - coins;
-                if (coins > 0) p.Wallet.Collect(new GoldDrop(coins, p.Id), p.Id);
-                _chestReadyTick[i] = Tick + ChestCooldownTicks;
+                if (ChestOpen[i]) continue;
+                float distance = Vector2.DistanceSquared(p.Pos, Chests[i]);
+                if (distance > closestDistance) continue;
+                closest = i;
+                closestDistance = distance;
+            }
+            p.NearbyChest = closest;
+            if (closest >= 0 && inputs[p.Id].OpenChest)
+            {
+                int i = closest;
+                if (!IsFreeChest(i))
+                {
+                    int price = p.Wallet.NextPrice;
+                    if (!p.Wallet.TryPay()) continue;
+                    float refund = price * Math.Min(1, p.Stats[Stat.GoldRefund]) + p.RefundCarry;
+                    int coins = (int)MathF.Floor(refund);
+                    p.RefundCarry = refund - coins;
+                    if (coins > 0) p.Wallet.Collect(new GoldDrop(coins, p.Id), p.Id);
+                }
+                if (!IsBossChest(i)) _chestReadyTick[i] = Tick + ChestCooldownTicks;
                 ChestOpen[i] = true;
-                int first = RollChestItem();
-                int second = first >= 0 ? RollChestItem(first, -1) : -1;
+                bool rare = IsRareChest(i) || IsBossChest(i);
+                int first = RollChestItem(-1, -1, rare);
+                int second = first >= 0 ? RollChestItem(first, -1, rare) : -1;
                 bool extraChoice = false;
                 foreach (int item in p.EffectItems)
                 {
-                    if (Content.Items[item].Effect!.Kind != "extraChestChoice") continue;
+                    if (!ItemEnabled(p, item) || Content.Items[item].Effect!.Kind != "extraChestChoice") continue;
                     extraChoice = ++p.BoughtChests % 2 == 0;
                     break;
                 }
@@ -294,10 +366,9 @@ public sealed partial class RunWorld
                 {
                     p.ChestOfferFirst = first;
                     p.ChestOfferSecond = second;
-                    p.ChestOfferThird = extraChoice ? RollChestItem(first, second) : -1;
+                    p.ChestOfferThird = extraChoice ? RollChestItem(first, second, rare) : -1;
                     p.ChestOfferUntilTick = Tick + ChestChoiceTicks;
                 }
-                break;
             }
         }
         foreach (var p in _players)

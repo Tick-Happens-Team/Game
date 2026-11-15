@@ -102,6 +102,15 @@ public static class ContentLoader
         {
             if (!TryParseStat(stat, out _)) e.Add($"{where}: unknown stat '{stat}' (known: {StatNames()})");
         }
+        void CheckAttack(string where, AttackDef attack)
+        {
+            CheckDamage(where, attack.DamageType);
+            if (!float.IsFinite(attack.MeleeAngle) || attack.MeleeAngle is < 0 or > 360 ||
+                !float.IsFinite(attack.RangePerLevel) || attack.RangePerLevel < 0 ||
+                attack.MeleeAngle > 0 && (!float.IsFinite(attack.Range) || attack.Range <= 0))
+                e.Add($"{where}: invalid melee attack range, angle or growth");
+        }
+
         void CheckDamage(string where, string type)
         {
             if (!TryParseDamage(type, out _)) e.Add($"{where}: damageType '{type}' must be physical/magical/pure");
@@ -124,7 +133,7 @@ public static class ContentLoader
             CheckResist(w, "armor", s.Armor);
             CheckResist(w, "magicResist", s.MagicResist);
             if (string.IsNullOrEmpty(ch.Sprite)) e.Add($"{w}: sprite required");
-            if (ch.Attack != null) CheckDamage(w, ch.Attack.DamageType);
+            if (ch.Attack != null) CheckAttack(w, ch.Attack);
             foreach (var p in ch.Passives)
             {
                 CheckStat(w, p.Stat);
@@ -245,6 +254,12 @@ public static class ContentLoader
         }
         var r = c.Rules;
         if (r.ArenaSize < 512) e.Add("rules.json: arenaSize must be >= 512");
+        if (r.Chests.Count is < 0 or > TickHappens.Game.Sim.RunWorld.MaxChestSlots)
+            e.Add("rules.json: invalid chest count");
+        if (r.Chests.FreeCount < 0 || r.Chests.FreeCount + (r.Chests.RareFreeChest ? 1L : 0L) > r.Chests.Count)
+            e.Add("rules.json: free chests exceed the chest count");
+        if (c.Waves.BossIntervalMinutes < 0 || c.Waves.GoldPerMinute < 0)
+            e.Add("waves.json: boss interval and gold growth must be nonnegative");
         if (r.Chests.PriceGrowth != 1.5m) e.Add("rules.json: chests.priceGrowth is fixed at 1.5 by the game design");
         foreach (var (rarity, weight) in r.Chests.RarityWeights)
         {
@@ -253,7 +268,7 @@ public static class ContentLoader
         }
         if (c.Items.Count > 0 && !c.Items.Any(i => r.Chests.RarityWeights.GetValueOrDefault(i.Rarity) > 0))
             e.Add("rules.json: chests.rarityWeights gives zero weight to every item rarity");
-        CheckDamage("rules.json basicAttack", r.BasicAttack.DamageType);
+        CheckAttack("rules.json basicAttack", r.BasicAttack);
         if (r.Units.MoveSpeedScale <= 0 || r.Units.AttacksPerUnit <= 0 || r.Units.ResistCap <= 0 || r.Units.ResistCap >= 1)
             e.Add("rules.json: units need moveSpeedScale > 0, attacksPerUnit > 0 and 0 < resistCap < 1");
     }

@@ -6,7 +6,7 @@ public sealed class ContentLoaderTests
 {
     private static readonly string[] CharacterIds =
         ["octarine", "swordsman", "smith", "goflin", "celestial_mage", "watchman", "nekochan",
-        "pig", "miner", "necromancer", "vampire", "puppeteer", "cybernetic_cube", "masochist", "diver", "skater", "illusionist"];
+        "pig", "miner", "necromancer", "vampire", "puppeteer", "cybernetic_cube", "masochist", "diver", "skater", "illusionist", "king_arthur"];
 
     [Fact]
     public void CoreContentLoadsWithExpectedShape()
@@ -15,7 +15,10 @@ public sealed class ContentLoaderTests
 
         Assert.Equal(CharacterIds.Length, content.Characters.Count);
         Assert.Equal(62, content.Items.Count);
-        Assert.Equal(new[] { "gloombat", "amberslime", "duskslime", "rot", "spark", "kamikaze" },
+        Assert.Equal(new[] { "gloombat", "amberslime", "duskslime", "rot", "spark", "kamikaze",
+            "jumper", "witch", "guardian", "butcher", "siphoner", "skeleton_swordsman", "screamer",
+            "dark_mage", "ninja", "she_wolf", "devourer", "timekeeper", "phantom", "thief", "prospector",
+            "junior_cultist", "senior_cultist", "ancient_cultist", "cultist_shaman", "ogre", "phantom_illusion", "gold_vein" },
             content.Enemies.Select(enemy => enemy.Id));
         Assert.NotEmpty(content.Waves.Waves);
         Assert.Equal(1.5m, content.Rules.Chests.PriceGrowth);

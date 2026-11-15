@@ -8,13 +8,13 @@ Status markers follow the main [roadmap](../ROADMAP.md): `[x]` verified, `[ ]` p
 
 ## 1. What the engine already has
 
-- **Run loop:** run clock, waves, enemies, XP and automatic stat growth, gold that belongs to the killer, chests at 10 gold with ×1.5 per purchase, statues, dash.
+- **Run loop:** run clock, waves, enemies, XP and automatic stat growth, gold that belongs to the killer, interactable chests, with paid chests starting at 10 gold and scaling by ×1.5 per purchase, statues, dash.
 - **Stats:** `maxHp`, `armor` (percentage physical reduction), `moveSpeed`, `regen`, `magnet`, `might`, `area`, `cooldown`, `amount`, with additive and percentage modifiers and level-up passives.
 - **Weapon kinds:** `bolt` (projectiles), `pulse` (aura burst), `chain` (lightning hops), `blast` (explosion in the densest spot). `CombatArea` also provides circle and cone geometry with falloff.
 - **Damage types:** `physical`, `magical` and `pure` are supported. Physical and magical damage use the corresponding defences, while pure damage bypasses them.
 - **VFX:** explosion, impact, slash, lightning, sparkle, pickup, and GPU particles.
 
-Milestone M1 is playable: stat model v2 (S0), hero basic attack (S1), the damage pipeline with types and percentage defences (S2), chest loot by rarity with stacking items (S13), six C1 heroes with sprites and the character select screen. The item catalog implements all 62 sheet entries. The five cursed rewards are wired to boss IDs and enter normal play when their bosses are added to waves. The playable hero stats still need a separate sheet-parity pass.
+Milestone M1 is playable: stat model v2 (S0), hero basic attack (S1), the damage pipeline with types and percentage defences (S2), chest loot by rarity with stacking items (S13), six C1 heroes with sprites and the character select screen. The item catalog implements all 62 sheet entries. The five cursed rewards are wired to bosses and drop once per defeated boss. Each boss also leaves a free, one-use chest. The playable hero stats still need a separate sheet-parity pass.
 
 ## 2. Engine systems
 
@@ -236,8 +236,8 @@ The owner's roster has 23 enemies: 10 normal, 8 elite, 5 bosses. They replace th
 | Enemy | Role | HP | Damage | Type | Move speed | Attack speed | Magic resist | Armor | XP | Lifesteal | Behaviour | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Slime | normal | 50 | 5 | physical | 15 | — | 10% | 0% | 10 | 0% | plain chaser | [ ] |
-| Skeleton Swordsman | normal | 20 | 10 | physical | 15 | 30 | 0% | 85% | 8 | 0% | plain chaser, very high armor | [ ] |
-| Butcher | elite | 300 | 40 | physical | 15 | 15 | 15% | 15% | 25 | 25% | slow melee chaser with a cleaver | [ ] |
+| Skeleton Swordsman | normal | 20 | 10 | physical | 15 | 30 | 0% | 85% | 8 | 0% | plain chaser, very high armor | [~] |
+| Butcher | elite | 300 | 40 | physical | 15 | 15 | 15% | 15% | 25 | 25% | slow melee chaser with a cleaver | [~] |
 
 ### Tier E2: death effects and simple specials (E2, E4, E5)
 
@@ -245,49 +245,51 @@ The owner's roster has 23 enemies: 10 normal, 8 elite, 5 bosses. They replace th
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Rot | normal | 80 | 8 | physical | 10 | 15 | 0% | 0% | 10 | 5% | slow melee chaser; on death leaves a rot cloud for 4 s (radius 50 px, 15 magical dps) | [x] |
 | Kamikaze | normal | 50 | 50 | magical | 25 | — | 0% | 0% | 7 | 0% | winds up within 22 px of the player and self-destructs; its death explosion damages players and enemies within 55 px | [x] |
-| Screamer | normal | 75 | — | — | 25 | — | 0% | 0% | 10 | 0% | screams from behind the horde; if alive after 10 s, buffs all existing enemies by +50 HP and +5 Move speed | [ ] |
-| Siphoner | normal | 100 | 5 | magical | 20 | drains 15 HP/s | 5% | 5% | 20 | 0% | drains the player's HP from range and turns it into its own max HP | [ ] |
+| Screamer | normal | 75 | — | — | 25 | — | 0% | 0% | 10 | 0% | screams from behind the horde; if alive after 10 s, buffs all existing enemies by +50 HP and +5 Move speed | [~] |
+| Siphoner | normal | 100 | 5 | magical | 20 | drains 15 HP/s | 5% | 5% | 20 | 0% | drains the player's HP from range and turns it into its own max HP | [~] |
 
 ### Tier E3: ranged and special movement (E1, E3, E5)
 
 | Enemy | Role | HP | Damage | Type | Move speed | Attack speed | Magic resist | Armor | XP | Lifesteal | Behaviour | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Spark | normal | 50 | 10 | magical | 25 | 25 | 10% | 5% | 10 | 0% | keeps its distance and fires small sparks from up to 160 px | [x] |
-| Witch | elite | 125 | 12 | magical | 20 | 25 | 15% | 10% | 30 | 10% | lightning that can hit several targets (reuses the chain arc) | [ ] |
-| Jumper | normal | 100 | 15 | physical | 0 | — | 20% | 20% | 20 | 0% | moves only by jumps every 2 s up to 250; each landing makes an earthquake (radius 150, 15 damage) | [ ] |
-| Dark Mage | elite | 100 | 25 | magical | 0 | 20 | 40% | 15% | 40 | 15% | dark-magic caster that moves only by teleport | [ ] |
-| Thief | elite | 215 | 25 | physical | 25 | 25 | 0% | 15% | 50 | 15% | throws daggers and avoids melee; every 15 s disables a random player item for 10 s; on its death all items work again | [ ] |
+| Witch | elite | 125 | 12 | magical | 20 | 25 | 15% | 10% | 30 | 10% | lightning that can hit several targets (reuses the chain arc) | [~] |
+| Jumper | normal | 100 | 15 | physical | 0 | — | 20% | 20% | 20 | 0% | moves only by jumps every 2 s up to 250; each landing makes an earthquake (radius 150, 15 damage) | [~] |
+| Dark Mage | elite | 100 | 25 | magical | 0 | 20 | 40% | 15% | 40 | 15% | dark-magic caster that moves only by teleport | [~] |
+| Thief | elite | 215 | 25 | physical | 25 | 25 | 0% | 15% | 50 | 15% | throws daggers and avoids melee; every 15 s disables a random player item for 10 s; on its death all items work again | [~] |
 
 ### Tier E4: complex elites (E3, E4, E5, enemy crit)
 
 | Enemy | Role | HP | Damage | Type | Move speed | Attack speed | Magic resist | Armor | XP | Lifesteal | Behaviour | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Guardian | elite | 300 | — | — | 25 | — | 35% | 35% | 15 | 0% | protects the nearest enemies by taking part of their damage | [ ] |
-| Ninja | elite | 135 | 25 | physical | 30 | — | 0% | 15% | 15 | 25% | turns invisible, comes from behind, makes one attack (25 damage, slows the player by 25%), runs away and repeats; at least 10 s between approaches | [ ] |
-| She-Wolf | elite | 115 | 35 | physical | 55 | 65 | 15% | 20% | 45 | 35% | fast hunter; 33% crit chance; every third hit roots the player for 2 s | [ ] |
+| Guardian | elite | 300 | — | — | 25 | — | 35% | 35% | 15 | 0% | protects the nearest enemies by taking part of their damage | [~] |
+| Ninja | elite | 135 | 25 | physical | 30 | — | 0% | 15% | 15 | 25% | turns invisible, comes from behind, makes one attack (25 damage, slows the player by 25%), runs away and repeats; at least 10 s between approaches | [~] |
+| She-Wolf | elite | 115 | 35 | physical | 55 | 65 | 15% | 20% | 45 | 35% | fast hunter; 33% crit chance; every third hit roots the player for 2 s | [~] |
 
 ### Tier E4b: cultist support and reinforcements (E4, E5, S8)
 
 | Enemy | Role | HP | Урон | Тип | С/П | С/А | М/З | Броня | Опыт | Вампиризм | Behaviour | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Младший культист | normal | 75 | 20 | физ | 15 | 20 | 15% | 0% | 15 | 35% | melee blood dagger; every 15 s can create a blood circle on another cultist of any rank, healing it for 10 HP/s | [ ] |
-| Старший культист | elite | 200 | 35 | маг | 20 | 25 | 50% | 15% | 35 | 35% | every 13 s casts radius-300 circles under the player; they activate after 2 s, deal 50 damage, and mark the player so other cultists attack them 15% faster. Every 25 s summons three junior cultists and one shaman | [ ] |
-| Шаман-культист | normal | 75 | 20 | маг | 15 | 15 | 15% | 0% | 15 | 15% | casts blood rain from range, healing cultists within a 600-radius area for 35 HP/s for 5 s. Casting costs 50 of the shaman's HP and can kill it | [ ] |
+| Младший культист | normal | 75 | 20 | физ | 15 | 20 | 15% | 0% | 15 | 35% | melee blood dagger; every 15 s can create a blood circle on another cultist of any rank, healing it for 10 HP/s | [~] |
+| Старший культист | elite | 200 | 35 | маг | 20 | 25 | 50% | 15% | 35 | 35% | every 13 s casts radius-300 circles under the player; they activate after 2 s, deal 50 damage, and mark the player so other cultists attack them 15% faster. Every 25 s summons three junior cultists and one shaman | [~] |
+| Шаман-культист | normal | 75 | 20 | маг | 15 | 15 | 15% | 0% | 15 | 15% | casts blood rain from range, healing cultists within a 600-radius area for 35 HP/s for 5 s. Casting costs 50 of the shaman's HP and can kill it | [~] |
 
 ### Tier E5: bosses (E6)
 
 | Boss | HP | Damage | Type | Move speed | Attack speed | Magic resist | Armor | XP | Lifesteal | Behaviour | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| Devourer | 5000 | 125 | physical | 20 | 15 | 20% | 40% | 350 | 15% | huge, slow chaser; every 20 s devours the nearest mob and heals 300; below 25% HP speeds up to 30 Move speed | [ ] |
-| Timekeeper | 3500 | 70 | magical | 25 | 30 | 45% | 15% | 500 | 0% | on spawn doubles the flow of time; an aura of radius 250 slows the player by 50% and makes items and passives recharge 25% slower | [ ] |
-| Phantom | 1800 | 45 | magical | 25 | 35 | 35% | 35% | 325 | 25% | every 4 s teleports to a random point within 700 of the player and leaves a 5 s illusion that repeats its attacks at 30% damage; every 30 s makes 4 illusions around the player, one of them real; dealing 500 damage to the real one removes the others and stuns the boss for 5 s | [ ] |
-| Старатель | 4000 | 85 | physical | 20 | 30 | 35% | 35% | 450 | 15% | every 15 s creates a 500 HP gold vein at a random point within 1000 of himself and runs to mine it. Mining takes 3 s and heals him for 750 HP; the player can destroy the vein first. Below 35% HP, gold fever raises Move speed and Attack speed to 40 and cuts mining to 2 s; his eyes and pickaxe turn gold | [ ] |
-| Древний культист | 2500 | 50 | magical | 15 | 25 | 50% | 15% | 350 | 35% | attacks with blood daggers from different sides; every 15 s summons one Старший культист and three Младший культист. Below 50% HP can sacrifice a senior cultist at an altar; if the sacrifice survives 3 s, the boss heals 500 HP and gains +15% lifesteal and +20 Attack speed | [ ] |
+| Devourer | 5000 | 125 | physical | 20 | 15 | 20% | 40% | 350 | 15% | huge, slow chaser; every 20 s devours the nearest mob and heals 300; below 25% HP speeds up to 30 Move speed | [~] |
+| Timekeeper | 3500 | 70 | magical | 25 | 30 | 45% | 15% | 500 | 0% | on spawn doubles the flow of time; an aura of radius 250 slows the player by 50% and makes items and passives recharge 25% slower | [~] |
+| Phantom | 1800 | 45 | magical | 25 | 35 | 35% | 35% | 325 | 25% | every 4 s teleports to a random point within 700 of the player and leaves a 5 s illusion that repeats its attacks at 30% damage; every 30 s makes 4 illusions around the player, one of them real; dealing 500 damage to the real one removes the others and stuns the boss for 5 s | [~] |
+| Старатель | 4000 | 85 | physical | 20 | 30 | 35% | 35% | 450 | 15% | every 15 s creates a 500 HP gold vein at a random point within 1000 of himself and runs to mine it. Mining takes 3 s and heals him for 750 HP; the player can destroy the vein first. Below 35% HP, gold fever raises Move speed and Attack speed to 40 and cuts mining to 2 s; his eyes and pickaxe turn gold | [~] |
+| Древний культист | 2500 | 50 | magical | 15 | 25 | 50% | 15% | 350 | 35% | attacks with blood daggers from different sides; every 15 s summons one Старший культист and three Младший культист. Below 50% HP can sacrifice a senior cultist at an altar; if the sacrifice survives 3 s, the boss heals 500 HP and gains +15% lifesteal and +20 Attack speed | [~] |
 
-**Coverage:** 3 + 4 + 5 + 3 + 5 + 3 = 23 enemies.
+**Coverage:** 24 roster enemies, plus the legacy bat and elite slime. Gold veins and phantom illusions are encounter entities.
 - Normal (10): Rot, Slime, Jumper, Spark, Siphoner, Skeleton Swordsman, Screamer, Kamikaze, Младший культист, Шаман-культист.
-- Elite (8): Witch, Guardian, Butcher, Dark Mage, Ninja, She-Wolf, Thief, Старший культист.
+- Elite (9): Witch, Guardian, Butcher, Dark Mage, Ninja, She-Wolf, Thief, Старший культист, Огр-великан.
 - Bosses (5): Devourer, Timekeeper, Phantom, Старатель, Древний культист.
+
+King Arthur is playable. Excalibur replaces his basic projectile with a forward physical slash and gains 0.25 range per level.
 
 The table's «10%%» Magic resist for Slime is read as 10%.
 
@@ -330,8 +332,8 @@ Art for every character, enemy and summon goes through recipes (`art-recipe` ski
 2. **Accelerator.** The agreed movement speed bonus is +50%.
 3. **Timekeeper.** Does "doubles the flow of time" double the run clock (difficulty) while it is alive, or speed up the whole game?
 4. **Guardian.** What share of the protected enemies' damage does it take, and within what radius?
-5. **Boss schedule.** At which run-clock minutes do the bosses appear, and in what order? May the developer propose the waves?
+5. **Boss schedule.** Every five run-clock minutes, in roster order. The five bosses debut individually. Subsequent rounds repeat the order in pairs.
 6. **XP target.** What level should a typical 15-minute run reach? Enemy XP is now 7–500 per kill.
-7. **Gold.** The enemy table has no gold column. Which enemies drop gold, and how much?
+7. **Gold.** Each successful enemy gold drop adds one coin per completed run-clock minute to its base amount.
 8. **Siphoner.** What is the range of its drain?
 9. **Сердце золотой жилы.** Standard chests offer two items while movement continues. With the heart, every second chest offers three.

@@ -88,9 +88,11 @@ public sealed class CharacterStats
     [JsonPropertyName("magnet")] public float Magnet { get; set; } = 34;
 }
 
-/// <summary>Basic attack: auto-aimed projectiles, visually the same for every hero.</summary>
+/// <summary>Basic attack definition shared by the default projectiles and hero overrides.</summary>
 public sealed class AttackDef
 {
+    [JsonPropertyName("meleeAngle")] public float MeleeAngle { get; set; }
+    [JsonPropertyName("rangePerLevel")] public float RangePerLevel { get; set; }
     [JsonPropertyName("damageType")] public string DamageType { get; set; } = "physical";
     [JsonPropertyName("speed")] public float Speed { get; set; } = 230;
     [JsonPropertyName("range")] public float Range { get; set; } = 220;
@@ -218,6 +220,7 @@ public sealed class EnemyDef
     [JsonPropertyName("radius")] public float Radius { get; set; } = 6;
     [JsonPropertyName("xp")] public int Xp { get; set; } = 1;
     [JsonPropertyName("gold")] public int Gold { get; set; }
+    [JsonPropertyName("behavior")] public string Behavior { get; set; } = "";
     [JsonPropertyName("goldChance")] public float GoldChance { get; set; }
     /// <summary>Bosses are excluded from execute effects.</summary>
     [JsonPropertyName("boss")] public bool Boss { get; set; }
@@ -254,6 +257,8 @@ public sealed class WaveTable
     [JsonPropertyName("damagePerMinute")] public float DamagePerMinute { get; set; }
     [JsonPropertyName("maxAlive")] public int MaxAlive { get; set; } = 800;
     [JsonPropertyName("waves")] public List<WaveDef> Waves { get; set; } = [];
+    [JsonPropertyName("bossIntervalMinutes")] public int BossIntervalMinutes { get; set; }
+    [JsonPropertyName("goldPerMinute")] public int GoldPerMinute { get; set; }
     [JsonPropertyName("elites")] public List<EliteDef> Elites { get; set; } = [];
 }
 
@@ -277,6 +282,8 @@ public sealed class ChestRules
 {
     [JsonPropertyName("count")] public int Count { get; set; } = 6;
     [JsonPropertyName("radius")] public float Radius { get; set; } = 18;
+    [JsonPropertyName("freeCount")] public int FreeCount { get; set; }
+    [JsonPropertyName("rareFreeChest")] public bool RareFreeChest { get; set; }
     [JsonPropertyName("startPrice")] public int StartPrice { get; set; } = 10;
     [JsonPropertyName("priceGrowth")] public decimal PriceGrowth { get; set; } = 1.5m;
     /// <summary>Loot weight per rarity; rarities without items are skipped when rolling.</summary>

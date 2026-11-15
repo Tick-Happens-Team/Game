@@ -152,7 +152,7 @@ public sealed class CoopWorldTests
         Assert.Equal(0, world.Player.Kills);
         Assert.Equal(1, remote.Kills);
 
-        world.StepCoop([default, default, default, default]);
+        world.StepCoop([default, new RunInput(0, 0, OpenChest: true), default, default]);
         Assert.True(world.ChestOpen[0]);
         Assert.True(remote.ChestOfferFirst >= 0);
         Assert.Equal(-1, world.Player.ChestOfferFirst);
@@ -173,7 +173,7 @@ public sealed class CoopWorldTests
         host.Players[1].Pos = host.Chests[0];
         host.Players[1].Wallet.Collect(new GoldDrop(100, 1), 1);
         int enemy = host.SpawnEnemy(0, new Vector2(610, 601));
-        host.StepCoop([default, default, default, default]);
+        host.StepCoop([default, new RunInput(0, 0, OpenChest: true), default, default]);
         var client = new RunWorld(content, seed: 7, character: "swordsman", playerCount: 4, localPlayerId: 1);
         byte[] snapshot = new byte[RunWorld.SnapshotCapacity];
         Assert.Equal(0, host.WriteSnapshot(snapshot.AsSpan(0, 3)));

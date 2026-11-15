@@ -120,14 +120,14 @@ public sealed class CoopSessionTests
         var inputs = new List<(int Slot, int Sequence, RunInput Input)>();
         host.InputReceived += (slot, sequence, input) => inputs.Add((slot, sequence, input));
 
-        client.SubmitInput(new RunInput(-1, 0, true));
+        client.SubmitInput(new RunInput(-1, 0, true, OpenChest: true));
         loopback.Pending.Clear();
         client.SubmitInput(new RunInput(0, 1));
         loopback.Pending.Add(loopback.Pending[0]);
         clientWire.Send("host", [CoopSession.ProtocolVersion, 4, 0, 0, 0, 0, 3, 0, 0, 0, 5, 5, 255], false);
         loopback.Flush();
 
-        Assert.Equal([(1, 1, new RunInput(-1, 0, true)), (1, 2, new RunInput(0, 1))], inputs);
+        Assert.Equal([(1, 1, new RunInput(-1, 0, true, OpenChest: true)), (1, 2, new RunInput(0, 1))], inputs);
     }
 
     [Fact]

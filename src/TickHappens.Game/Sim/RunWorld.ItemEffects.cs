@@ -22,6 +22,7 @@ public sealed partial class RunWorld
             if (!source.Active || source.Hp <= 0) continue;
             foreach (int item in source.EffectItems)
             {
+                if (!ItemEnabled(source, item)) continue;
                 var effect = Content.Items[item].Effect!;
                 var stat = effect.Kind switch
                 {
@@ -77,7 +78,9 @@ public sealed partial class RunWorld
     {
         foreach (int item in p.EffectItems)
         {
+            if (!ItemEnabled(p, item)) continue;
             var effect = Content.Items[item].Effect!;
+            if (!ItemEnabled(p, item)) continue;
             int copies = p.ItemStacks[item];
             switch (effect.Kind)
             {
@@ -91,18 +94,18 @@ public sealed partial class RunWorld
                     }
                     break;
                 case "weldingBlock":
-                    p.ItemTimers[item] = Math.Max(0, p.ItemTimers[item] - Dt);
+                    p.ItemTimers[item] = Math.Max(0, p.ItemTimers[item] - ItemStep(p));
                     break;
                 case "lowestHealthShield":
                 case "resetCooldown":
-                    p.ItemTimers[item] -= Dt;
+                    p.ItemTimers[item] -= ItemStep(p);
                     if (p.ItemTimers[item] > 0.001f) break;
                     p.ItemTimers[item] = effect.Duration * p.Stats[Stat.Cooldown];
                     if (effect.Kind == "lowestHealthShield") ShieldLowestHealthAlly(p, effect.Value * copies);
                     else ResetItemCooldown(p, item);
                     break;
                 case "devour":
-                    p.ItemTimers[item] -= Dt;
+                    p.ItemTimers[item] -= ItemStep(p);
                     if (p.ItemTimers[item] <= 0.001f && p.Hp < MaxHealthFor(p) * effect.Threshold)
                     {
                         int enemy = RandomEnemy(p.Pos, float.PositiveInfinity, excludeBoss: true);
@@ -114,6 +117,44 @@ public sealed partial class RunWorld
                     break;
             }
         }
+    }
+
+    private static bool ItemEnabled(PlayerState player, int item) => player.StolenItem != item;
+
+    private void StepStolenItems()
+    {
+        foreach (var p in _players)
+            if (p.StolenItem >= 0 && Tick >= p.StolenUntil) RestoreStolenItem(p);
+    }
+
+    private bool TryStealItem(PlayerState player, int thief)
+    {
+        if (player.StolenItem >= 0) return false;
+        int available = 0, selected = -1;
+        for (int i = 0; i < player.ItemStacks.Length; i++)
+            if (player.ItemStacks[i] > 0 && RollChance(1f / ++available)) selected = i;
+        if (selected < 0) return false;
+        (player.StolenItem, player.StolenBy, player.StolenUntil) = (selected, EUid[thief], Tick + 10 * TicksPerSecond);
+        ApplyStolenItemStats(player, selected, -1);
+        Emit(EventKind.ItemBeam, EX[thief], EY[thief], x2: player.Pos.X, y2: player.Pos.Y);
+        return true;
+    }
+
+    private void RestoreStolenItem(PlayerState p)
+    {
+        ApplyStolenItemStats(p, p.StolenItem, 1);
+        p.StolenItem = -1;
+        p.StolenBy = p.StolenUntil = 0;
+    }
+
+    private void ApplyStolenItemStats(PlayerState p, int item, int direction)
+    {
+        int copies = direction * p.ItemStacks[item];
+        foreach (var mod in Content.Items[item].Mods)
+            if (ContentLoader.TryParseStat(mod.Stat, out var stat))
+                p.Stats.Apply(stat, mod.Add * copies, mod.Pct * copies);
+        p.Hp = Math.Min(p.Hp, MaxHealthFor(p));
+        p.Shield = Math.Min(p.Shield, ShieldCapacity(p));
     }
 
     private void ResetItemCooldown(PlayerState p, int clock)
@@ -174,6 +215,7 @@ public sealed partial class RunWorld
             if (!source.Active || source.Hp <= 0 || (!summon && source.Id == target)) continue;
             foreach (int item in source.EffectItems)
             {
+                if (!ItemEnabled(source, item)) continue;
                 var effect = Content.Items[item].Effect!;
                 if (effect.Kind != "healShare") continue;
                 float fraction = summon ? effect.Secondary : effect.Value;
@@ -205,6 +247,7 @@ public sealed partial class RunWorld
             }
             foreach (int item in source.EffectItems)
             {
+                if (!ItemEnabled(source, item)) continue;
                 var effect = Content.Items[item].Effect!;
                 if (effect.Radius <= 0) continue;
                 int copies = source.ItemStacks[item];
@@ -243,6 +286,7 @@ public sealed partial class RunWorld
     {
         foreach (int item in player.EffectItems)
         {
+            if (!ItemEnabled(player, item)) continue;
             var effect = Content.Items[item].Effect!;
             if (effect.Kind != "poison" || !RollChance(effect.Chance * player.ItemStacks[item])) continue;
             if (_poisonTick[player.Id, enemy] == 0)
@@ -274,6 +318,7 @@ public sealed partial class RunWorld
     {
         foreach (int item in player.EffectItems)
         {
+            if (!ItemEnabled(player, item)) continue;
             var effect = Content.Items[item].Effect!;
             if (effect.Kind is not ("icicle" or "illusion") || !RollChance(effect.Chance * player.ItemStacks[item])) continue;
             if (effect.Kind == "illusion")
@@ -306,13 +351,16 @@ public sealed partial class RunWorld
         }
         foreach (int item in player.EffectItems)
         {
+            if (!ItemEnabled(player, item)) continue;
             var effect = Content.Items[item].Effect!;
             if (effect.Kind != "illusion") continue;
-            var from = player.IllusionPosition + new Vector2(0, -10);
-            int target = Nearest(player.IllusionPosition, player.Attack.Range, []);
-            if (target < 0) return;
-            LaunchAt(from, target, player.Stats[Stat.Damage] * effect.Value, player.Attack.Speed,
-                player.Attack.Range, Kind(player.Attack.DamageType), new DamageSourceRef(player.Id, item), ProjectileStyle.Phantom);
+            var attack = player.Attack;
+            var source = new DamageSourceRef(player.Id, item, SuppressProcs: true);
+            float damage = player.Stats[Stat.Damage] * effect.Value;
+            int count = attack.Count + (int)player.Stats[Stat.Amount];
+            if (attack.MeleeAngle > 0) SwingBasicAttack(player, player.IllusionPosition, attack, Kind(attack.DamageType), source, damage * count);
+            else FireBolts(damage, Kind(attack.DamageType), source, count, attack.Speed, attack.Range,
+                attack.Pierce, player.IllusionPosition, ProjectileStyle.Phantom);
             return;
         }
     }
@@ -322,6 +370,7 @@ public sealed partial class RunWorld
         if (kind == DamageKind.Physical && RollChance(p.AuraBlockChance)) return true;
         foreach (int item in p.EffectItems)
         {
+            if (!ItemEnabled(p, item)) continue;
             var effect = Content.Items[item].Effect!;
             float chance = effect.Chance * p.ItemStacks[item];
             if (effect.Kind == "weldingBlock" && p.ItemTimers[item] <= 0.001f && RollChance(chance))

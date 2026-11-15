@@ -40,13 +40,21 @@ public static class DemoPilot
             for (int i = 0; i < w.Statues.Length; i++)
                 if (!w.StatueActive[i] && Vector2.DistanceSquared(p, w.Statues[i]) < 260 * 260) goal = w.Statues[i];
         // Visit an affordable chest nearby (items come only from chests).
-        if (w.Player.Wallet.Gold >= w.Player.Wallet.NextPrice)
-            for (int i = 0; i < w.Chests.Length; i++)
-                if (!w.ChestOpen[i] && Vector2.DistanceSquared(p, w.Chests[i]) < 320 * 320) goal = w.Chests[i];
+        bool openChest = false;
+        float chestDistance = 320 * 320;
+        for (int i = 0; i < w.Chests.Length; i++)
+        {
+            if (w.ChestOpen[i] || (!w.IsFreeChest(i) && w.Player.Wallet.Gold < w.Player.Wallet.NextPrice)) continue;
+            float distance = Vector2.DistanceSquared(p, w.Chests[i]);
+            if (distance >= chestDistance) continue;
+            chestDistance = distance;
+            goal = w.Chests[i];
+            openChest = distance < w.Rules.Chests.Radius * w.Rules.Chests.Radius;
+        }
         if (goal is { } g && g != p) steer += Vector2.Normalize(g - p) * 0.9f;
         int x = steer.X > 0.3f ? 1 : steer.X < -0.3f ? -1 : 0;
         int y = steer.Y > 0.3f ? 1 : steer.Y < -0.3f ? -1 : 0;
         bool dash = closest < 14 * 14;
-        return new RunInput(x, y, dash);
+        return new RunInput(x, y, dash, ChestChoice: w.Player.ChestOfferFirst >= 0 ? 1 : 0, OpenChest: openChest);
     }
 }

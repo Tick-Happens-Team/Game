@@ -17,7 +17,7 @@ public sealed partial class CoopSession : IDisposable
     // Fits LiteNetLib's initial 1024-byte MTU including its reliable header.
     public const int MaxPacketBytes = 1000;
     public const int MaxSnapshotBytes = 256 * 1024;
-    public const byte ProtocolVersion = 11;
+    public const byte ProtocolVersion = 12;
     private const int HeaderBytes = 2;
     private const int RunHeaderBytes = HeaderBytes + sizeof(uint);
     public const int MaxEventBytes = MaxPacketBytes - RunHeaderBytes;
@@ -344,7 +344,7 @@ public sealed partial class CoopSession : IDisposable
         var inputs = packet[InputHeaderBytes..];
         if (inputs.Length != Math.Min(latest, RedundantInputs)) return;
         foreach (byte packed in inputs)
-            if (packed > 127 || (packed & 3) == 3 || ((packed >> 2) & 3) == 3) return;
+            if ((packed & 3) == 3 || ((packed >> 2) & 3) == 3) return;
         _lastPeerActivity[slot] = _clock.GetTimestamp();
         int first = latest - (inputs.Length - 1);
         for (int i = 0; i < inputs.Length; i++)
@@ -353,7 +353,7 @@ public sealed partial class CoopSession : IDisposable
             if (sequence <= _lastInput[slot]) continue;
             _lastInput[slot] = sequence;
             byte packed = inputs[i];
-            InputReceived?.Invoke(slot, sequence, new RunInput((packed & 3) - 1, ((packed >> 2) & 3) - 1, (packed & 16) != 0, packed >> 5));
+            InputReceived?.Invoke(slot, sequence, new RunInput((packed & 3) - 1, ((packed >> 2) & 3) - 1, (packed & 16) != 0, (packed >> 5) & 3, (packed & 128) != 0));
         }
     }
 
@@ -476,7 +476,7 @@ public sealed partial class CoopSession : IDisposable
     }
 
     private static byte Pack(RunInput input) =>
-        (byte)((Math.Sign(input.X) + 1) | ((Math.Sign(input.Y) + 1) << 2) | (input.Dash ? 16 : 0) | (Math.Clamp(input.ChestChoice, 0, 3) << 5));
+        (byte)((Math.Sign(input.X) + 1) | ((Math.Sign(input.Y) + 1) << 2) | (input.Dash ? 16 : 0) | (Math.Clamp(input.ChestChoice, 0, 3) << 5) | (input.OpenChest ? 128 : 0));
 
     public void Dispose()
     {
