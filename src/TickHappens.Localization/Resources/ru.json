@@ -63,6 +63,8 @@
   "online.searching": "ИЩЕМ ЛОББИ",
   "online.waitingPlayers": "ОЖИДАНИЕ ИГРОКОВ",
   "online.waitingHost": "ОЖИДАНИЕ ХОСТА",
+  "online.waitingP2p": "УСТАНОВКА КАНАЛА EOS",
+  "online.p2pTimeout": "КАНАЛ EOS НЕ УСТАНОВЛЕН",
   "online.resumeExpired": "НЕ УДАЛОСЬ ВОССТАНОВИТЬ МЕСТО",
   "online.reconnect": "F7 - ПЕРЕПОДКЛЮЧИТЬСЯ",
   "online.hostClosed": "ХОСТ ЗАКРЫЛ КОМНАТУ",

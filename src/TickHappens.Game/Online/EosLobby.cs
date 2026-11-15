@@ -243,6 +243,7 @@ public sealed partial class EosTransport
         {
             if (_refreshed.ContainsKey(id)) continue;
             _removed.Add(id);
+            _connected.Remove(id);
             Close(user);
         }
         foreach (string id in _removed) _members.Remove(id);
@@ -259,7 +260,8 @@ public sealed partial class EosTransport
     {
         _lobbyId = null;
         HostPeer = null;
-        _receivedRoomPacket = false;
+        _receivedRoomPacket = _sentRoomPacket = false;
+        _connected.Clear();
         foreach (var user in _members.Values) Close(user);
         _members.Clear();
         _refreshed.Clear();

@@ -34,6 +34,7 @@ public sealed partial class EosTransport : ICoopTransport, IDisposable
     private readonly SocketId _socket = new() { SocketName = SocketName };
     private readonly Dictionary<string, ProductUserId> _members = new(StringComparer.Ordinal);
     private readonly Dictionary<string, ProductUserId> _refreshed = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _connected = new(StringComparer.Ordinal);
     private readonly List<string> _removed = [];
     private readonly Queue<Action> _completed = new();
     private readonly byte[] _incoming = new byte[P2PInterface.MAX_PACKET_SIZE];
@@ -48,10 +49,12 @@ public sealed partial class EosTransport : ICoopTransport, IDisposable
     private Result? _lastReceiveError, _lastSendError, _lastAcceptError;
     private bool _refreshMembers, _busy, _disposed;
     private bool _receivedRoomPacket;
+    private bool _sentRoomPacket;
 
     public string? LocalPeer { get; private set; }
     public string? HostPeer { get; private set; }
     public bool IsHost => LocalPeer is not null && LocalPeer == HostPeer;
+    public bool IsHostConnected => HostPeer is { } host && _connected.Contains(host);
     public IReadOnlyCollection<string> Peers => _members.Keys;
     /// <summary>The packet memory is valid only while the handler runs.</summary>
     public event Action<string, ReadOnlyMemory<byte>>? PacketReceived;
@@ -86,11 +89,7 @@ public sealed partial class EosTransport : ICoopTransport, IDisposable
             _connect = _platform.GetConnectInterface();
             _lobby = _platform.GetLobbyInterface();
             _p2p = _platform.GetP2PInterface();
-            var relay = new SetRelayControlOptions
-            {
-                RelayControl = forceRelays ? RelayControl.ForceRelays : RelayControl.AllowRelays,
-            };
-            Check(_p2p.SetRelayControl(ref relay), "SetRelayControl");
+            SetRelayMode(forceRelays);
         }
         catch
         {
@@ -98,6 +97,15 @@ public sealed partial class EosTransport : ICoopTransport, IDisposable
             PlatformInterface.Shutdown();
             throw;
         }
+    }
+
+    public void SetRelayMode(bool forceRelays)
+    {
+        var options = new SetRelayControlOptions
+        {
+            RelayControl = forceRelays ? RelayControl.ForceRelays : RelayControl.AllowRelays,
+        };
+        Check(_p2p.SetRelayControl(ref options), "SetRelayControl");
     }
 
     public Task SignInAsync()
@@ -203,6 +211,7 @@ public sealed partial class EosTransport : ICoopTransport, IDisposable
                 {
                     string id = remote.ToString();
                     if (!IsAllowed(id)) return;
+                    _connected.Remove(id);
                     Console.Error.WriteLine($"EOS P2P connection closed ({reason}).");
                     PeerDisconnected?.Invoke(id);
                 });
@@ -217,7 +226,9 @@ public sealed partial class EosTransport : ICoopTransport, IDisposable
                 _completed.Enqueue(() =>
                 {
                     string id = remote.ToString();
-                    if (IsAllowed(id)) PeerConnected?.Invoke(id, viaRelay);
+                    if (!IsAllowed(id)) return;
+                    _connected.Add(id);
+                    PeerConnected?.Invoke(id, viaRelay);
                 });
             });
         var expiration = new AddNotifyAuthExpirationOptions();
@@ -235,7 +246,7 @@ public sealed partial class EosTransport : ICoopTransport, IDisposable
             throw new InvalidOperationException("EOS notification registration failed.");
         _receiveOptions = new ReceivePacketOptions
         {
-            LocalUserId = _local, MaxDataSizeBytes = P2PInterface.MAX_PACKET_SIZE, RequestedChannel = Channel,
+            LocalUserId = _local, MaxDataSizeBytes = P2PInterface.MAX_PACKET_SIZE,
         };
     }
 
@@ -255,25 +266,30 @@ public sealed partial class EosTransport : ICoopTransport, IDisposable
         for (int packets = 0; packets < 256; packets++)
         {
             Result result = _p2p.ReceivePacket(ref _receiveOptions, ref _receivedUser, ref _receivedSocket,
-                out _, _incoming, out uint written);
+                out byte channel, _incoming, out uint written);
             if (result != Result.Success)
             {
                 if (result != Result.NotFound) LogP2pError("ReceivePacket", result, ref _lastReceiveError);
                 break;
             }
             _lastReceiveError = null;
-            if (_receivedSocket.SocketName != SocketName || _lobbyId is null) continue;
+            if (channel != Channel || _receivedSocket.SocketName != SocketName || _lobbyId is null) continue;
+            string? sender = null;
             foreach (var (id, member) in _members)
             {
-                if (member != _receivedUser || (!IsHost && id != HostPeer)) continue;
-                if (!_receivedRoomPacket)
-                {
-                    _receivedRoomPacket = true;
-                    Console.WriteLine("EOS P2P first room packet received.");
-                }
-                PacketReceived?.Invoke(id, _incoming.AsMemory(0, (int)written));
+                if (member != _receivedUser) continue;
+                sender = id;
                 break;
             }
+            // EOS may return the same user as a different native handle.
+            sender ??= _receivedUser.ToString();
+            if (!IsAllowed(sender)) continue;
+            if (!_receivedRoomPacket)
+            {
+                _receivedRoomPacket = true;
+                Console.WriteLine("EOS P2P first room packet received.");
+            }
+            PacketReceived?.Invoke(sender, _incoming.AsMemory(0, (int)written));
         }
     }
 
@@ -294,7 +310,13 @@ public sealed partial class EosTransport : ICoopTransport, IDisposable
             DisableAutoAcceptConnection = false,
             Reliability = reliable ? PacketReliability.ReliableOrdered : PacketReliability.UnreliableUnordered,
         };
-        LogP2pError("SendPacket", _p2p.SendPacket(ref options), ref _lastSendError);
+        Result result = _p2p.SendPacket(ref options);
+        LogP2pError("SendPacket", result, ref _lastSendError);
+        if (result == Result.Success && !_sentRoomPacket)
+        {
+            _sentRoomPacket = true;
+            Console.WriteLine("EOS P2P first room packet queued.");
+        }
     }
 
     private bool IsAllowed(string peer) => _lobbyId is not null && _members.ContainsKey(peer) && (IsHost || peer == HostPeer);
