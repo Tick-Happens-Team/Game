@@ -9,6 +9,52 @@ namespace TickHappens.Tests;
 public sealed class CoopWorldTests
 {
     [Fact]
+    public void AllyRevivalRequiresContinuousStationaryHelpAndReplicates()
+    {
+        var content = TestContent.LoadCore();
+        var host = new RunWorld(content, playerCount: 2);
+        host.SetPlayerActive(1, true);
+        host.GiveItem(content.ItemIndex("dumbbell"));
+        var fallen = host.Players[1];
+        fallen.Hp = 0;
+        var corpse = fallen.Pos;
+        RunInput[] inputs = [default, default];
+        host.Player.Pos = corpse - new Vector2(RunWorld.RevivalRadius + 1, 0);
+        host.StepCoop(inputs);
+        Assert.Equal(0, fallen.RevivalTicks);
+
+        host.Player.Pos = corpse - new Vector2(RunWorld.RevivalRadius, 0);
+        host.StepCoop(inputs);
+        Assert.Equal(1, fallen.RevivalTicks);
+        host.StepCoop([new RunInput(1, 0), default]);
+        Assert.Equal(0, fallen.RevivalTicks);
+        Assert.Equal(corpse, fallen.Pos);
+
+        for (int i = 0; i < RunWorld.RevivalHoldTicks - 1; i++) host.StepCoop(inputs);
+        Assert.Equal(0, fallen.Hp);
+        Assert.Equal(RunWorld.RevivalHoldTicks - 1, fallen.RevivalTicks);
+        var client = new RunWorld(content, playerCount: 2, localPlayerId: 1);
+        byte[] snapshot = new byte[RunWorld.SnapshotCapacity];
+        Assert.True(client.TryApplySnapshot(snapshot.AsSpan(0, host.WriteSnapshot(snapshot))));
+        Assert.Equal(fallen.RevivalTicks, client.Player.RevivalTicks);
+
+        host.StepCoop(inputs);
+        TestWorld.Close(0.15f * (fallen.Character.Stats.MaxHp + 125), fallen.Hp);
+        Assert.Equal(0, fallen.RevivalTicks);
+        Assert.Equal(corpse, fallen.Pos);
+        Assert.Equal(RunWorld.TicksPerSecond, fallen.InvulnTicks);
+        Assert.True(client.TryApplySnapshot(snapshot.AsSpan(0, host.WriteSnapshot(snapshot))));
+        Assert.Equal(fallen.Hp, client.Player.Hp);
+        Assert.Equal(0, client.Player.RevivalTicks);
+
+        Span<byte> events = stackalloc byte[CoopSession.MaxEventBytes];
+        int next = 0;
+        Assert.True(client.TryApplyEvents(events[..host.WriteEvents(events, ref next)]));
+        var revival = Assert.Single(client.Events, e => e.Kind == EventKind.Revival);
+        Assert.Equal(corpse, new Vector2(revival.X, revival.Y));
+    }
+
+    [Fact]
     public void FourPlayersHaveIndependentInputAndTheRunContinuesWhenHostDies()
     {
         var world = new RunWorld(TestContent.LoadCore(), playerCount: 4);

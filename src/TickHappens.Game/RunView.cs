@@ -14,7 +14,7 @@ namespace TickHappens.Game;
 /// Draws a run: terrain, props, pickups, enemies and the hero through the pixel pipeline, plus cosmetic VFX
 /// spawned locally from simulation events (never fed back into the simulation).
 /// </summary>
-internal sealed class RunView : IDisposable
+internal sealed partial class RunView : IDisposable
 {
     private const int Tile = 16, MaxCpuEffects = 28, MaxImpactsPerFrame = 4;
     private readonly PixelRenderer _renderer;
@@ -138,6 +138,7 @@ internal sealed class RunView : IDisposable
     public void Reset()
     {
         _effects.Clear();
+        _itemEffects.Clear();
         _hud.Reset();
         _shake = 0;
         _flashes.Clear();
@@ -188,6 +189,9 @@ internal sealed class RunView : IDisposable
                     Burst(e.X, e.Y - 6, 16, 85, 0xFFE070C0u, 0xFF5C1F4Au, 1.8f);
                     AddFlash(e.X, e.Y - 6, 34, 0.9f, 0.35f, 0.8f, 0.18f);
                     break;
+                case EventKind.Blast when e.A == (int)BlastStyle.SodaSplash:
+                    DrawSodaSplash(e.X, e.Y, e.Value);
+                    break;
                 case EventKind.Blast:
                     if (_effects.Count < MaxCpuEffects)
                         _effects.Add(new ExplosionEffect(new ExplosionOptions { X = e.X * 2, Y = e.Y * 2, Size = MathF.Max(0.5f, e.Value / 40), Seed = e.Seed, Shake = Shake }));
@@ -195,7 +199,19 @@ internal sealed class RunView : IDisposable
                     AddFlash(e.X, e.Y - 8, 150, 1.6f, 0.9f, 0.4f, 0.4f);
                     ScreenFlash(0.08f, 0xFF60C0FFu);
                     break;
+                case EventKind.EagleDive:
+                case EventKind.BoarStomp:
+                case EventKind.RocketImpact:
+                case EventKind.WoodShockwave:
+                case EventKind.WildAura:
+                case EventKind.Laser:
+                case EventKind.Rifle:
+                case EventKind.CaneStrike:
+                case EventKind.Revival:
+                    AddItemEffect(e);
+                    break;
                 case EventKind.DroneBlast:
+                    AddItemEffect(e);
                     if (_effects.Count < MaxCpuEffects)
                         _effects.Add(new ExplosionEffect(new ExplosionOptions { X = e.X * 2, Y = e.Y * 2, Size = 0.85f, Seed = e.Seed }));
                     Burst(e.X, e.Y, 22, 90, 0xFFFFE4ACu, 0xFF2855D5u, 1.2f);
@@ -383,6 +399,24 @@ internal sealed class RunView : IDisposable
                 X = x, Y = y, Vx = MathF.Cos(ang) * sp, Vy = MathF.Sin(ang) * sp * 0.75f,
                 Life = 0.25f + 0.45f * _cosmetic.NextSingle(), MaxLife = 0.7f, Drag = 3.5f, Gravity = 30,
                 ColorA = a, ColorB = b, Intensity = intensity, Kind = 0,
+            });
+        }
+    }
+
+    private void DrawSodaSplash(float x, float y, float radius)
+    {
+        float spread = Math.Clamp(radius, 16, 80);
+        for (int i = 0; i < 24; i++)
+        {
+            float angle = _cosmetic.NextSingle() * MathF.Tau;
+            float speed = spread * (0.6f + 1.4f * _cosmetic.NextSingle());
+            float life = 0.28f + 0.24f * _cosmetic.NextSingle();
+            _particles.Spawn(new GpuParticle
+            {
+                X = x, Y = y, Vx = MathF.Cos(angle) * speed,
+                Vy = MathF.Sin(angle) * speed * 0.45f - 42,
+                Life = life, MaxLife = life, Drag = 2.4f, Gravity = 150,
+                ColorA = 0xFFCFFFF0u, ColorB = 0xFF74B62Cu, Intensity = 1f, Kind = 0,
             });
         }
     }
@@ -615,6 +649,7 @@ internal sealed class RunView : IDisposable
         var color = PixelCanvas.ColorOf(vfx);
         var light = PixelCanvas.LightOf(vfx);
         DrawEnemyEffects(world, color, light, alpha, ox, oy, tw, th);
+        DrawItemEffects(world, color, light, dt, ox, oy, tw, th);
         for (int i = 0; i < RunWorld.ProjectileCapacity; i++)
         {
             if (!world.PAlive[i]) continue;
@@ -755,18 +790,37 @@ internal sealed class RunView : IDisposable
     private void DrawVisionMask(RunWorld world, Vector2 hero)
     {
         var player = world.Player;
+        if (player.Hp <= 0) return;
         foreach (int item in player.EffectItems)
         {
             var effect = world.Content.Items[item].Effect!;
             if (effect.Kind != "weldingBlock") continue;
+
             var (hx, hy) = _renderer.WorldToUi(hero.X, hero.Y);
-            var ui = PixelCanvas.ColorOf(_renderer.UiFrame);
-            var origin = new Vector2(hx, hy);
-            var visible = CombatArea.Cone(origin, _renderer.ViewW + _renderer.ViewH, player.Facing, effect.Value);
-            for (int y = 0; y < _renderer.ViewH; y++)
-                for (int x = 0; x < _renderer.ViewW; x++)
-                    if (!visible.Contains(new Vector2(x, y), out float squared) && squared > 12 * 12)
-                        ui.Blend(x, y, 0xFF0E0B14u, 0.9f);
+            var frame = _renderer.UiFrame;
+            var ui = PixelCanvas.ColorOf(frame);
+            float halfAngle = effect.Value * MathF.PI / 360f;
+            float inside = MathF.Cos(halfAngle);
+            float outside = MathF.Cos(Math.Min(MathF.PI, halfAngle + MathF.PI / 18f));
+            float angleRange = Math.Max(0.00001f, inside - outside);
+            float scale = _renderer.Scale / (float)_renderer.UiScale;
+            float clearRadius = 12 * scale;
+            float fadeRadius = 10 * scale;
+            for (int y = 0; y < frame.H; y++)
+            {
+                float dy = y - hy;
+                for (int x = 0; x < frame.W; x++)
+                {
+                    float dx = x - hx;
+                    float distance = MathF.Sqrt(dx * dx + dy * dy);
+                    if (distance <= clearRadius) continue;
+                    float direction = (dx * player.Facing.X + dy * player.Facing.Y) / distance;
+                    if (direction >= inside) continue;
+                    float angleFade = Math.Min(1, (inside - direction) / angleRange);
+                    float nearFade = Math.Min(1, (distance - clearRadius) / fadeRadius);
+                    ui.Blend(x, y, 0xFF0E0B14u, 0.78f * angleFade * nearFade);
+                }
+            }
             return;
         }
     }

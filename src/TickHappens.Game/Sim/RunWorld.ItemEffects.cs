@@ -349,7 +349,7 @@ public sealed partial class RunWorld
             if (--player.ItemStacks[item] == 0) player.EffectItems.RemoveAt(i);
             player.Hp = MaxHealthFor(player);
             player.InvulnTicks = Math.Max(player.InvulnTicks, (int)MathF.Ceiling(effect.Duration * TicksPerSecond));
-            Emit(EventKind.Pulse, player.Pos.X, player.Pos.Y, 25);
+            Emit(EventKind.Revival, player.Pos.X, player.Pos.Y);
             return true;
         }
         return false;

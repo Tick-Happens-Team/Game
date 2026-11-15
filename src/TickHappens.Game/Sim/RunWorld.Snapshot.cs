@@ -7,7 +7,7 @@ namespace TickHappens.Game.Sim;
 public sealed partial class RunWorld
 {
     public const int SnapshotCapacity = 64 * 1024;
-    private const byte SnapshotVersion = 4;
+    private const byte SnapshotVersion = 5;
     private int _replicaTick = -1;
     private readonly ushort[] _enemySnapshotSlots = new ushort[ushort.MaxValue / 8];
 
@@ -29,6 +29,7 @@ public sealed partial class RunWorld
                 w.Short(Content.CharacterIndex(p.Character.Id));
                 WritePoint(ref w, p.Pos.X, p.Pos.Y);
                 w.Float(p.Hp);
+                w.Byte((byte)p.RevivalTicks);
                 w.Int(p.Level);
                 w.Float(p.Xp);
                 w.Float(p.XpNext);
@@ -339,6 +340,7 @@ public sealed partial class RunWorld
         int character = r.Short();
         var position = ReadPoint(ref r);
         float hp = r.Float();
+        int revival = r.Byte();
         int level = r.Int();
         float xp = r.Float(), xpNext = r.Float();
         int kills = r.Int(), gold = r.Int(), price = r.Int(), invulnerable = r.Int(), dash = r.Int();
@@ -368,7 +370,8 @@ public sealed partial class RunWorld
         var facing = DecodeAngle(r.Short());
         var dashDirection = DecodeAngle(r.Short());
         int equipped = r.Short();
-        Require(ghostUntil >= 0 && attackTick >= -1 && distance >= 0 && souls >= 0 && hp >= 0 && level > 0 && xp >= 0 && xpNext > 0 &&
+        Require(ghostUntil >= 0 && attackTick >= -1 && distance >= 0 && souls >= 0 && hp >= 0 && revival < RevivalHoldTicks &&
+            (hp == 0 || revival == 0) && level > 0 && xp >= 0 && xpNext > 0 &&
             kills >= 0 && gold >= 0 && price > 0 && invulnerable >= 0 && dash >= 0 && cooldown >= 0 &&
             chest >= -1 && chest < Chests.Length && item >= -1 && item < Content.Items.Count && flags <= 7 && lastAppliedInput >= 0 &&
             dashTotal >= dash && dashChargesUsed is >= 0 and <= 9 && dashSpeed >= 0 && accelerator >= 0 &&
@@ -397,6 +400,7 @@ public sealed partial class RunWorld
             p.PrevDash = (flags & 4) != 0;
             p.LastAppliedInput = lastAppliedInput;
             p.Hp = hp;
+            p.RevivalTicks = revival;
             p.Level = level;
             p.Xp = xp;
             p.XpNext = xpNext;
