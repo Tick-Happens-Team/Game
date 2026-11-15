@@ -49,6 +49,7 @@ public sealed class HeroPassiveTests
     public void NecromancerSpendsSoulsOnTheCorrectCompanionAndReplicatesIt(int souls, int type)
     {
         var world = new RunWorld(QuietContent(), character: "necromancer");
+        var replica = new RunWorld(world.Content, character: "necromancer");
         for (int i = 0; i < souls; i++)
         {
             int target = world.SpawnEnemy(0, world.Player.Pos + new Vector2(30, 0));
@@ -56,6 +57,8 @@ public sealed class HeroPassiveTests
         }
         Assert.Equal(souls, world.Player.Souls);
         TestWorld.Close(1 + souls * 0.005f, world.OutgoingMultiplier(DamageKind.Pure, false));
+        CopySnapshot(world, replica);
+        Assert.Equal(souls, replica.Player.Souls);
 
         Step(world, 30 * RunWorld.TicksPerSecond);
         var companion = Assert.Single(world.Companions.ToArray(), ally => ally.Active);
@@ -64,8 +67,8 @@ public sealed class HeroPassiveTests
         Assert.Equal(0, world.Player.Souls);
         TestWorld.Close(1, world.OutgoingMultiplier(DamageKind.Pure, false));
 
-        var replica = new RunWorld(world.Content, character: "necromancer");
         CopySnapshot(world, replica);
+        Assert.Equal(0, replica.Player.Souls);
         Assert.Equal(type, Assert.Single(replica.Companions.ToArray(), ally => ally.Active).Item);
     }
 
