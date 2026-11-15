@@ -100,7 +100,7 @@ public sealed class CoopSessionTests
         host.PeerJoined += _ => throw new InvalidOperationException("Unexpected player join.");
         host.InputReceived += (_, _, _) => throw new InvalidOperationException("Unexpected input.");
 
-        clientWire.Send("host", [1, 4, 1, 0, 0, 0, 5], false);
+        clientWire.Send("host", [CoopSession.ProtocolVersion, 4, 1, 0, 0, 0, 5], false);
         client.Join();
         loopback.Flush();
 
@@ -124,7 +124,7 @@ public sealed class CoopSessionTests
         loopback.Pending.Clear();
         client.SubmitInput(new RunInput(0, 1));
         loopback.Pending.Add(loopback.Pending[0]);
-        clientWire.Send("host", [1, 4, 3, 0, 0, 0, 5, 5, 255], false);
+        clientWire.Send("host", [CoopSession.ProtocolVersion, 4, 3, 0, 0, 0, 5, 5, 255], false);
         loopback.Flush();
 
         Assert.Equal([(1, 1, new RunInput(-1, 0, true)), (1, 2, new RunInput(0, 1))], inputs);

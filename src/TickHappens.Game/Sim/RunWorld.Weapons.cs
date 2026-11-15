@@ -168,7 +168,7 @@ public sealed partial class RunWorld
 
     private void FireChain(float damage, DamageKind kind, DamageSourceRef src, int hops, float range, float hopRange)
     {
-        hops = Math.Clamp(hops, 1, 16);
+        hops = Math.Clamp(hops, 1, MaxChainHops);
         Span<int> chain = stackalloc int[hops];
         int n = 0;
         var position = _players[src.PlayerId].Pos;

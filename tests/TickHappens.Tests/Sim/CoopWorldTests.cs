@@ -1,6 +1,7 @@
 using System.Numerics;
 using TickHappens.Game;
 using TickHappens.Game.Content;
+using TickHappens.Game.Online;
 using TickHappens.Game.Sim;
 
 namespace TickHappens.Tests;
@@ -90,6 +91,33 @@ public sealed class CoopWorldTests
         Assert.False(client.TryApplySnapshot(snapshot.AsSpan(0, size)));
 
         Assert.Throws<InvalidOperationException>(() => client.Step(default));
+    }
+
+    [Fact]
+    public void EventPacketsPreserveCombatDataAndChainPoints()
+    {
+        var content = TestContent.LoadCore();
+        var host = new RunWorld(content);
+        var client = new RunWorld(content);
+        host.Events.Add(new GameEvent { Kind = EventKind.Hit, X = 42.5f, Value = 12.75f, A = 1, Seed = uint.MaxValue });
+        host.ChainPoints.Add(new(10, 12));
+        host.ChainPoints.Add(new(20, 22));
+        host.Events.Add(new GameEvent { Kind = EventKind.Chain, A = 0, B = 2, Seed = 11 });
+
+        int next = 0;
+        var packet = new byte[CoopSession.MaxEventBytes];
+        int length = host.WriteEvents(packet.AsSpan(0, 34), ref next);
+        Assert.Equal(1, next);
+        Assert.True(client.TryApplyEvents(packet.AsSpan(0, length)));
+        Assert.Equal(host.Events[0], Assert.Single(client.Events));
+
+        length = host.WriteEvents(packet, ref next);
+        Assert.False(client.TryApplyEvents(packet.AsSpan(0, length - 1)));
+        Assert.Single(client.Events);
+        Assert.Empty(client.ChainPoints);
+        Assert.True(client.TryApplyEvents(packet.AsSpan(0, length)));
+        Assert.Equal(host.Events, client.Events);
+        Assert.Equal(host.ChainPoints, client.ChainPoints);
     }
 
     [Fact]

@@ -5,9 +5,7 @@ using TickHappens.Game;
 using TickHappens.Game.Content;
 using TickHappens.Game.Sim;
 using TickHappens.Localization;
-#if TICKHAPPENS_EOS
 using TickHappens.Game.Online;
-#endif
 
 if (args is ["--sim-bench", var reportPath])
 {
@@ -91,11 +89,9 @@ var loop = new RunLoop(world);
 var clock = Stopwatch.StartNew();
 double last = clock.Elapsed.TotalSeconds, fpsTimer = 0;
 int fpsFrames = 0;
-#if TICKHAPPENS_EOS
 using var online = new OnlineGame(content);
 var onlineMenu = new OnlineMenu(online);
 bool wasOnlinePlaying = false;
-#endif
 
 for (int frame = 1; !window.QuitRequested; frame++)
 {
@@ -105,14 +101,13 @@ for (int frame = 1; !window.QuitRequested; frame++)
     float frameDt = demo ? 1f / 60 : (float)Math.Min(0.1, now - last);
     last = now;
 
-#if TICKHAPPENS_EOS
     bool escapeHandled = inMenu && (onlineMenu.IsOpen || online.Playing);
     bool onlineMenuWasOpen = onlineMenu.IsOpen;
     if (inMenu && online.Playing && window.WasPressed(Key.Escape)) online.Leave();
     else if (inMenu && !stayInMenu && !online.Playing)
         onlineMenu.Read(window, view.Renderer, content.Characters[selected].Id, seed);
     var netInput = new RunInput(Axis(Key.D, Key.Right, Key.A, Key.Left),
-        Axis(Key.S, Key.Down, Key.W, Key.Up), window.IsDown(Key.Space));
+        Axis(Key.S, Key.Down, Key.W, Key.Up), window.IsDown(Key.Space) || window.WasPressed(Key.Space));
     online.Update(frameDt, netInput);
     if (online.Playing != wasOnlinePlaying)
     {
@@ -124,22 +119,14 @@ for (int frame = 1; !window.QuitRequested; frame++)
         var onlineWorld = online.World!;
         view.Consume(onlineWorld);
         onlineWorld.ClearEvents();
-        view.Draw(window.Width, window.Height, onlineWorld, online.Alpha, false, frameDt, online: true);
-        window.Present();
-        continue;
+        view.Draw(window.Width, window.Height, onlineWorld, online.Alpha, false, frameDt, online: true, interrupted: online.Interrupted);
     }
-    if (inMenu && (onlineMenu.IsOpen || onlineMenuWasOpen))
+    else if (inMenu && (onlineMenu.IsOpen || onlineMenuWasOpen))
     {
         view.Draw(window.Width, window.Height, world, 1, true, frameDt, selected, onlineMenu.Draw);
-        window.Present();
-        continue;
     }
-    if (window.WasPressed(Key.Escape) && !escapeHandled) break;
-#else
-    if (window.WasPressed(Key.Escape)) break;
-#endif
-
-    if (inMenu)
+    else if (window.WasPressed(Key.Escape) && !escapeHandled) break;
+    else if (inMenu)
     {
         if (window.WasPressed(Key.F4))
         {
@@ -161,11 +148,8 @@ for (int frame = 1; !window.QuitRequested; frame++)
             view.Reset();
             inMenu = false;
         }
-        view.Draw(window.Width, window.Height, world, 1, paused: true, frameDt, menuSelection: selected
-#if TICKHAPPENS_EOS
-            , overlay: stayInMenu ? null : onlineMenu.Draw
-#endif
-        );
+        view.Draw(window.Width, window.Height, world, 1, paused: true, frameDt, menuSelection: selected,
+            overlay: stayInMenu ? null : onlineMenu.Draw);
     }
     else
     {

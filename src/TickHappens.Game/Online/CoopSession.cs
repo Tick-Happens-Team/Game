@@ -14,15 +14,17 @@ public interface ICoopTransport
 public sealed class CoopSession : IDisposable
 {
     public const int MaxPlayers = 4;
-    public const int MaxPacketBytes = 1150;
+    // Fits LiteNetLib's initial 1024-byte MTU including its reliable header.
+    public const int MaxPacketBytes = 1000;
     public const int MaxSnapshotBytes = 256 * 1024;
-    private const byte Version = 1;
+    public const byte ProtocolVersion = 2;
     private const int HeaderBytes = 2;
+    public const int MaxEventBytes = MaxPacketBytes - HeaderBytes;
     private const int SnapshotHeaderBytes = 12;
     private const int FragmentBytes = MaxPacketBytes - SnapshotHeaderBytes;
     private const int RedundantInputs = 3;
 
-    private enum Message : byte { Hello = 1, Welcome, Rejected, Inputs, Snapshot, Heartbeat }
+    private enum Message : byte { Hello = 1, Welcome, Rejected, Inputs, Snapshot, Heartbeat, Events }
     private enum Rejection : byte { Incompatible = 1, Full, Started }
 
     private readonly ICoopTransport _transport;
@@ -65,6 +67,17 @@ public sealed class CoopSession : IDisposable
 
     /// <summary>The snapshot buffer remains valid until the next snapshot starts arriving.</summary>
     public event Action<int, ReadOnlyMemory<byte>>? SnapshotReceived;
+    public event Action<ReadOnlyMemory<byte>>? EventsReceived;
+
+    public void BroadcastEvents(ReadOnlySpan<byte> events)
+    {
+        if (_disposed || !IsHost || events.IsEmpty || events.Length > MaxEventBytes) return;
+        Span<byte> packet = stackalloc byte[HeaderBytes + events.Length];
+        Header(packet, Message.Events);
+        events.CopyTo(packet[HeaderBytes..]);
+        for (int slot = 1; slot < MaxPlayers; slot++)
+            if (_peerSlots[slot] is { } peer) _transport.Send(peer, packet, reliable: true);
+    }
 
     public void Join()
     {
@@ -161,7 +174,7 @@ public sealed class CoopSession : IDisposable
             ReceiveHello(peer, packet);
             return;
         }
-        if (packet[0] != Version) return;
+        if (packet[0] != ProtocolVersion) return;
         if (IsHost)
         {
             int slot = Array.IndexOf(_peerSlots, peer, 1);
@@ -192,6 +205,9 @@ public sealed class CoopSession : IDisposable
                 };
                 _joining = false;
                 break;
+            case Message.Events when LocalPlayerSlot.HasValue && packet.Length > HeaderBytes:
+                EventsReceived?.Invoke(memory[HeaderBytes..]);
+                break;
             case Message.Snapshot when LocalPlayerSlot.HasValue:
                 ReceiveSnapshot(packet);
                 break;
@@ -204,7 +220,7 @@ public sealed class CoopSession : IDisposable
     private void ReceiveHello(string peer, ReadOnlySpan<byte> packet)
     {
         if (packet.Length != HeaderBytes + _digest.Length) return;
-        if (packet[0] != Version || !_digest.AsSpan().SequenceEqual(packet[HeaderBytes..]))
+        if (packet[0] != ProtocolVersion || !_digest.AsSpan().SequenceEqual(packet[HeaderBytes..]))
         {
             SendResponse(peer, Message.Rejected, (byte)Rejection.Incompatible, packet[0]);
             return;
@@ -214,13 +230,13 @@ public sealed class CoopSession : IDisposable
         {
             if (!AcceptNewPlayers)
             {
-                SendResponse(peer, Message.Rejected, (byte)Rejection.Started, Version);
+                SendResponse(peer, Message.Rejected, (byte)Rejection.Started, ProtocolVersion);
                 return;
             }
             slot = Array.IndexOf(_peerSlots, null, 1);
             if (slot < 0)
             {
-                SendResponse(peer, Message.Rejected, (byte)Rejection.Full, Version);
+                SendResponse(peer, Message.Rejected, (byte)Rejection.Full, ProtocolVersion);
                 return;
             }
             _peerSlots[slot] = peer;
@@ -228,7 +244,7 @@ public sealed class CoopSession : IDisposable
             PeerJoined?.Invoke(slot);
         }
         _lastPeerActivity[slot] = _clock.GetTimestamp();
-        SendResponse(peer, Message.Welcome, (byte)slot, Version);
+        SendResponse(peer, Message.Welcome, (byte)slot, ProtocolVersion);
     }
 
     private void ReceiveInputs(int slot, ReadOnlySpan<byte> packet)
@@ -315,7 +331,7 @@ public sealed class CoopSession : IDisposable
 
     private static void Header(Span<byte> packet, Message message)
     {
-        packet[0] = Version;
+        packet[0] = ProtocolVersion;
         packet[1] = (byte)message;
     }
 

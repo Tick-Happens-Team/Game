@@ -62,12 +62,12 @@
 |---|---|---|---|---|
 | 3.1 | [x] Transport contract, loopback tests, versioned messages | P! | 2.1 | Host and three clients negotiate slots in one process. |
 | 3.2 | [~] Client input, delta/quantized snapshots, local prediction | P! | 3.1 | Hosts process input and send quantized snapshots. Delta compression, prediction/reconciliation, and the latency/bandwidth benchmark remain. |
-| 3.3 | [~] Statue, damage, death/drop seed, chest, and level events | P! | 3.2 | Host snapshots carry run time, entities, and per-player rewards. Complete event fidelity and multiplayer VFX verification. |
-| 3.4 | [ ] LiteNetLib LAN discovery and direct IP | P! | 3.1 | Two computers on one LAN can play. |
+| 3.3 | [~] Statue, damage, death/drop seed, chest, and level events | P! | 3.2 | Host snapshots carry run time, entities, and per-player rewards. Reliable event batches carry combat effects, chain points, and cosmetic seeds. Verify multiplayer VFX and finish drop-seed replication. |
+| 3.4 | [~] LiteNetLib LAN discovery and direct IP | P! | 3.1 | Shipped in standard builds. UDP tests cover discovery, direct IP, input, snapshots, and disconnect on one machine. Verify on two computers on the same LAN. |
 | 3.5 | [~] EOS Device ID, room code, P2P relay, and release SDK | P! | 3.1 | Windows SDK build signs in, creates, finds by code, and closes a real EOS lobby. Validate a full join and run from independent networks and add protected release packaging. |
-| 3.6 | [~] Reconnect within 60 seconds and handle host departure | P+ | 3.3 | Heartbeat and disconnect handling have loopback coverage. Reconnect and a real interrupted-session test remain. |
+| 3.6 | [~] Reconnect within 60 seconds and handle host departure | P+ | 3.3 | Heartbeat and disconnect handling have loopback coverage. LAN UDP tests cover host departure, and the client shows the last run results. Reconnect and an interrupted-session playtest remain. |
 | 3.7 | [~] Required mod compatibility hash | P! | 3.1, 4.2 | Handshake rejects mismatched loaded gameplay data. Exact mod retrieval remains. |
-| 3.8 | [~] Relay-only setting | P+ | 3.5 | Developer flag selects ForceRelays. Player setting and cross-network verification remain. |
+| 3.8 | [~] Relay-only setting | P+ | 3.5 | The EOS menu can select ForceRelays before connecting. Cross-network verification remains. |
 | 3.9 | [ ] Assess WebRTC, signaling, and TURN if EOS is blocked | P- | 3.5 | Check relay availability, cost, and account-free access. |
 
 ## P4. Mods and Workshop

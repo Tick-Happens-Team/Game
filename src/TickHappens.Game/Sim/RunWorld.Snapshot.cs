@@ -137,8 +137,6 @@ public sealed partial class RunWorld
             bool active = r.Flag();
             int hold = r.Short();
             if (!apply) continue;
-            if (_replicaTick >= 0 && active && !StatueActive[i])
-                ReplicaEvent(EventKind.Statue, position.X, position.Y, Rules.Statue.Minutes, i);
             Statues[i] = position;
             StatueActive[i] = active;
             StatueHold[i] = hold * (Rules.Statue.HoldSeconds / ushort.MaxValue);
@@ -149,8 +147,6 @@ public sealed partial class RunWorld
             var position = ReadPoint(ref r);
             bool open = r.Flag();
             if (!apply) continue;
-            if (_replicaTick >= 0 && open && !ChestOpen[i])
-                ReplicaEvent(EventKind.Chest, position.X, position.Y);
             Chests[i] = position;
             ChestOpen[i] = open;
         }
@@ -176,10 +172,7 @@ public sealed partial class RunWorld
             EUid[slot] = uid;
             EFlash[slot] = (status & 64) == 0 ? (byte)0 : (byte)3;
             EMaxHp[slot] = Content.Enemies[def].Hp * HpScale;
-            float hp = EMaxHp[slot] * (status & 63) / 63;
-            if (existing && EHp[slot] > hp)
-                ReplicaEvent(EventKind.Hit, position.X, position.Y, EHp[slot] - hp);
-            EHp[slot] = hp;
+            EHp[slot] = EMaxHp[slot] * (status & 63) / 63;
         }
         if (apply)
         {
@@ -189,7 +182,6 @@ public sealed partial class RunWorld
             {
                 bool active = read < count && _enemySnapshotSlots[read] == i;
                 if (active) read++;
-                if (!active && EAlive[i]) ReplicaEvent(EventKind.Kill, EX[i], EY[i], a: EDef[i]);
                 EAlive[i] = active;
             }
             _enemyHigh = high;
@@ -259,11 +251,6 @@ public sealed partial class RunWorld
                 p = CreatePlayer(Content.Characters[character], slot, false);
                 _players[slot] = p;
             }
-            if (p.Active && _replicaTick >= 0)
-            {
-                if (hp < p.Hp) ReplicaEvent(EventKind.PlayerHurt, position.X, position.Y, p.Hp - hp);
-                if (level > p.Level) ReplicaEvent(EventKind.LevelUp, position.X, position.Y, level);
-            }
             p.Prev = p.Active && _replicaTick >= 0 ? p.Pos : position;
             p.Pos = position;
             p.Active = true;
@@ -298,12 +285,6 @@ public sealed partial class RunWorld
             foreach (var m in Content.Items[id].Mods)
                 if (ContentLoader.TryParseStat(m.Stat, out var stat)) p.Stats.Apply(stat, m.Add * copies, m.Pct * copies);
         }
-    }
-
-    private void ReplicaEvent(EventKind kind, float x, float y, float value = 0, int a = -1)
-    {
-        var rng = new SimRng(Seed ^ (uint)Tick ^ ((uint)_events.Count << 16));
-        _events.Add(new GameEvent { Kind = kind, X = x, Y = y, Value = value, A = a, Seed = rng.NextU() });
     }
 
     private static int CountActive(bool[] slots)
