@@ -117,6 +117,7 @@ int fpsFrames = 0;
 using var online = new OnlineGame(content);
 var onlineMenu = new OnlineMenu(online);
 var coopHud = new CoopHud(online, settingsMenu);
+var itemPanel = new ItemPanel(online.PlayerName);
 var pauseMenu = new PauseMenu(settingsMenu);
 Action<PixelRenderer> drawPauseMenu = renderer => pauseMenu.Draw(renderer);
 Action<PixelRenderer> drawSettingsMenu = settingsMenu.Draw;
@@ -165,12 +166,13 @@ for (int frame = 1; !window.QuitRequested; frame++)
     if (inMenu && online.Playing)
     {
         var onlineWorld = online.World!;
+        itemPanel.Read(window, !coopHud.CapturesInput && !online.Paused && !online.Interrupted);
         view.Consume(onlineWorld);
         audio.Consume(onlineWorld, onlineWorld.Player.Pos, online.Paused);
         onlineWorld.ClearEvents();
         view.Draw(window.Width, window.Height, onlineWorld, online.Alpha, online.Paused, frameDt, online: true,
             interruption: online.Interrupted ? online.Status : null, canReconnect: online.CanReconnect,
-            localAlpha: online.LocalAlpha, localCorrection: online.ViewCorrection, coopHud: coopHud);
+            localAlpha: online.LocalAlpha, localCorrection: online.ViewCorrection, coopHud: coopHud, itemPanel: itemPanel);
     }
     else if (inMenu && mainSettingsOpen)
     {
@@ -241,11 +243,12 @@ for (int frame = 1; !window.QuitRequested; frame++)
             var input = demo ? DemoPilot.Decide(world) with { Dash = DemoPilot.Decide(world).Dash || (dashEvery > 0 && world.Tick % dashEvery == 0) }
                 : netInput;
             loop.Advance(frameDt, input);
+            itemPanel.Read(window, !loop.Paused && world.Phase == RunPhase.Playing);
             view.Consume(world);
             audio.Consume(world, world.Player.Pos, loop.Paused);
             world.ClearEvents();
             view.Draw(window.Width, window.Height, world, world.Phase == RunPhase.Playing ? loop.Interpolation : 1,
-                loop.Paused || world.Phase != RunPhase.Playing, frameDt, overlay: drawPauseMenu);
+                loop.Paused || world.Phase != RunPhase.Playing, frameDt, overlay: drawPauseMenu, itemPanel: itemPanel);
         }
     }
 

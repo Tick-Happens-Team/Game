@@ -134,6 +134,6 @@ public enum Key
     Return = 40, Escape = 41, Backspace = 42, Tab = 43, Space = 44,
     Semicolon = 51, Period = 55,
     F1 = 58, F2 = 59, F3 = 60, F4 = 61, F5 = 62, F6 = 63, F7 = 64, F12 = 69,
-    Right = 79, Left = 80, Down = 81, Up = 82,
+    PageUp = 75, PageDown = 78, Right = 79, Left = 80, Down = 81, Up = 82,
     LeftCtrl = 224, LeftShift, RightCtrl = 228, RightShift,
 }

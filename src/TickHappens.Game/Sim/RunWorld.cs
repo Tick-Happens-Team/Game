@@ -284,6 +284,7 @@ public sealed partial class RunWorld
         StepPickups();
         StepStatues();
         StepChests(inputs);
+        StepRevival();
         if (NearestLivingPlayer(Player.Pos) < 0) Phase = RunPhase.Dead;
     }
 

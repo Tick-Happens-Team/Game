@@ -88,7 +88,7 @@ public sealed partial class RunWorld
                 case "wood": FireWood(p, w, src, kind, count, area); break;
                 case "aura":
                     AreaItemHit(p.Pos, area, w.Damage * count, kind, src, w.Slow);
-                    if (Tick % TicksPerSecond < 6) Emit(EventKind.Pulse, p.Pos.X, p.Pos.Y, area);
+                    if (Tick % TicksPerSecond < 6) Emit(EventKind.WildAura, p.Pos.X, p.Pos.Y, area);
                     break;
                 case "boomerang":
                     for (int k = 0; k < Math.Min(8, count); k++)
@@ -162,7 +162,7 @@ public sealed partial class RunWorld
     {
         if (AliveEnemies == 0 || !RollChance(weapon.Chance * p.ItemStacks[source.ItemDef])) return false;
         int target = HighestHealthEnemy();
-        Emit(EventKind.ItemBeam, p.Pos.X, p.Pos.Y, x2: EX[target], y2: EY[target]);
+        Emit(EventKind.CaneStrike, EX[target], EY[target]);
         if (Content.Enemies[EDef[target]].Boss) DamageEnemy(target, weapon.Damage, DamageKind.Pure, source, p.Pos.X, p.Pos.Y);
         else ApplyEnemyHit(target, EHp[target], DamageKind.Pure, p.Id, p.Pos.X, p.Pos.Y, 0);
         return true;
@@ -189,7 +189,7 @@ public sealed partial class RunWorld
             ApplyEnemyStatus(i, w.Slow * (0.25f + 0.75f * weight), 2, 0);
             DamageEnemy(i, (w.MinDamage + (w.Damage - w.MinDamage) * weight) * count, kind, source, p.Pos.X, p.Pos.Y);
         }
-        Emit(EventKind.Pulse, p.Pos.X, p.Pos.Y, radius);
+        Emit(EventKind.WoodShockwave, p.Pos.X, p.Pos.Y, radius);
     }
 
     private void FireMelee(PlayerState p, float damage, DamageKind kind, DamageSourceRef source, float radius, float angle, bool flame = false)
@@ -205,7 +205,7 @@ public sealed partial class RunWorld
     {
         int target = HighestHealthEnemy(excludeBoss: execute);
         if (target < 0) return false;
-        Emit(EventKind.ItemBeam, p.Pos.X, p.Pos.Y, x2: EX[target], y2: EY[target]);
+        Emit(execute ? EventKind.Laser : EventKind.Rifle, p.Pos.X, p.Pos.Y, x2: EX[target], y2: EY[target]);
         if (execute) ApplyEnemyHit(target, EHp[target], kind, p.Id, p.Pos.X, p.Pos.Y, 0);
         else
         {
@@ -334,9 +334,11 @@ public sealed partial class RunWorld
             {
                 if (_pLife[i] <= 0)
                 {
-                    float radius = Content.Items[source.ItemDef].Weapon!.Area * owner.Stats[Stat.Area];
+                    var item = Content.Items[source.ItemDef];
+                    float radius = item.Weapon!.Area * owner.Stats[Stat.Area];
                     AreaItemHit(position, radius, _pDamage[i], _pKind[i], source);
-                    Emit(EventKind.Blast, position.X, position.Y, radius);
+                    var blastStyle = item.Id == "soda" ? BlastStyle.SodaSplash : BlastStyle.Default;
+                    Emit(EventKind.Blast, position.X, position.Y, radius, a: (int)blastStyle);
                     PAlive[i] = false;
                 }
                 continue;
@@ -368,6 +370,7 @@ public sealed partial class RunWorld
             hits[0] = EUid[t];
             _pPierce[i]--;
             var impact = new Vector2(EX[t], EY[t] - 6);
+            if (style == ProjectileStyle.Rocket) Emit(EventKind.RocketImpact, impact.X, impact.Y, 22);
             DamageEnemy(t, _pDamage[i], _pKind[i], source, PX[i] - PVx[i], PY[i] - PVy[i], 60);
             if (style == ProjectileStyle.Magic && !EAlive[t])
             {

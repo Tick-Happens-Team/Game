@@ -157,7 +157,14 @@ public sealed partial class RunWorld
         {
             float radius = def.Area * owner.Stats[Stat.Area];
             AreaItemHit(pos, radius, damage, kind, source, def.Slow, def.Stun);
-            Emit(def.Kind == "drone" ? EventKind.DroneBlast : EventKind.Blast, pos.X, pos.Y, radius);
+            var effect = def.Kind switch
+            {
+                "drone" => EventKind.DroneBlast,
+                "eagle" => EventKind.EagleDive,
+                "boar" => EventKind.BoarStomp,
+                _ => EventKind.Pulse,
+            };
+            Emit(effect, pos.X, pos.Y, radius, x2: ally.Pos.X, y2: ally.Pos.Y);
         }
         else DamageEnemy(target, damage, kind, source, ally.Pos.X, ally.Pos.Y);
         if (def.Kind == "drone")

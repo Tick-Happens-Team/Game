@@ -15,7 +15,9 @@ public static class PixelFont
     /// <summary>True when the character (after uppercasing) has a glyph or is a space or newline.</summary>
     public static bool HasGlyph(char c) => c is ' ' or '\n' ||Glyphs.ContainsKey(char.ToUpperInvariant(c));
 
-    public static int Measure(string text, int scale = 1)
+    public static int Measure(string text, int scale = 1) => Measure(text.AsSpan(), scale);
+
+    public static int Measure(ReadOnlySpan<char> text, int scale = 1)
     {
         int w = 0, best = 0;
         foreach (char c in text)
@@ -27,7 +29,10 @@ public static class PixelFont
     }
 
     /// <summary>Draws text with an optional 1px drop shadow. (x, y) is the top-left in canvas pixels.</summary>
-    public static void Draw(PixelCanvas canvas, string text, int x, int y, uint color, uint shadow = 0, int scale = 1)
+    public static void Draw(PixelCanvas canvas, string text, int x, int y, uint color, uint shadow = 0, int scale = 1) =>
+        Draw(canvas, text.AsSpan(), x, y, color, shadow, scale);
+
+    public static void Draw(PixelCanvas canvas, ReadOnlySpan<char> text, int x, int y, uint color, uint shadow = 0, int scale = 1)
     {
         if (shadow != 0) DrawRaw(canvas, text, x + scale, y + scale, shadow, scale);
         DrawRaw(canvas, text, x, y, color, scale);
@@ -37,7 +42,7 @@ public static class PixelFont
     public static void DrawCentered(PixelCanvas canvas, string text, int cx, int y, uint color, uint shadow = 0, int scale = 1) =>
         Draw(canvas, text, cx - Measure(text, scale) / 2, y, color, shadow, scale);
 
-    private static void DrawRaw(PixelCanvas canvas, string text, int x0, int y0, uint color, int scale)
+    private static void DrawRaw(PixelCanvas canvas, ReadOnlySpan<char> text, int x0, int y0, uint color, int scale)
     {
         int x = x0, y = y0;
         foreach (char raw in text)
