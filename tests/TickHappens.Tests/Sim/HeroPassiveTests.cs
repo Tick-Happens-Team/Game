@@ -105,7 +105,7 @@ public sealed class HeroPassiveTests
         TestWorld.LevelTo(world, 2);
         TestWorld.LevelTo(second, 2);
 
-        Assert.InRange(Assert.Single(world.Player.CubeBonuses, bonus => bonus > 0), 0.01f, 0.05f);
+        Assert.InRange(Assert.Single(world.Player.CubeBonuses, bonus => bonus > 0), 0.01f, 0.10f);
         Assert.Equal(world.Player.CubeBonuses, second.Player.CubeBonuses);
         var replica = new RunWorld(world.Content, character: "cybernetic_cube");
         CopySnapshot(world, replica);
@@ -123,6 +123,18 @@ public sealed class HeroPassiveTests
 
         TestWorld.LevelTo(world, 3);
         Assert.Equal(9, world.Player.Stats.Base(Stat.Damage));
+    }
+
+    [Fact]
+    public void MasochistGrowthAddsFlatRegenAndMovementPercentagePointsAtLowHealth()
+    {
+        var world = new RunWorld(QuietContent(), character: "masochist");
+        TestWorld.LevelTo(world, 3);
+        world.Player.Hp = world.MaxHealth * 0.5f;
+        world.Step(default);
+
+        TestWorld.Close(1.65f, world.Player.Stats[Stat.Regen]);
+        TestWorld.Close(30.06f, world.Player.Stats[Stat.MoveSpeed]);
     }
 
     [Fact]

@@ -131,12 +131,12 @@ public sealed class ItemSheetTests
         player.Wallet.Collect(new GoldDrop(100, player.Id), player.Id);
 
         player.Pos = world.Chests[0];
-        world.Step(default);
+        world.Step(new RunInput(0, 0, OpenChest: true));
         Assert.Equal(-1, player.ChestOfferThird);
         world.Step(new RunInput(0, 0, ChestChoice: 1));
 
         player.Pos = world.Chests[1];
-        world.Step(default);
+        world.Step(new RunInput(0, 0, OpenChest: true));
         int third = player.ChestOfferThird;
         Assert.InRange(third, 0, content.Items.Count - 1);
         Assert.NotEqual(player.ChestOfferFirst, third);

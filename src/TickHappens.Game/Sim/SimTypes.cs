@@ -4,7 +4,7 @@ using TickHappens.Game.Content;
 namespace TickHappens.Game.Sim;
 
 /// <summary>Per-tick player input. Movement, dash and chest choices are manual actions.</summary>
-public readonly record struct RunInput(int X, int Y, bool Dash = false, int ChestChoice = 0);
+public readonly record struct RunInput(int X, int Y, bool Dash = false, int ChestChoice = 0, bool OpenChest = false);
 
 public enum RunPhase { Playing, Dead }
 
@@ -75,6 +75,9 @@ public sealed class PlayerState
     public required AttackDef Attack;
     /// <summary>Copies owned per item definition.</summary>
     public required int[] ItemStacks;
+    internal int EnemySlowUntil, EnemyRootUntil, CultistMarkUntil;
+    internal int StolenItem = -1, StolenBy, StolenUntil;
+    internal bool TimekeeperSlowed;
     /// <summary>Cooldown timers of item weapons, per item definition.</summary>
     public required float[] ItemTimers;
     public required float[] ItemPulseTimers;

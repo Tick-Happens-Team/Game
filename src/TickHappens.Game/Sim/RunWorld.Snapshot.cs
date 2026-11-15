@@ -7,7 +7,7 @@ namespace TickHappens.Game.Sim;
 public sealed partial class RunWorld
 {
     public const int SnapshotCapacity = 64 * 1024;
-    private const byte SnapshotVersion = 6;
+    private const byte SnapshotVersion = 7;
     private int _replicaTick = -1;
     private readonly ushort[] _enemySnapshotSlots = new ushort[ushort.MaxValue / 8];
 
@@ -20,6 +20,7 @@ public sealed partial class RunWorld
             w.Int(Tick);
             w.Int(unchecked((int)Seed));
             w.Float(BonusSeconds);
+            w.Int(_timekeeperTicks);
             w.Byte((byte)Phase);
             w.Byte((byte)_players.Length);
             foreach (var p in _players)
@@ -48,6 +49,10 @@ public sealed partial class RunWorld
                 w.Float(p.BonusShield);
                 w.Int(p.GhostUntilTick);
                 w.Int(p.HeroAttackTick);
+                w.Int(p.EnemySlowUntil);
+                w.Int(p.EnemyRootUntil);
+                w.Int(p.StolenItem);
+                w.Byte(p.TimekeeperSlowed ? (byte)1 : (byte)0);
                 switch (p.Character.Id)
                 {
                     case "diver": w.Float(p.HeroDistance); break;
@@ -104,7 +109,7 @@ public sealed partial class RunWorld
                 WritePoint(ref w, EX[i], EY[i]);
                 w.Short(EDef[i]);
                 int hp = Math.Clamp((int)MathF.Ceiling(EHp[i] / EMaxHp[i] * 63), 1, 63);
-                w.Byte((byte)(hp | (EFlash[i] > 0 ? 64 : 0)));
+                w.Byte((byte)(hp | (EFlash[i] > 0 ? 64 : 0) | (_enemyHidden[i] ? 128 : 0)));
                 w.Byte(_enemyAttackTicks[i]);
             }
             int companions = 0;
@@ -117,7 +122,7 @@ public sealed partial class RunWorld
                 w.Byte((byte)i);
                 w.Int(ally.Id);
                 w.Short(ally.Item & ushort.MaxValue);
-                w.Byte((byte)(ally.Owner | (ally.FacingLeft ? 4 : 0)));
+                w.Byte((byte)(ally.Owner | (ally.FacingLeft ? 4 : 0) | (ally.Healing ? 8 : 0)));
                 WritePoint(ref w, ally.Pos.X, ally.Pos.Y);
                 w.Float(ally.Health);
                 w.Float(ally.AuraCapacity);
@@ -178,18 +183,21 @@ public sealed partial class RunWorld
         int tick = r.Int();
         uint seed = unchecked((uint)r.Int());
         float bonusSeconds = r.Float();
+        int timekeeperTicks = r.Int();
         int phase = r.Byte();
         int playerCount = r.Byte();
         Require(tick >= 0 && tick > _replicaTick && phase <= (byte)RunPhase.Dead &&
-            bonusSeconds >= 0 && playerCount == _players.Length);
+            timekeeperTicks >= 0 && timekeeperTicks <= tick && bonusSeconds >= 0 && playerCount == _players.Length);
         if (apply)
         {
             Seed = seed;
             Tick = tick;
             BonusSeconds = bonusSeconds;
+            _timekeeperTicks = timekeeperTicks;
             Phase = (RunPhase)phase;
         }
-        for (int i = 0; i < playerCount; i++) ReadPlayer(ref r, i, apply, previousAlpha);
+        int highestChestHint = -1;
+        for (int i = 0; i < playerCount; i++) highestChestHint = Math.Max(highestChestHint, ReadPlayer(ref r, i, apply, previousAlpha));
         if (apply) UpdateAllPlayerStats();
         Require(r.Short() == Statues.Length);
         for (int i = 0; i < Statues.Length; i++)
@@ -202,8 +210,10 @@ public sealed partial class RunWorld
             StatueActive[i] = active;
             StatueHold[i] = hold * (Rules.Statue.HoldSeconds / ushort.MaxValue);
         }
-        Require(r.Short() == Chests.Length);
-        for (int i = 0; i < Chests.Length; i++)
+        int chests = r.Short();
+        Require(chests >= Rules.Chests.Count && chests >= Chests.Length && chests <= MaxChestSlots && highestChestHint < chests);
+        if (apply && chests > Chests.Length) ResizeChests(chests);
+        for (int i = 0; i < chests; i++)
         {
             var position = ReadPoint(ref r);
             bool open = r.Flag();
@@ -220,7 +230,7 @@ public sealed partial class RunWorld
             Vector2 position = ReadPoint(ref r);
             int def = r.Short(), status = r.Byte(), windup = r.Byte();
             Require(slot < EnemyCapacity && slot > prev && def < Content.Enemies.Count &&
-                status is >= 1 and <= 127 && (status & 63) > 0 && windup <= EnemyWindupDuration(Content.Enemies[def]));
+                (status & 63) > 0 && windup <= EnemyWindupDuration(Content.Enemies[def]));
             prev = slot;
             if (!apply) continue;
             _enemySnapshotSlots[j] = (ushort)slot;
@@ -234,7 +244,8 @@ public sealed partial class RunWorld
             EUid[slot] = uid;
             EFlash[slot] = (status & 64) == 0 ? (byte)0 : (byte)3;
             _enemyAttackTicks[slot] = (byte)windup;
-            EMaxHp[slot] = Content.Enemies[def].Hp * HpScale;
+            _enemyHidden[slot] = (status & 128) != 0;
+            EMaxHp[slot] = Content.Enemies[def].Hp * (Content.Enemies[def].Boss ? 1 : HpScale);
             EHp[slot] = EMaxHp[slot] * (status & 63) / 63;
         }
         if (apply)
@@ -260,7 +271,7 @@ public sealed partial class RunWorld
             var pos = ReadPoint(ref r);
             float health = r.Float(), capacity = r.Float();
             if (item > ushort.MaxValue - SoulCompanions.Length) item -= ushort.MaxValue + 1;
-            Require(slot > lastCompanion && slot < CompanionCapacity && id > 0 && flags <= 7 && health >= 0 && capacity >= health &&
+            Require(slot > lastCompanion && slot < CompanionCapacity && id > 0 && flags <= 15 && health >= 0 && capacity >= health &&
                 (flags & 3) < playerCount && (item < 0 || item < Content.Items.Count && Content.Items[item].Companion != null));
             lastCompanion = slot;
             if (!apply) continue;
@@ -269,7 +280,7 @@ public sealed partial class RunWorld
             var prevPos = ally.Active && ally.Id == id ? Vector2.Lerp(ally.Prev, ally.Pos, previousAlpha) : pos;
             ally = new Companion
             {
-                Active = true, Id = id, Item = item, Owner = flags & 3, FacingLeft = (flags & 4) != 0, Pos = pos, Prev = prevPos,
+                Active = true, Id = id, Item = item, Owner = flags & 3, FacingLeft = (flags & 4) != 0, Healing = (flags & 8) != 0, Pos = pos, Prev = prevPos,
                 Health = health, AuraCapacity = capacity,
             };
         }
@@ -336,14 +347,14 @@ public sealed partial class RunWorld
         if (apply) _replicaTick = tick;
     }
 
-    private void ReadPlayer(ref SnapshotReader r, int slot, bool apply, float previousAlpha)
+    private int ReadPlayer(ref SnapshotReader r, int slot, bool apply, float previousAlpha)
     {
         bool active = r.Flag();
         var p = _players[slot];
         if (!active)
         {
             if (apply) p.Active = false;
-            return;
+            return -1;
         }
         int character = r.Short();
         var position = ReadPoint(ref r);
@@ -357,6 +368,8 @@ public sealed partial class RunWorld
         float speedBonus = r.Float(), shield = r.Float(), bonusShield = r.Float();
         Require(character < Content.Characters.Count);
         int ghostUntil = r.Int(), attackTick = r.Int();
+        int slowUntil = r.Int(), rootUntil = r.Int(), stolen = r.Int();
+        bool timekeeperSlowed = r.Flag();
         string hero = Content.Characters[character].Id;
         float distance = hero == "diver" ? r.Float() : 0;
         int souls = hero == "necromancer" ? r.Int() : 0;
@@ -385,10 +398,10 @@ public sealed partial class RunWorld
         var facing = DecodeAngle(r.Short());
         var dashDirection = DecodeAngle(r.Short());
         int equipped = r.Short();
-        Require(ghostUntil >= 0 && attackTick >= -1 && distance >= 0 && souls >= 0 && hp >= 0 && revival < RevivalHoldTicks &&
+        Require(slowUntil >= 0 && rootUntil >= 0 && stolen >= -1 && stolen < Content.Items.Count && ghostUntil >= 0 && attackTick >= -1 && distance >= 0 && souls >= 0 && hp >= 0 && revival < RevivalHoldTicks &&
             (hp == 0 || revival == 0) && level > 0 && xp >= 0 && xpNext > 0 &&
             kills >= 0 && gold >= 0 && price > 0 && invulnerable >= 0 && dash >= 0 && cooldown >= 0 &&
-            chest >= -1 && chest < Chests.Length && item >= -1 && item < Content.Items.Count && flags <= 7 && lastAppliedInput >= 0 &&
+            chest >= -1 && chest < MaxChestSlots && item >= -1 && item < Content.Items.Count && flags <= 7 && lastAppliedInput >= 0 &&
             dashTotal >= dash && dashChargesUsed is >= 0 and <= 9 && dashSpeed >= 0 && accelerator >= 0 &&
             speedBonus >= 0 && shield >= 0 && bonusShield >= 0 && illusionUntil >= 0 && equipped <= Content.Items.Count &&
             (firstOffer == -1 && secondOffer == -1 && thirdOffer == -1 && offerUntil == 0 ||
@@ -433,6 +446,10 @@ public sealed partial class RunWorld
             p.BonusShield = bonusShield;
             p.GhostUntilTick = ghostUntil;
             p.HeroAttackTick = attackTick;
+            p.EnemySlowUntil = slowUntil;
+            p.EnemyRootUntil = rootUntil;
+            p.StolenItem = stolen;
+            p.TimekeeperSlowed = timekeeperSlowed;
             p.HeroDistance = distance;
             p.Souls = souls;
             if (hero == "cybernetic_cube") cube.CopyTo(p.CubeBonuses);
@@ -462,8 +479,9 @@ public sealed partial class RunWorld
             p.ItemStacks[id] = copies;
             if (Content.Items[id].Effect != null) p.EffectItems.Add(id);
             foreach (var m in Content.Items[id].Mods)
-                if (ContentLoader.TryParseStat(m.Stat, out var stat)) p.Stats.Apply(stat, m.Add * copies, m.Pct * copies);
+                if (ItemEnabled(p, id) && ContentLoader.TryParseStat(m.Stat, out var stat)) p.Stats.Apply(stat, m.Add * copies, m.Pct * copies);
         }
+        return chest;
     }
 
     private static int CountActive(bool[] slots)

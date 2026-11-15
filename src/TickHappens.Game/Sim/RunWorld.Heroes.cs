@@ -32,9 +32,9 @@ public sealed partial class RunWorld
         {
             case "masochist":
                 float missing = 1 - Math.Clamp(player.Hp / Math.Max(1, MaxHealthFor(player)), 0, 1);
-                float bonus = missing * (1 + 0.0015f * level);
-                player.Stats.ApplyDynamic(Stat.Regen, 0, bonus);
-                player.Stats.ApplyDynamic(Stat.MoveSpeed, 0, bonus);
+                float regenGrowth = missing * 0.15f * level / (1 + missing);
+                player.Stats.ApplyDynamic(Stat.Regen, regenGrowth, missing);
+                player.Stats.ApplyDynamic(Stat.MoveSpeed, 0, missing * (1 + 0.003f * level));
                 break;
             case "diver":
                 player.Stats.ApplyDynamic(Stat.Armor, MathF.Floor(player.HeroDistance / 100) * 0.01f, 0);
@@ -50,7 +50,7 @@ public sealed partial class RunWorld
     {
         if (player.Character.Id != "cybernetic_cube") return;
         int stat = _rng.Int(CubeStats.Length);
-        player.CubeBonuses[stat] += _rng.Range(0.01f, 0.05f);
+        player.CubeBonuses[stat] += _rng.Range(0.01f, 0.10f);
     }
 
     private void OnHeroDamaged(PlayerState player, float damage)
@@ -70,6 +70,8 @@ public sealed partial class RunWorld
     private void StepHeroPassive(PlayerState player)
     {
         int level = player.Level - 1;
+        if (player.TimekeeperSlowed && player.NextHeroPassiveTick > Tick && Tick % 4 == 0)
+            player.NextHeroPassiveTick++;
         switch (player.Character.Id)
         {
             case "miner":

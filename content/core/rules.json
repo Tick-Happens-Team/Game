@@ -29,6 +29,8 @@
   },
   "chests": {
     "count": 24,
+    "freeCount": 5,
+    "rareFreeChest": true,
     "radius": 18,
     "startPrice": 10,
     "priceGrowth": 1.5,

@@ -38,7 +38,11 @@ public sealed partial class RunWorld
         {
             var a = p.Attack;
             int count = a.Count + (int)p.Stats[Stat.Amount];
-            if (FireBolts(p.Stats[Stat.Damage], Kind(a.DamageType), new DamageSourceRef(p.Id), count, a.Speed, a.Range, a.Pierce))
+            var source = new DamageSourceRef(p.Id);
+            var kind = Kind(a.DamageType);
+            bool fired = a.MeleeAngle > 0 ? SwingBasicAttack(p, p.Pos, a, kind, source, p.Stats[Stat.Damage] * count) :
+                FireBolts(p.Stats[Stat.Damage], kind, source, count, a.Speed, a.Range, a.Pierce);
+            if (fired)
             {
                 p.HeroAttackTick = Tick;
                 p.AttackTimer = 1f / MathF.Max(0.05f, p.Stats[Stat.AttackSpeed] * Rules.Units.AttacksPerUnit);
@@ -51,7 +55,7 @@ public sealed partial class RunWorld
         // Item weapons: each owned weapon item fires on its own cooldown; extra copies add +1 count.
         for (int i = 0; i < p.ItemStacks.Length; i++)
         {
-            if (p.ItemStacks[i] == 0 || Content.Items[i].Weapon is not { } w) continue;
+            if (!ItemEnabled(p, i) || p.ItemStacks[i] == 0 || Content.Items[i].Weapon is not { } w) continue;
             if (w.Kind is "rocket" or "attackChain") continue;
             if (w.Kind == "cane")
             {
@@ -64,7 +68,7 @@ public sealed partial class RunWorld
             float area = w.Area * p.Stats[Stat.Area];
             float range = w.Range * p.Stats[Stat.Area];
             float cooldown = w.Cooldown * p.Stats[Stat.Cooldown];
-            p.ItemTimers[i] -= Dt;
+            p.ItemTimers[i] -= ItemStep(p);
             if (w.Kind == "sustainedCone")
             {
                 if (p.ItemTimers[i] <= 0)
@@ -135,7 +139,7 @@ public sealed partial class RunWorld
     {
         for (int i = 0; i < p.ItemStacks.Length; i++)
         {
-            if (p.ItemStacks[i] <= 0 || Content.Items[i].Weapon is not { Kind: "rocket" or "attackChain" or "cane" } w)
+            if (!ItemEnabled(p, i) || p.ItemStacks[i] <= 0 || Content.Items[i].Weapon is not { Kind: "rocket" or "attackChain" or "cane" } w)
                 continue;
             if (w.Kind == "cane")
             {
@@ -190,6 +194,27 @@ public sealed partial class RunWorld
             DamageEnemy(i, (w.MinDamage + (w.Damage - w.MinDamage) * weight) * count, kind, source, p.Pos.X, p.Pos.Y);
         }
         Emit(EventKind.WoodShockwave, p.Pos.X, p.Pos.Y, radius);
+    }
+
+    private bool SwingBasicAttack(PlayerState player, Vector2 origin, AttackDef attack, DamageKind kind, DamageSourceRef source, float damage)
+    {
+        float radius = (attack.Range + attack.RangePerLevel * (player.Level - 1)) * player.Stats[Stat.Area];
+        var cone = CombatArea.Cone(origin, radius, player.Facing, attack.MeleeAngle);
+        bool hit = false;
+        for (int i = 0; i < _enemyHigh; i++)
+        {
+            if (!EAlive[i]) continue;
+            var delta = new Vector2(EX[i], EY[i]) - origin;
+            float length = delta.Length();
+            float edge = Math.Max(0, length - Content.Enemies[EDef[i]].Radius);
+            var nearestPoint = length > 0.01f ? origin + delta * (edge / length) : origin;
+            if (!cone.Contains(nearestPoint, out _) || Vector2.Dot(delta, player.Facing) < 0) continue;
+            hit = true;
+            DamageEnemy(i, damage, kind, source, origin.X, origin.Y);
+        }
+        if (hit) Emit(EventKind.Melee, origin.X, origin.Y, radius, a: (int)attack.MeleeAngle,
+            b: 1, x2: player.Facing.X, y2: player.Facing.Y);
+        return hit;
     }
 
     private void FireMelee(PlayerState p, float damage, DamageKind kind, DamageSourceRef source, float radius, float angle, bool flame = false)

@@ -156,6 +156,8 @@ public sealed class RunProgressionTests
 
         p.Pos = world.Chests[0];
         world.Step(default);
+        Assert.False(world.ChestOpen[0]);
+        world.Step(new RunInput(0, 0, OpenChest: true));
 
         Assert.True(world.ChestOpen[0], "standing on an affordable chest must open it");
         Assert.Equal(0, p.ItemStacks.Sum());
@@ -185,15 +187,16 @@ public sealed class RunProgressionTests
         const int minuteTicks = 60 * RunWorld.TicksPerSecond;
 
         player.Pos = world.Chests[0];
+        var originalPosition = player.Pos;
         player.Wallet.Collect(new GoldDrop(player.Wallet.NextPrice, player.Id), player.Id);
-        world.Step(default);
+        world.Step(new RunInput(0, 0, OpenChest: true));
         int firstOpenTick = world.Tick;
         Assert.True(world.ChestOpen[0]);
         world.Step(new RunInput(0, 0, ChestChoice: 1));
 
         player.Pos = world.Chests[1];
         player.Wallet.Collect(new GoldDrop(player.Wallet.NextPrice, player.Id), player.Id);
-        world.Step(default);
+        world.Step(new RunInput(0, 0, OpenChest: true));
         int secondOpenTick = world.Tick;
         Assert.True(world.ChestOpen[1]);
 
@@ -201,11 +204,12 @@ public sealed class RunProgressionTests
         Assert.True(world.ChestOpen[0]);
         world.Step(default);
         Assert.False(world.ChestOpen[0]);
+        Assert.NotEqual(originalPosition, world.Chests[0]);
         Assert.True(world.ChestOpen[1]);
 
         player.Pos = world.Chests[0];
         player.Wallet.Collect(new GoldDrop(player.Wallet.NextPrice, player.Id), player.Id);
-        world.Step(default);
+        world.Step(new RunInput(0, 0, OpenChest: true));
         Assert.True(world.ChestOpen[0]);
         Assert.True(player.ChestOfferFirst >= 0);
 
@@ -220,7 +224,7 @@ public sealed class RunProgressionTests
         var player = world.Player;
         player.Wallet.Collect(new GoldDrop(world.Rules.Chests.StartPrice, player.Id), player.Id);
         player.Pos = world.Chests[0];
-        world.Step(default);
+        world.Step(new RunInput(0, 0, OpenChest: true));
         int first = player.ChestOfferFirst;
         Assert.True(first >= 0);
 

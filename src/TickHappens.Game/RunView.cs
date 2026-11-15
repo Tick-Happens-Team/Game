@@ -24,13 +24,13 @@ internal sealed partial class RunView : IDisposable
     private readonly Texture2D _albedo, _normals, _emission;
     private readonly AtlasSprite _chest, _grass, _stone, _gem, _statue;
     private readonly AtlasSprite[] _heroSprites, _soulSprites;
-    private readonly AtlasSprite? _pigGhost;
+    private readonly AtlasSprite? _pigGhost, _soda;
     private readonly AtlasSprite[] _enemySprites;
     private readonly AtlasSprite?[] _companionSprites;
     private readonly SpriteAnim[] _enemyAnims;
     private readonly SpriteAnim?[] _enemyAttackAnims;
     private readonly uint[] _enemyTint;
-    private readonly int _chestOpenFrame;
+    private readonly int _freeChestFrame, _rareChestFrame, _bossChestFrame;
     private readonly List<IPixelEffect> _effects = [];
     private readonly List<PointLight> _lights = new(64);
     private readonly Hud _hud;
@@ -67,6 +67,7 @@ internal sealed partial class RunView : IDisposable
     public RunView(GL gl, AtlasData atlas, ContentSet content, GameSettings settings)
     {
         AtlasSprite S(string id) => atlas.Sprites.TryGetValue(id, out var s) ? s
+            : id == "char_king_arthur" ? atlas.Sprites["char_swordsman"]
             : throw new InvalidDataException($"atlas has no sprite '{id}'. Rebuild Assets with TickHappens.AssetTool -- build.");
         _heroSprites = [.. content.Characters.Select(c => S(c.Sprite))];
         _pigGhost = atlas.Sprites.GetValueOrDefault("char_pig_ghost");
@@ -77,15 +78,18 @@ internal sealed partial class RunView : IDisposable
         _stone = S("tile_stone");
         _gem = S("pickup_xpgem");
         _statue = S("prop_timestatue");
-        _chestOpenFrame = _chest.FrameNames.IndexOf("open");
-        if (_chestOpenFrame < 0) throw new InvalidDataException("The atlas is missing the open chest frame. Rebuild Assets.");
-        _enemySprites = [.. content.Enemies.Select(e => S(e.Sprite))];
+        _freeChestFrame = _chest.FrameNames.IndexOf("free");
+        _rareChestFrame = _chest.FrameNames.IndexOf("rare");
+        _bossChestFrame = _chest.FrameNames.IndexOf("boss");
+        _soda = atlas.Sprites.GetValueOrDefault("prop_soda_r");
+        _enemySprites = [.. content.Enemies.Select(e => atlas.Sprites.GetValueOrDefault(
+            e.Id == "phantom_illusion" ? "enemy_phantom_r" : $"enemy_{e.Id}_r") ?? S(e.Sprite))];
         _companionSprites = [.. content.Items.Select(item => item.Companion is { } c &&
             atlas.Sprites.TryGetValue(c.Sprite, out var sprite) && sprite.Anims.ContainsKey("move") ? sprite : null)];
-        _enemyAnims = [.. content.Enemies.Select((e, i) => _enemySprites[i].Anims.TryGetValue(e.Anim, out var a) ? a
+        _enemyAnims = [.. content.Enemies.Select((e, i) => _enemySprites[i].Anims.TryGetValue(ReferenceEquals(_enemySprites[i], S(e.Sprite)) ? e.Anim : "move", out var a) ? a
             : throw new InvalidDataException($"sprite '{e.Sprite}' has no animation '{e.Anim}'"))];
         _enemyAttackAnims = [.. _enemySprites.Select(s => s.Anims.GetValueOrDefault("attack"))];
-        _enemyTint = [.. content.Enemies.Select(e => e.Tint is { } t ? TintFromHex(t) : 0xFFFFFFFFu)];
+        _enemyTint = [.. content.Enemies.Select((e, i) => ReferenceEquals(_enemySprites[i], S(e.Sprite)) && e.Tint is { } t ? TintFromHex(t) : 0xFFFFFFFFu)];
 
         var shaders = AssetPaths.Get("shaders");
         var albedo = RgbaImage.Load(AssetPaths.Get("atlas", "main.png"));
@@ -192,6 +196,8 @@ internal sealed partial class RunView : IDisposable
                     break;
                 case EventKind.Blast when e.A == (int)BlastStyle.SodaSplash:
                     DrawSodaSplash(e.X, e.Y, e.Value);
+                    RingBurst(e.X, e.Y, e.Value, 0xFFEBFFCBu, 0xFF78BD54u);
+                    AddFlash(e.X, e.Y - 3, e.Value * 1.6f, 0.9f, 1.1f, 0.28f, 0.27f);
                     break;
                 case EventKind.Blast:
                     if (_effects.Count < MaxCpuEffects)
@@ -245,7 +251,7 @@ internal sealed partial class RunView : IDisposable
                         float halfAngle = e.A * MathF.PI / 360f;
                         _effects.Add(new SlashEffect(new SlashOptions
                         {
-                            X = e.X * 2, Y = e.Y * 2, Radius = e.Value * 2, Width = 12, Squash = 1,
+                            X = e.X * 2, Y = e.Y * 2, Radius = e.Value * 2, Width = e.B == 1 ? 8 : 12, Squash = 1,
                             Tilt = MathF.Atan2(e.Y2, e.X2), From = -halfAngle, To = halfAngle, Seed = e.Seed,
                         }));
                     }
@@ -366,7 +372,12 @@ internal sealed partial class RunView : IDisposable
                     break;
                 }
                 case EventKind.Elite:
-                    _hud.Notice(Localizer.Get("notice.elite"), 0xFFE070C0u);
+                    if (e.B > 0)
+                    {
+                        var boss = world.Content.Enemies[e.B - 1];
+                        _hud.Notice(Localizer.Format("notice.boss", Hud.BossName(boss)), 0xFF90CFFFu);
+                    }
+                    else _hud.Notice(Localizer.Get("notice.elite"), 0xFFE070C0u);
                     break;
                 case EventKind.Pickup:
                     if (e.A == (int)PickupKind.Gold) Burst(e.X, e.Y, 4, 40, 0xFF6BE2FFu, 0xFF2A8AFFu, 1.2f);
@@ -413,17 +424,17 @@ internal sealed partial class RunView : IDisposable
     private void DrawSodaSplash(float x, float y, float radius)
     {
         float spread = Math.Clamp(radius, 16, 80);
-        for (int i = 0; i < 24; i++)
+        for (int i = 0; i < 40; i++)
         {
             float angle = _cosmetic.NextSingle() * MathF.Tau;
             float speed = spread * (0.6f + 1.4f * _cosmetic.NextSingle());
-            float life = 0.28f + 0.24f * _cosmetic.NextSingle();
+            float life = 0.35f + 0.30f * _cosmetic.NextSingle();
             _particles.Spawn(new GpuParticle
             {
                 X = x, Y = y, Vx = MathF.Cos(angle) * speed,
                 Vy = MathF.Sin(angle) * speed * 0.45f - 42,
                 Life = life, MaxLife = life, Drag = 2.4f, Gravity = 150,
-                ColorA = 0xFFCFFFF0u, ColorB = 0xFF74B62Cu, Intensity = 1f, Kind = 0,
+                ColorA = 0xFFCFFFF0u, ColorB = 0xFF74B62Cu, Intensity = 1.45f, Kind = 0,
             });
         }
     }
@@ -561,7 +572,7 @@ internal sealed partial class RunView : IDisposable
         int n = 0;
         void Add(int id, float y) { if (n < order.Length) { order[n] = id; _depth[n++] = y; } }
         for (int i = 0; i < world.EnemyHighWater; i++)
-            if (world.EAlive[i] && Visible(world.EX[i], world.EY[i])) Add(i, world.EY[i]);
+            if (world.EAlive[i] && !world.EnemyHidden(i) && Visible(world.EX[i], world.EY[i])) Add(i, world.EY[i]);
         const int HeroBase = -1, StatueBase = -1000, ChestBase = -2000, CompanionBase = -3000, IllusionBase = -4000;
         for (int i = 0; i < world.Players.Count; i++)
         {
@@ -573,7 +584,7 @@ internal sealed partial class RunView : IDisposable
                 Add(IllusionBase - i, player.IllusionPosition.Y);
         }
         for (int i = 0; i < world.Statues.Length; i++) if (Visible(world.Statues[i].X, world.Statues[i].Y)) Add(StatueBase - i, world.Statues[i].Y);
-        for (int i = 0; i < world.Chests.Length; i++) if (Visible(world.Chests[i].X, world.Chests[i].Y)) Add(ChestBase - i, world.Chests[i].Y);
+        for (int i = 0; i < world.Chests.Length; i++) if (!world.ChestOpen[i] && Visible(world.Chests[i].X, world.Chests[i].Y)) Add(ChestBase - i, world.Chests[i].Y);
         var companions = world.Companions;
         for (int i = 0; i < companions.Length; i++)
             if (companions[i].Active && Visible(companions[i].Pos.X, companions[i].Pos.Y)) Add(CompanionBase - i, companions[i].Pos.Y);
@@ -594,7 +605,12 @@ internal sealed partial class RunView : IDisposable
                     frame = attack.Frames[(duration - windup) * attack.Frames.Count / duration];
                 }
                 uint tint = world.EFlash[id] > 0 ? 0x00FFFFFFu : _enemyTint[def];
-                _batch.Draw(_enemySprites[def], frame, pos.X - ox, pos.Y - oy, flipX: pos.X > hero.X, tint: tint);
+                var enemy = world.Content.Enemies[def];
+                float scale = enemy.Behavior == "devourer" ? 3.2f : (enemy.Boss || enemy.Behavior == "illusion" ? 2.5f : 1);
+                bool goldFever = enemy.Behavior == "prospector" && world.EHp[id] <= world.EMaxHp[id] * 0.35f;
+                if (goldFever && world.EFlash[id] == 0) tint = 0xFF9BE6FFu;
+                _batch.Draw(_enemySprites[def], frame, pos.X - ox, pos.Y - oy, flipX: pos.X > hero.X,
+                    tint: tint, emissionBoost: goldFever ? (byte)48 : (byte)0, scale: scale);
             }
             else if (id > StatueBase)
             {
@@ -637,7 +653,9 @@ internal sealed partial class RunView : IDisposable
             else if (id <= ChestBase)
             {
                 int c = ChestBase - id;
-                _batch.Draw(_chest, world.ChestOpen[c] ? _chestOpenFrame : 0, world.Chests[c].X - ox, world.Chests[c].Y - oy);
+                int frame = world.IsBossChest(c) ? _bossChestFrame : world.IsRareChest(c) ? _rareChestFrame : world.IsFreeChest(c) ? _freeChestFrame : 0;
+                uint tint = frame >= 0 ? 0xFFFFFFFFu : world.IsRareChest(c) ? 0xFFFFA6FFu : 0xFFB5FFB5u;
+                _batch.Draw(_chest, Math.Max(0, frame), world.Chests[c].X - ox, world.Chests[c].Y - oy, tint: tint);
             }
             else
             {
@@ -647,6 +665,10 @@ internal sealed partial class RunView : IDisposable
                     tint: active ? 0xFF8A7A7Au : 0xFFFFFFFFu, emissionBoost: active ? (byte)0 : (byte)40);
             }
         }
+        if (_soda is { } bottle)
+            for (int i = 0; i < RunWorld.ProjectileCapacity; i++)
+                if (world.PAlive[i] && world.PStyle[i] == RunWorld.ProjectileStyle.Bottle && Visible(world.PX[i], world.PY[i]))
+                    _batch.Draw(bottle, 0, world.PX[i] - ox, world.PY[i] - oy);
         _batch.Flush(_albedo, _normals, _emission, tw, th);
 
         // CPU VFX layer: effects + projectiles + gold + statue progress (world space).
@@ -663,6 +685,7 @@ internal sealed partial class RunView : IDisposable
         var light = PixelCanvas.LightOf(vfx);
         DrawEnemyEffects(world, color, light, alpha, ox, oy, tw, th);
         DrawItemEffects(world, color, light, dt, ox, oy, tw, th);
+        DrawLeechBeams(world, color, light, alpha);
         for (int i = 0; i < RunWorld.ProjectileCapacity; i++)
         {
             if (!world.PAlive[i]) continue;
@@ -670,9 +693,13 @@ internal sealed partial class RunView : IDisposable
             var style = world.PStyle[i];
             if (style == RunWorld.ProjectileStyle.Bottle)
             {
-                color.Disc(px, py, 3, 0xFF22141Au);
-                color.Disc(px, py, 2, 0xFFC43F9Bu);
-                color.Set(px, py - 3, 0xFFDEF08Fu);
+                if (_soda == null)
+                {
+                    color.Disc(px, py - 4, 4, 0xFF3E7940u);
+                    color.Line(px - 3, py - 5, px + 3, py - 5, 0xFFBAF4FFu);
+                    color.Line(px, py - 8, px, py - 11, 0xFF7EAB5Eu);
+                    color.Line(px - 1, py - 11, px + 1, py - 11, 0xFF608EEFu);
+                }
                 continue;
             }
             float len = MathF.Sqrt(world.PVx[i] * world.PVx[i] + world.PVy[i] * world.PVy[i]);
@@ -782,6 +809,10 @@ internal sealed partial class RunView : IDisposable
         for (int c = 0; c < world.Chests.Length; c++)
             if (!world.ChestOpen[c] && Visible(world.Chests[c].X, world.Chests[c].Y))
                 _lights.Add(new PointLight { X = world.Chests[c].X, Y = world.Chests[c].Y - 8, Radius = 40, R = 0.5f, G = 0.4f, B = 0.15f, Height = 10 });
+        for (int i = 0; i < world.EnemyHighWater; i++)
+            if (world.EAlive[i] && world.Content.Enemies[world.EDef[i]].Boss && Visible(world.EX[i], world.EY[i]))
+                _lights.Add(new PointLight { X = world.EX[i], Y = world.EY[i] - 25, Radius = 50,
+                    R = 0.53f, G = 0.32f, B = 0.21f, Height = 20 });
         _renderer.Light(_lights.ToArray(), _time);
         SpawnMotes(dt, ox, oy, tw, th);
         _particles.Update(dt);
@@ -804,6 +835,35 @@ internal sealed partial class RunView : IDisposable
         _renderer.Finish();
     }
 
+    private void DrawLeechBeams(RunWorld world, PixelCanvas color, PixelCanvas light, float alpha)
+    {
+        foreach (ref readonly var companion in world.Companions)
+        {
+            if (!companion.Active || !companion.Healing) continue;
+            var start = Vector2.Lerp(companion.Prev, companion.Pos, alpha) - new Vector2(0, 7);
+            var end = _displayPlayers[companion.Owner] - new Vector2(0, 9);
+            var delta = end - start;
+            float length = delta.Length();
+            if (length < 2) continue;
+            var normal = new Vector2(-delta.Y, delta.X) / length;
+            var previous = start;
+            for (int segment = 1; segment <= 8; segment++)
+            {
+                float t = segment / 8f;
+                var point = start + delta * t + normal * (MathF.Sin(t * MathF.PI) * MathF.Sin(t * 12 - _time * 15) * 3);
+                color.Line(previous.X, previous.Y, point.X, point.Y, 0xFFF1FFADu);
+                light.Line(previous.X, previous.Y, point.X, point.Y, 0xFF72F843u);
+                previous = point;
+            }
+            for (int pulse = 0; pulse < 3; pulse++)
+            {
+                float t = (_time * 2.6f + pulse / 3f) % 1;
+                var point = Vector2.Lerp(start, end, t);
+                light.Disc(point.X, point.Y, 2, 0xFF6BFF69u);
+            }
+        }
+    }
+
     private void DrawSummonHealth(AtlasSprite sprite, Vector2 position, float health, float maxHealth)
     {
         if (maxHealth <= 0) return;
@@ -819,7 +879,7 @@ internal sealed partial class RunView : IDisposable
         foreach (int item in player.EffectItems)
         {
             var effect = world.Content.Items[item].Effect!;
-            if (effect.Kind != "weldingBlock") continue;
+            if (effect.Kind != "weldingBlock" || player.StolenItem == item) continue;
 
             _renderer.SetVisionCone(hero.X, hero.Y, player.Facing.X, player.Facing.Y,
                 effect.Value * MathF.PI / 360f);

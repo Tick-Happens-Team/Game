@@ -130,6 +130,7 @@ internal sealed partial class Hud(GameSettings settings)
                 ui.Set(hx - dashCapacity + i * 2, hy + 8, i < dashCapacity - p.DashChargesUsed ? Teal : Grey);
 
         DrawRunHeader(ui, world, w);
+        int bossBarsBottom = DrawBossBars(ui, world, w);
 
         if (!itemsOpen) DrawItemSummary(ui, world, h);
 
@@ -137,13 +138,17 @@ internal sealed partial class Hud(GameSettings settings)
         if (world.NearbyChest >= 0)
         {
             var (cx, cy) = renderer.WorldToUi(world.Chests[world.NearbyChest].X, world.Chests[world.NearbyChest].Y - 26);
-            PixelFont.DrawCentered(ui, Localizer.Format("hud.needGold", p.Wallet.NextPrice), cx, cy, Gold, Ink);
+            string key = GameSettings.KeyLabel(settings.Keys[(int)RunAction.OpenChest]);
+            string prompt = world.IsFreeChest(world.NearbyChest) ? Localizer.Format("hud.openFreeChest", key) :
+                p.Wallet.Gold >= p.Wallet.NextPrice ? Localizer.Format("hud.openPaidChest", key, p.Wallet.NextPrice) :
+                Localizer.Format("hud.needGold", p.Wallet.NextPrice);
+            PixelFont.DrawCentered(ui, prompt, cx, cy, Gold, Ink);
         }
-        if (p.Hp > 0 && p.ChestOfferFirst >= 0) DrawChestOffer(ui, world, w);
+        if (p.Hp > 0 && p.ChestOfferFirst >= 0) DrawChestOffer(ui, world, w, bossBarsBottom);
         else if (_noticeAge < 2.6f)
         {
             if (!paused) _noticeAge += dt;
-            PixelFont.DrawCentered(ui, _notice, w / 2, RunHeaderBottom + 5, _noticeColor, Ink);
+            PixelFont.DrawCentered(ui, _notice, w / 2, bossBarsBottom + 5, _noticeColor, Ink);
         }
 
         if (world.Phase == RunPhase.Dead || interruption is not null)
@@ -168,7 +173,39 @@ internal sealed partial class Hud(GameSettings settings)
         }
     }
 
-    private void DrawChestOffer(PixelCanvas ui, RunWorld world, int width)
+    public static string BossName(EnemyDef def) => Localizer.Content("enemies", def.Id, "name", def.Id);
+
+    private static int DrawBossBars(PixelCanvas ui, RunWorld world, int width)
+    {
+        int y = RunHeaderBottom;
+        int barWidth = Math.Min(300, width - 32);
+        int left = (width - barWidth) / 2;
+        for (int def = 0; def < world.Content.Enemies.Count; def++)
+        {
+            var boss = world.Content.Enemies[def];
+            if (!boss.Boss) continue;
+            int count = 0;
+            for (int i = 0; i < world.EnemyHighWater; i++)
+                if (world.EAlive[i] && world.EDef[i] == def) count++;
+            if (count == 0) continue;
+            string name = BossName(boss);
+            PixelFont.DrawCentered(ui, count > 1 ? $"{name} x{count}" : name, width / 2, y + 4, White, Ink);
+            Box(ui, left - 2, y + 13, barWidth + 4, 9, Brass);
+            int segment = 0;
+            for (int i = 0; i < world.EnemyHighWater; i++)
+            {
+                if (!world.EAlive[i] || world.EDef[i] != def) continue;
+                int from = left + segment * barWidth / count;
+                int to = left + ++segment * barWidth / count;
+                Bar(ui, from, y + 15, Math.Max(1, to - from - (segment < count ? 1 : 0)), 5,
+                    world.EHp[i] / world.EMaxHp[i], Red, RedDark);
+            }
+            y += 23;
+        }
+        return y;
+    }
+
+    private void DrawChestOffer(PixelCanvas ui, RunWorld world, int width, int headerBottom)
     {
         var p = world.Player;
         int left = Math.Max(0, p.ChestOfferUntilTick - world.Tick);
@@ -177,17 +214,16 @@ internal sealed partial class Hud(GameSettings settings)
         int cardWidth = Math.Min(220, (width - 20) / count);
         int totalWidth = cardWidth * count + (count - 1) * 4;
         int x = (width - totalWidth) / 2;
-        PixelFont.DrawCentered(ui, Localizer.Format("hud.chestChoice", seconds), width / 2, RunHeaderBottom + 7, Gold, Ink);
-        Bar(ui, x + 1, RunHeaderBottom + 17, totalWidth - 2, 2, (float)left / RunWorld.ChestChoiceTicks, Gold, Panel);
-        DrawChestCard(ui, world.Content.Items[p.ChestOfferFirst], RunAction.Chest1, x, cardWidth);
-        DrawChestCard(ui, world.Content.Items[p.ChestOfferSecond], RunAction.Chest2, x + cardWidth + 4, cardWidth);
+        PixelFont.DrawCentered(ui, Localizer.Format("hud.chestChoice", seconds), width / 2, headerBottom + 7, Gold, Ink);
+        Bar(ui, x + 1, headerBottom + 17, totalWidth - 2, 2, (float)left / RunWorld.ChestChoiceTicks, Gold, Panel);
+        DrawChestCard(ui, world.Content.Items[p.ChestOfferFirst], RunAction.Chest1, x, cardWidth, headerBottom + 22);
+        DrawChestCard(ui, world.Content.Items[p.ChestOfferSecond], RunAction.Chest2, x + cardWidth + 4, cardWidth, headerBottom + 22);
         if (count == 3)
-            DrawChestCard(ui, world.Content.Items[p.ChestOfferThird], RunAction.Chest3, x + (cardWidth + 4) * 2, cardWidth);
+            DrawChestCard(ui, world.Content.Items[p.ChestOfferThird], RunAction.Chest3, x + (cardWidth + 4) * 2, cardWidth, headerBottom + 22);
     }
 
-    private void DrawChestCard(PixelCanvas ui, ItemDef item, RunAction choice, int x, int width)
+    private void DrawChestCard(PixelCanvas ui, ItemDef item, RunAction choice, int x, int width, int top)
     {
-        const int top = RunHeaderBottom + 22;
         int columns = Math.Max(1, (width - 12) / PixelFont.Advance);
         string title = $"[{GameSettings.KeyLabel(settings.Keys[(int)choice])}] {ItemName(item)}";
         string description = Localizer.Content("items", item.Id, "description", item.Description);

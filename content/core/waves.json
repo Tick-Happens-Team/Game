@@ -29,7 +29,8 @@
         "gloombat": 3,
         "amberslime": 2,
         "rot": 1,
-        "spark": 1
+        "spark": 1,
+        "skeleton_swordsman": 1
       }
     },
     {
@@ -41,7 +42,9 @@
         "amberslime": 2,
         "rot": 1,
         "spark": 1,
-        "kamikaze": 1
+        "kamikaze": 1,
+        "jumper": 1,
+        "siphoner": 1
       }
     },
     {
@@ -53,7 +56,13 @@
         "amberslime": 3,
         "rot": 1,
         "spark": 1,
-        "kamikaze": 1
+        "kamikaze": 1,
+        "jumper": 2,
+        "siphoner": 1,
+        "skeleton_swordsman": 2,
+        "screamer": 0.5,
+        "junior_cultist": 1,
+        "cultist_shaman": 0.5
       }
     },
     {
@@ -65,7 +74,17 @@
         "amberslime": 5,
         "rot": 1,
         "spark": 1,
-        "kamikaze": 1
+        "kamikaze": 1,
+        "jumper": 2,
+        "siphoner": 1,
+        "skeleton_swordsman": 2,
+        "screamer": 0.5,
+        "junior_cultist": 2,
+        "cultist_shaman": 1,
+        "witch": 0.4,
+        "butcher": 0.4,
+        "guardian": 0.4,
+        "dark_mage": 0.4
       }
     },
     {
@@ -77,7 +96,22 @@
         "amberslime": 5,
         "rot": 1,
         "spark": 1,
-        "kamikaze": 1
+        "kamikaze": 1,
+        "jumper": 2,
+        "siphoner": 1,
+        "skeleton_swordsman": 2,
+        "screamer": 0.5,
+        "junior_cultist": 2,
+        "cultist_shaman": 1,
+        "witch": 0.4,
+        "butcher": 0.4,
+        "guardian": 0.4,
+        "dark_mage": 0.4,
+        "ninja": 0.35,
+        "she_wolf": 0.35,
+        "thief": 0.35,
+        "senior_cultist": 0.35,
+        "ogre": 0.35
       }
     }
   ],
@@ -102,5 +136,7 @@
       "enemy": "duskslime",
       "count": 6
     }
-  ]
+  ],
+  "bossIntervalMinutes": 5,
+  "goldPerMinute": 1
 }

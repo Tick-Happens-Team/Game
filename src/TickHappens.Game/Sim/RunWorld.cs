@@ -20,8 +20,8 @@ public sealed partial class RunWorld
     public RunPhase Phase { get; private set; } = RunPhase.Playing;
     /// <summary>Bonus seconds added by time statues.</summary>
     public float BonusSeconds { get; private set; }
-    /// <summary>Run clock in seconds: real elapsed time plus statue bonuses. Drives difficulty.</summary>
-    public float RunSeconds => Tick * Dt + BonusSeconds;
+    /// <summary>Run clock in seconds: real elapsed time plus time effects. Drives difficulty.</summary>
+    public float RunSeconds => (Tick + _timekeeperTicks) * Dt + BonusSeconds;
     public float Minutes => RunSeconds / 60f;
     public uint Seed { get; private set; }
     private readonly PlayerState[] _players;
@@ -52,12 +52,14 @@ public sealed partial class RunWorld
     private readonly int[,] _acceleratorContact;
     private readonly int[] _acceleratorItem = [-1, -1, -1, -1];
     private float _spawnAcc;
-    private int _nextElite;
+    private int _nextElite, _bossesSpawned;
+    private readonly int[] _bossRotation;
 
     public RunWorld(ContentSet content, uint seed = 1, string? character = null, int playerCount = 1, int localPlayerId = 0)
     {
         Content = content;
         Seed = seed;
+        _bossRotation = Enumerable.Range(0, content.Enemies.Count).Where(i => content.Enemies[i].Boss).ToArray();
         _rng = new SimRng(seed);
         var ch = character != null ? content.Characters.Find(c => c.Id == character) ?? throw new ArgumentException($"unknown character '{character}'")
                                    : content.Characters[0];
@@ -69,6 +71,13 @@ public sealed partial class RunWorld
         for (int i = 0; i < playerCount; i++) _players[i] = CreatePlayer(ch, i, i == localPlayerId);
 
         EnemyCapacity = content.Waves.MaxAlive + 64;
+        _enemyAbilities = new EnemyAbility[EnemyCapacity];
+        _enemyHidden = new bool[EnemyCapacity];
+        _phantomIllusion = content.EnemyIndex("phantom_illusion");
+        _goldVein = content.EnemyIndex("gold_vein");
+        _juniorCultist = content.EnemyIndex("junior_cultist");
+        _seniorCultist = content.EnemyIndex("senior_cultist");
+        _cultistShaman = content.EnemyIndex("cultist_shaman");
         _enemyAttackTicks = new byte[EnemyCapacity];
         _enemyAttackReady = new int[EnemyCapacity];
         _enemyBlasts = new Queue<EnemyBlast>(EnemyCapacity);
@@ -248,6 +257,8 @@ public sealed partial class RunWorld
         if (Phase == RunPhase.Dead) return;
         if (inputs.Length < _players.Length) throw new ArgumentException("Each player slot needs an input.", nameof(inputs));
         Tick++;
+        if (_timekeepersAlive > 0) _timekeeperTicks++;
+        StepStolenItems();
         foreach (var player in _players)
         {
             if (player.GhostUntilTick == 0 || player.GhostUntilTick > Tick) continue;
@@ -258,6 +269,7 @@ public sealed partial class RunWorld
         foreach (var p in _players)
         {
             if (!p.Active || p.Hp <= 0) continue;
+            p.TimekeeperSlowed = InTimekeeperAura(p);
             StepPlayer(p, inputs[p.Id]);
             StepItemEffects(p);
         }
@@ -268,6 +280,7 @@ public sealed partial class RunWorld
         }
         SpawnEnemies();
         StepEnemies();
+        StepBloodRain();
         // Combat queries use enemy positions after movement.
         BuildEnemyGrid();
         foreach (var p in _players)
@@ -319,7 +332,7 @@ public sealed partial class RunWorld
             p.DashChargesUsed--;
             if (p.DashChargesUsed > 0) p.DashCooldownTicks = dashCooldown;
         }
-        bool dashPressed = input.Dash && !p.PrevDash;
+        bool dashPressed = input.Dash && !p.PrevDash && p.EnemyRootUntil <= Tick;
         p.PrevDash = input.Dash;
         var dash = Rules.Dash;
         if (dashPressed && p.DashChargesUsed < DashChargeCapacity(p) && p.DashTicks == 0)
@@ -347,6 +360,9 @@ public sealed partial class RunWorld
             float speedBonus = p.DashSpeedTicks > 0 ? p.Stats[Stat.DashSpeedBonus] : 0;
             if (p.AcceleratorTicks > 0) speedBonus += p.AcceleratorSpeedBonus;
             float speed = MovementSpeed(p) * (p.Character.Id == "diver" ? 1 : 1 + speedBonus);
+            if (p.TimekeeperSlowed) speed *= 0.5f;
+            if (p.EnemySlowUntil > Tick) speed *= 0.75f;
+            if (p.EnemyRootUntil > Tick) speed = 0;
             move = dir * speed * Rules.Units.MoveSpeedScale * Dt;
         }
         float a = Rules.ArenaSize;
@@ -422,6 +438,19 @@ public sealed partial class RunWorld
 
     private void SpawnEnemies()
     {
+        int interval = Content.Waves.BossIntervalMinutes;
+        while (interval > 0 && _bossRotation.Length > 0 && Minutes >= (_bossesSpawned + 1L) * interval)
+        {
+            int count = _bossesSpawned < _bossRotation.Length ? 1 : 2;
+            if (EnemyCapacity - AliveEnemies < count) break;
+            int def = _bossRotation[_bossesSpawned % _bossRotation.Length];
+            for (int i = 0; i < count; i++)
+            {
+                int boss = SpawnEnemy(def);
+                if (i == 0) Emit(EventKind.Elite, EX[boss], EY[boss], a: boss, b: def + 1);
+            }
+            _bossesSpawned++;
+        }
         var wave = CurrentWave();
         _spawnAcc += wave.PerSecond * Dt;
         while (_spawnAcc >= 1)
@@ -490,8 +519,8 @@ public sealed partial class RunWorld
         pos = Vector2.Clamp(pos, new Vector2(8), new Vector2(arena - 8));
         EX[slot] = _prevX[slot] = pos.X;
         EY[slot] = _prevY[slot] = pos.Y;
-        EMaxHp[slot] = EHp[slot] = d.Hp * HpScale;
-        EDamage[slot] = d.Damage * DamageScale;
+        EMaxHp[slot] = EHp[slot] = d.Hp * (d.Boss ? 1 : HpScale);
+        EDamage[slot] = d.Damage * (d.Boss ? 1 : DamageScale);
         EDef[slot] = (short)def;
         EAlive[slot] = true;
         EElite[slot] = d.Elite;
@@ -503,6 +532,7 @@ public sealed partial class RunWorld
         EFlash[slot] = 0;
         _enemyAttackTicks[slot] = 0;
         _enemyAttackReady[slot] = 0;
+        InitEnemyAbility(slot, d);
         _enemySlowUntil[slot] = _enemyStunUntil[slot] = 0;
         EKx[slot] = EKy[slot] = 0;
         EUid[slot] = _nextUid++;
@@ -549,6 +579,11 @@ public sealed partial class RunWorld
             _prevY[i] = EY[i];
             if (EFlash[i] > 0) EFlash[i]--;
             var d = Content.Enemies[EDef[i]];
+            if (d.Behavior == "illusion" && _enemyAbilities[i].Expires > 0 && Tick >= _enemyAbilities[i].Expires)
+            {
+                Kill(i, credit: -1, deathEffects: false);
+                continue;
+            }
             int target = NearestLivingPlayer(new Vector2(EX[i], EY[i]));
             if (target < 0) break;
             var player = _players[target];
@@ -556,14 +591,22 @@ public sealed partial class RunWorld
             float dx = p.X - EX[i], dy = p.Y - EY[i], dist = MathF.Sqrt(dx * dx + dy * dy);
             float vx = 0, vy = 0;
             bool stunned = _enemyStunUntil[i] > Tick;
-            float speed = stunned ? 0 : d.Speed * moveSpeedScale;
+            var pos = new Vector2(EX[i], EY[i]);
+            var goal = EnemySteering(i, d, player, pos, p, decoy != null);
+            float speed = stunned ? 0 : (d.Speed + 5 * _enemyAbilities[i].SpeedBuffs) * moveSpeedScale;
+            if (!stunned) StepEnemyAbility(i, d, player, p, ref goal, ref speed);
+            if (!EAlive[i]) continue;
+            dist = Vector2.Distance(p, new Vector2(EX[i], EY[i]));
             if (_enemySlowUntil[i] > Tick) speed *= 1 - _enemySlow[i];
             if (_enemyAttackTicks[i] > 0) speed *= 0.2f;
             else if (d.ShotRange > 0)
                 speed *= dist < d.ShotRange * 0.5f ? -1 : dist <= d.ShotRange * 0.85f ? 0 : 1;
-            if (dist > 0.5f) { vx = dx / dist * speed; vy = dy / dist * speed; }
+            var direction = goal - new Vector2(EX[i], EY[i]);
+            float distanceToGoal = direction.Length();
+            if (distanceToGoal > 0.01f) { vx = direction.X / distanceToGoal * speed; vy = direction.Y / distanceToGoal * speed; }
             var sep = new Separation(this, i, d.Radius);
             _grid.Query(EX[i], EY[i], d.Radius * 2 + 2, ref sep);
+            if (d.Behavior == "vein") continue;
             EX[i] = Math.Clamp(EX[i] + (vx + EKx[i]) * Dt + sep.Px * 0.5f, 4, arena - 4);
             EY[i] = Math.Clamp(EY[i] + (vy + EKy[i]) * Dt + sep.Py * 0.5f, 4, arena - 4);
             EKx[i] *= 0.82f;
@@ -584,8 +627,15 @@ public sealed partial class RunWorld
             if (!EAlive[i]) continue;
             if (d.AttackSpeed > 0 || d.DetonateRange > 0)
             {
-                StepEnemyAttack(i, d, player, decoy, p, stunned, enemyLifestealCap);
-                if (EAlive[i] && dist > 700) Kill(i, credit: -1, deathEffects: false);
+                bool mining = d.Behavior == "prospector" && EnemyLinkAlive(_enemyAbilities[i]);
+                bool retreating = d.Behavior == "ninja" && _enemyAbilities[i].SecondaryReady > Tick;
+                if (!mining && !retreating) StepEnemyAttack(i, d, player, decoy, p, stunned, enemyLifestealCap);
+                if (EAlive[i] && !d.Boss && dist > 700) Kill(i, credit: -1, deathEffects: false);
+                continue;
+            }
+            if (d.Damage <= 0)
+            {
+                if (dist > 700) Kill(i, credit: -1, deathEffects: false);
                 continue;
             }
             if (!stunned && hasCompanions &&
@@ -596,7 +646,7 @@ public sealed partial class RunWorld
                 if (!EAlive[i]) continue;
             }
             // Enemies left far behind are recycled closer to the action (keeps pressure constant).
-            if (dist > 700) { Kill(i, credit: -1, deathEffects: false); }
+            if (!d.Boss && dist > 700) { Kill(i, credit: -1, deathEffects: false); }
         }
     }
 
@@ -655,6 +705,16 @@ public sealed partial class RunWorld
             outgoing *= (1 + _companions[source.CompanionSlot].PhysicalDamage) / (1 + p.PhysicalAuraBonus);
         float amount = raw * critical * outgoing * (1 - Resist(kind, def.Armor, def.MagicResist));
         if (amount <= 0) return;
+        if (_guardiansAlive > 0 && def.Behavior is not ("guardian" or "vein" or "illusion"))
+        {
+            int guardian = FindEnemy(new(EX[i], EY[i]), i, 95, "guardian");
+            if (guardian >= 0)
+            {
+                float redirected = amount * 0.35f;
+                ApplyEnemyHit(guardian, redirected, kind, playerId, fromX, fromY, 0, triggerItems: false);
+                amount -= redirected;
+            }
+        }
         float hpBefore = EHp[i];
         ApplyEnemyHit(i, amount, kind, playerId, fromX, fromY, knock, triggerItems: !source.SuppressProcs);
         float lifesteal = p.Stats[Stat.Lifesteal] + (kind == DamageKind.Magical ? p.Stats[Stat.MagicalLifesteal] : 0);
@@ -667,7 +727,7 @@ public sealed partial class RunWorld
         float threshold = EMaxHp[i] * 0.12f;
         if (source.SuppressProcs) return;
         if (EAlive[i]) OnEnemyHitWithItemEffects(p, i, amount);
-        if (EAlive[i] && !def.Boss && p.ConversionItem >= 0)
+        if (EAlive[i] && !def.Boss && def.Behavior is not ("illusion" or "vein") && p.ConversionItem >= 0 && ItemEnabled(p, p.ConversionItem))
         {
             int item = p.ConversionItem;
             float chance = Content.Items[item].Companion!.Chance * p.ItemStacks[item];
@@ -705,21 +765,35 @@ public sealed partial class RunWorld
         EAlive[i] = false;
         AliveEnemies--;
         var d = Content.Enemies[EDef[i]];
+        OnEnemyAbilityDeath(i, d);
         if (deathEffects) QueueEnemyDeathEffect(i, d, credit);
-        if (deathEffects || (uint)credit < (uint)_players.Length)
+        if (d.Xp > 0 && (deathEffects || (uint)credit < (uint)_players.Length))
             DropPickup(PickupKind.Xp, EX[i], EY[i], d.Xp, -1);
         if ((uint)credit < (uint)_players.Length)
         {
             var killer = _players[credit];
-            killer.Kills++;
-            if (killer.Character.Id == "necromancer") killer.Souls++;
+            bool countsAsKill = d.Behavior is not ("illusion" or "vein");
+            if (countsAsKill)
+            {
+                killer.Kills++;
+                if (killer.Character.Id == "necromancer") killer.Souls++;
+            }
             uint dropSeed = _rng.State;
-            if (d.Gold > 0 && _rng.Next() < d.GoldChance)
-                DropPickup(PickupKind.Gold, EX[i] + _rng.Range(-3, 3), EY[i] + _rng.Range(-3, 3), d.Gold, GoldDrop.FromKill(d.Gold, credit).OwnerId);
-            Emit(EventKind.Kill, EX[i], EY[i], a: EDef[i], b: credit, seed: dropSeed);
-            if (d.Boss && _bossRewards.TryGetValue(d.Id, out int reward))
-                DropPickup(PickupKind.Cursed, EX[i], EY[i], reward, credit);
-            if (triggerItems) OnEnemyKilledWithItemEffects(_players[credit], new Vector2(EX[i], EY[i]));
+            if (countsAsKill && d.Gold > 0 && _rng.Next() < d.GoldChance)
+            {
+                int gold = d.Gold + (int)Minutes * Content.Waves.GoldPerMinute;
+                DropPickup(PickupKind.Gold, EX[i] + _rng.Range(-3, 3), EY[i] + _rng.Range(-3, 3), gold, credit);
+            }
+            Emit(EventKind.Kill, EX[i], EY[i], a: EDef[i], b: killer.Id, seed: dropSeed);
+            if (countsAsKill && triggerItems) OnEnemyKilledWithItemEffects(_players[credit], new Vector2(EX[i], EY[i]));
+        }
+        if (d.Boss && deathEffects)
+        {
+            var position = new Vector2(EX[i], EY[i]);
+            DropBossChest(position);
+            int owner = (uint)credit < (uint)_players.Length ? credit : NearestLivingPlayer(position);
+            if (owner >= 0 && _bossRewards.TryGetValue(d.Id, out int reward))
+                DropPickup(PickupKind.Cursed, position.X, position.Y, reward, owner);
         }
         EX[i] = EY[i] = -1e6f;
         _freeEnemies.Push(i);
@@ -730,7 +804,7 @@ public sealed partial class RunWorld
     {
         ulong h = 1469598103934665603;
         void Mix(float v) { h = (h ^ BitConverter.SingleToUInt32Bits(v)) * 1099511628211; }
-        Mix(Tick); Mix(BonusSeconds);
+        Mix(Tick); Mix(BonusSeconds); Mix(_timekeeperTicks);
         foreach (var p in _players)
         {
             Mix(p.Active ? 1 : 0);

@@ -13,7 +13,7 @@ internal sealed class SettingsMenu(GameSettings settings, GameAudio audio)
     private const uint Text = 0xFFF4F1FF, Accent = 0xFFDEF08F;
     private static readonly string[] AudioLabels = ["settings.master", "settings.music", "settings.effects"];
     private static readonly string[] Actions = ["settings.up", "settings.down", "settings.left", "settings.right",
-        "settings.dash", "settings.chest1", "settings.chest2", "settings.chest3"];
+        "settings.dash", "settings.chest1", "settings.chest2", "settings.chest3", "settings.openChest"];
     private const int ControlsRow = 3, LanguageRow = 4, VsyncRow = 5;
     private bool _controls;
     private int _row;

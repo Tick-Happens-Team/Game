@@ -294,6 +294,7 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
                 {
                     Dash = _inputs[slot].Dash || input.Dash,
                     ChestChoice = input.ChestChoice != 0 ? input.ChestChoice : _inputs[slot].ChestChoice,
+                    OpenChest = input.OpenChest || _inputs[slot].OpenChest,
                 };
                 _lastInput[slot] = World.Tick;
                 _receivedInputSequence[slot] = sequence;
@@ -476,6 +477,7 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
                 {
                     Dash = _inputs[0].Dash || input.Dash,
                     ChestChoice = input.ChestChoice != 0 ? input.ChestChoice : _inputs[0].ChestChoice,
+                    OpenChest = input.OpenChest || _inputs[0].OpenChest,
                 };
                 int nextEvent = World!.Events.Count;
                 while (_accumulator + 1e-8 >= RunWorld.Dt)
@@ -486,7 +488,7 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
                         World.Players[slot].LastAppliedInput = _receivedInputSequence[slot];
                     }
                     World.StepCoop(_inputs);
-                    for (int slot = 0; slot < _inputs.Length; slot++) _inputs[slot] = _inputs[slot] with { Dash = false, ChestChoice = 0 };
+                    for (int slot = 0; slot < _inputs.Length; slot++) _inputs[slot] = _inputs[slot] with { Dash = false, ChestChoice = 0, OpenChest = false };
                     bool ended = World.Phase == RunPhase.Dead;
                     if (ended || _sendResumeSnapshot || World.Tick % SnapshotTicks == 0)
                     {
@@ -507,11 +509,12 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
             {
                 _inputTime += dt;
                 _dashQueued |= input.Dash;
+                _openChestQueued |= input.OpenChest;
                 if (input.ChestChoice != 0) _chestChoiceQueued = input.ChestChoice;
                 while (_inputTime + 1e-8 >= RunWorld.Dt)
                 {
                     _inputTime = Math.Max(0, _inputTime - RunWorld.Dt);
-                    var sample = input with { Dash = _dashQueued, ChestChoice = _chestChoiceQueued };
+                    var sample = input with { Dash = _dashQueued, ChestChoice = _chestChoiceQueued, OpenChest = _openChestQueued };
                     int sequence = _session.SubmitInput(sample);
                     if (sequence > 0)
                     {
@@ -519,7 +522,7 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
                         _inputHistory[sequence % InputHistoryLength] = sample;
                         World!.PredictLocalMovement(sample);
                     }
-                    _dashQueued = false;
+                    _dashQueued = _openChestQueued = false;
                     _chestChoiceQueued = 0;
                 }
             }
@@ -586,7 +589,7 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
     }
 
     private double _inputTime;
-    private bool _dashQueued;
+    private bool _dashQueued, _openChestQueued;
     private int _chestChoiceQueued;
 
     public void Leave() => CloseRoom(keepResults: false);
@@ -631,7 +634,7 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
         _viewCorrection = Vector2.Zero;
         _lastSnapshotAt = null;
         _snapshotInterval = _snapshotJitter = _correction = 0;
-        _dashQueued = _sendResumeSnapshot = false;
+        _dashQueued = _openChestQueued = _sendResumeSnapshot = false;
         _accumulator = _inputTime = _resultsTime = 0;
         _lastSubmittedInput = _baselineBytes = 0;
         _baselineTick = -1;

@@ -5,7 +5,7 @@ namespace TickHappens.Game.Sim;
 
 public struct Companion
 {
-    public bool Active, FacingLeft;
+    public bool Active, FacingLeft, Healing;
     public int Id, Owner, Item;
     public Vector2 Pos, Prev;
     internal float Health, MaxHealth, AuraCapacity, Shield, AttackTimer, Life;
@@ -27,9 +27,9 @@ public sealed partial class RunWorld
     {
         for (int item = 0; item < player.ItemStacks.Length; item++)
         {
-            if (player.ItemStacks[item] <= 0 || Content.Items[item].Companion is not { } def ||
+            if (!ItemEnabled(player, item) || player.ItemStacks[item] <= 0 || Content.Items[item].Companion is not { } def ||
                 def.Kind == "demon") continue;
-            player.ItemTimers[item] -= Dt;
+            player.ItemTimers[item] -= ItemStep(player);
             if (player.ItemTimers[item] > 0) continue;
             int count = 0;
             foreach (ref readonly var ally in Companions)
@@ -69,6 +69,7 @@ public sealed partial class RunWorld
             if (!ally.Active) continue;
             var owner = _players[ally.Owner];
             var def = GetCompanionDef(ally.Item);
+            if (ally.Item >= 0 && !ItemEnabled(owner, ally.Item)) { ally.Healing = false; continue; }
             if (!owner.Active || owner.Hp <= 0 || (def.Duration > 0 && (ally.Life -= Dt) <= 0))
             {
                 ally.Active = false;
@@ -83,7 +84,9 @@ public sealed partial class RunWorld
             else if (def.Kind == "leech")
             {
                 float drain = Math.Min(def.Damage * Dt, ally.Health);
+                float before = owner.Hp;
                 RestorePlayer(owner, drain);
+                ally.Healing = owner.Hp > before;
                 ally.Health -= drain;
                 if (ally.Health <= 0.001f) ally.Active = false;
             }
