@@ -1,4 +1,5 @@
 using System.Net;
+using System.Diagnostics;
 using TickHappens.Localization;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -103,6 +104,7 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
 
 #if TICKHAPPENS_EOS
     private bool _forceRelays = LocalEosConfig.ForceRelays;
+    private long? _connectingToHost;
 
     public bool ForceRelays
     {
@@ -110,9 +112,12 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
         set
         {
             if (Busy || InRoom || value == _forceRelays) return;
-            _transport?.Dispose();
-            _transport = null;
-            _forceRelays = value;
+            try
+            {
+                _transport?.SetRelayMode(value);
+                _forceRelays = value;
+            }
+            catch (InvalidOperationException error) { SetError(error); }
         }
     }
 
@@ -273,10 +278,42 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
                 int size = SnapshotDelta.Decode(_baselineTick, _baseline.AsSpan(0, _baselineBytes), packet.Span, _snapshot);
                 if (size > 0) Apply(_snapshot.AsSpan(0, size));
             };
-            session.Join();
-            Status = Localizer.Get("online.waitingHost");
+#if TICKHAPPENS_EOS
+            if (TransportIsConnecting())
+            {
+                _connectingToHost = Stopwatch.GetTimestamp();
+                Status = Localizer.Get("online.waitingP2p");
+                return;
+            }
+#endif
+            JoinHost(session);
         }
     }
+
+    private void JoinHost(CoopSession session)
+    {
+        session.Join();
+        Status = Localizer.Get("online.waitingHost");
+    }
+
+#if TICKHAPPENS_EOS
+    private bool TransportIsConnecting() => _lan is null && _transport is { IsHostConnected: false };
+
+    private void UpdateEosJoin()
+    {
+        if (_connectingToHost is not long started || _session is not { } session) return;
+        if (!TransportIsConnecting())
+        {
+            _connectingToHost = null;
+            JoinHost(session);
+        }
+        else if (Stopwatch.GetElapsedTime(started) >= TimeSpan.FromSeconds(15))
+        {
+            CloseRoom(Interrupted);
+            Status = Localizer.Get("online.p2pTimeout");
+        }
+    }
+#endif
 
     public void Start()
     {
@@ -296,6 +333,9 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
             if (_lan is null) _transport?.Pump();
 #endif
             if (_operation?.IsCompleted == true) CompleteOperation();
+#if TICKHAPPENS_EOS
+            UpdateEosJoin();
+#endif
             _session?.Poll();
             if (_hostEnded || _session?.JoinError is not null)
             {
@@ -393,6 +433,9 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
         }
         _session?.Dispose();
         _session = null;
+#if TICKHAPPENS_EOS
+        _connectingToHost = null;
+#endif
         if (!keepResults)
         {
             World = null;
