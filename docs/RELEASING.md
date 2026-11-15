@@ -37,7 +37,17 @@ Use clean, exact Game and Assets checkouts and PowerShell 7.3 or later. Run `dot
     -Output .tmp/release-v0.1.0
 ```
 
-To include EOS in a signed Windows build, add `-EosSdkArchive` with the path to the official C# archive `EOS-SDK-CSharp-58105819-Release-v1.19.2.1.zip`. Supply the archive from restricted storage in the protected signing environment. The packer checks the pinned SHA-256 before extraction and verifies that the ZIP staging contains the managed wrapper, Win64 shipping DLL, and SDK notices. Upload only the intended artifacts from the `release` output directory. EOS runtime configuration stays external to the package. See [local EOS configuration](NETWORKING.md#local-windows-eos-build).
+To include EOS in a signed Windows build, add `-EosSdkArchive` and `-EosConfig`. The archive is either the official C# archive `EOS-SDK-CSharp-58105819-Release-v1.19.2.1.zip` or its build subset `eos-sdk-csharp-1.19.2.1-win64.zip` (C# sources from `Source/Core`, `Generated`, and `Overrides`, the Win64 shipping DLL, and the notices). The packer checks both pinned SHA-256 values before extraction and verifies that the ZIP staging contains the managed wrapper, Win64 shipping DLL, and SDK notices. `-EosConfig` names the Peer2Peer client JSON. The packer validates its five fields and ships it as `eos.json` in the game package. Upload only the intended artifacts from the `release` output directory. See [local EOS configuration](NETWORKING.md#local-windows-eos-build).
+
+### Release workflow
+
+`.github/workflows/release.yml` runs only through manual dispatch from `stable` in the protected `release` environment. Its deployment branch policy allows only `stable`. Inputs are the game, launcher, and assets versions, a full Assets commit from `Assets/stable`, and a sequence larger than the current latest release. The job builds and tests, generates the atlas, packages and signs with `tools/release-public.pem`, and stages a draft `v<game version>`. It publishes the release with latest disabled, downloads every file and compares it with the signed build, and then promotes the release to latest. A run resumes an interrupted draft. It fails on an already published tag and refuses a promotion when a newer sequence is already latest.
+
+The `release` environment holds these secrets:
+
+- `TICKHAPPENS_RELEASE_PRIVATE_KEY` signs `channel.json`. Its public half is `tools/release-public.pem` and is embedded in every launcher. Keep an offline backup of the private key. Losing it requires shipping trust for a new key through a launcher signed with the old one.
+- `EOS_CONFIG_JSON` holds the Peer2Peer client configuration that becomes `eos.json`.
+- `EOS_SDK_DEPLOY_KEY` is a read-only SSH deploy key for the private `Tick-Happens-Team/eos-sdk` repository. That repository holds the build subset archive at its root. The proprietary SDK stays out of Game and its public history.
 
 
 Publish `launcher-win-x64.zip`, `game-win-x64.zip`, `assets.zip`, `channel.json`, and `channel.json.sig` from the output's `release` directory. The adjacent ZIP reference JSON files are packaging intermediates. Test away from the source checkouts before promoting a release to latest. For a local smoke test, point both the package URLs and `TICKHAPPENS_CHANNEL_URL` at the same loopback HTTP file server and use a disposable test key.
@@ -51,6 +61,8 @@ Verify archive lengths and SHA-256 before extracting into same-volume staging. V
 A failed or interrupted update leaves the current pair usable. Keep the previous working pair for local rollback and support offline launch. Keep settings, saves, and mods outside versioned installations. If a save format is incompatible, allow the player to select a backup for rollback. A central rollback publishes a larger sequence pointing to a previously tested pair.
 
 Players may launch the game directly after installation. The game provides the room UI and checks Workshop mods against the game version and content schema.
+
+The launcher window has Play, Mods, and Settings pages. The Play page shows a procedural dusk scene and the installed game, assets, and release versions. A bottom bar shows status, download progress, and the play button. Settings choose the language, check for updates, and open the launcher folder. For review captures, run the launcher with `--offline`, `--page play|mods|settings`, `--frames N`, and `--screenshot path.png`. The capture waits for any running update to finish. `TICKHAPPENS_LAUNCHER_ROOT` replaces `%LOCALAPPDATA%/TickHappens` for disposable test installs.
 
 The Windows launcher checks on startup and every 15 minutes while idle. It can also retry from its window. It stores packages, versioned installs, and the local mod profile under `%LOCALAPPDATA%/TickHappens`. Keep the original launcher shortcut. It hands off to a verified newer executable in that directory. A failed update leaves the last installed game available, including offline. Previous installations remain on disk. Selecting a previous version in the UI and signed Workshop catalog browsing are roadmap work.
 

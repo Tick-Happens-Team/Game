@@ -8,6 +8,8 @@ namespace TickHappens.Launcher;
 
 internal sealed record Install(string Directory, string Manifest, string Signature);
 
+internal sealed record InstalledRelease(string Game, string Assets, long Sequence);
+
 internal sealed class Updater(string root, Uri channelUrl, string publicKey)
 {
     public const string Platform = "win-x64";
@@ -15,6 +17,27 @@ internal sealed class Updater(string root, Uri channelUrl, string publicKey)
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(30) };
     public static readonly SemVer Version = SemVer.Parse(
         typeof(Updater).Assembly.GetName().Version!.ToString(3));
+
+    private long _received, _expected;
+
+    /// <summary>Progress of the current package download, or null when nothing is downloading. Safe to read from any thread.</summary>
+    public (long Received, long Expected)? Transfer
+    {
+        get
+        {
+            long expected = Interlocked.Read(ref _expected);
+            return expected <= 0 ? null : (Interlocked.Read(ref _received), expected);
+        }
+    }
+
+    /// <summary>Versions of the verified active game installation, or null when none is installed.</summary>
+    public InstalledRelease? InstalledVersions()
+    {
+        var install = ReadInstall("game");
+        if (install is null) return null;
+        var release = Verify(install);
+        return new(release.Game[Platform].Version, release.Assets.Version, release.Sequence);
+    }
 
     public FileStream Lock() => new(Path.Combine(root, "launcher.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
 
@@ -195,8 +218,14 @@ internal sealed class Updater(string root, Uri channelUrl, string publicKey)
         string temp = archive + ".part";
         try
         {
-            await using (var file = File.Create(temp))
-                await DownloadToAsync(uri, file, package.Size, token);
+            Interlocked.Exchange(ref _received, 0);
+            Interlocked.Exchange(ref _expected, package.Size);
+            try
+            {
+                await using var file = File.Create(temp);
+                await DownloadToAsync(uri, file, package.Size, token, total => Interlocked.Exchange(ref _received, total));
+            }
+            finally { Interlocked.Exchange(ref _expected, 0); }
             if (new FileInfo(temp).Length != package.Size ||
                 !await Task.Run(() => PackageManifest.Hash(temp).Equals(package.Sha256, StringComparison.OrdinalIgnoreCase), token))
                 throw new InvalidDataException("Downloaded archive does not match the signed release.");
@@ -213,7 +242,7 @@ internal sealed class Updater(string root, Uri channelUrl, string publicKey)
         return Encoding.UTF8.GetString(stream.ToArray());
     }
 
-    private static async Task DownloadToAsync(Uri uri, Stream output, long limit, CancellationToken token)
+    private static async Task DownloadToAsync(Uri uri, Stream output, long limit, CancellationToken token, Action<long>? received = null)
     {
         if (uri.Scheme != Uri.UriSchemeHttps && !(uri.Scheme == Uri.UriSchemeHttp && uri.IsLoopback))
             throw new InvalidDataException("Release downloads require HTTPS.");
@@ -230,6 +259,7 @@ internal sealed class Updater(string root, Uri channelUrl, string publicKey)
             total += count;
             if (total > limit) throw new InvalidDataException("Release download exceeds its size limit.");
             await output.WriteAsync(buffer.AsMemory(0, count), timeout.Token);
+            received?.Invoke(total);
         }
     }
 }

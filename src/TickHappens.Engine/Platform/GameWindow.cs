@@ -16,6 +16,8 @@ public sealed class GameWindow : IDisposable
     /// <summary>Last mouse position over the window, normalized to 0..1; null until the mouse moves.</summary>
     public (float X, float Y)? Mouse { get; private set; }
     public string TextInput { get; private set; } = "";
+    /// <summary>Vertical mouse wheel movement this frame; positive scrolls up.</summary>
+    public float Wheel { get; private set; }
     public bool Vsync { get; private set; }
 
     private readonly nint _context;
@@ -47,6 +49,7 @@ public sealed class GameWindow : IDisposable
         Array.Clear(_pressed);
         LeftClick = null;
         TextInput = "";
+        Wheel = 0;
         while (SDL.PollEvent(out var e))
         {
             switch ((SDL.EventType)e.Type)
@@ -81,6 +84,9 @@ public sealed class GameWindow : IDisposable
                     Mouse = (e.Motion.X / Math.Max(mw, 1), e.Motion.Y / Math.Max(mh, 1));
                     break;
                 }
+                case SDL.EventType.MouseWheel:
+                    Wheel += e.Wheel.Y;
+                    break;
                 case SDL.EventType.TextInput:
                     TextInput += Marshal.PtrToStringUTF8(e.Text.Text);
                     break;

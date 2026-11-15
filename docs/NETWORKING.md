@@ -21,7 +21,7 @@ For a two-computer smoke test, allow inbound UDP 39230 on the host's private net
 
 Use the official EOS C# SDK 1.19.2.1. Keep its `SDK` folder outside the repository. The build references the SDK source and Win64 shipping binary only when `TickHappensEosSdk` is set. Standard CI and offline builds run without EOS. Public Windows package integration is tracked in roadmap 3.5.
 
-Create `%LOCALAPPDATA%/TickHappens/eos.local.json` or set `TICKHAPPENS_EOS_CONFIG` to a local JSON file with string fields `ProductId`, `SandboxId`, `DeploymentId`, `ClientId`, and `ClientSecret`. Use the credentials for the Windows Peer2Peer game client. Keep the file out of Git and build artifacts. EOS uses the current OS user for Device ID. Use two machines or distinct OS users for a join test.
+Create `%LOCALAPPDATA%/TickHappens/eos.local.json` or set `TICKHAPPENS_EOS_CONFIG` to a local JSON file with string fields `ProductId`, `SandboxId`, `DeploymentId`, `ClientId`, and `ClientSecret`. Use the credentials for the Windows Peer2Peer game client. Keep the file out of Git. The game reads `TICKHAPPENS_EOS_CONFIG` first, then `eos.local.json`, then `eos.json` next to the executable. Signed release packages carry `eos.json`, written from the `EOS_CONFIG_JSON` secret. These client credentials ship to every player by design. The Peer2Peer client policy limits what they allow. EOS uses the current OS user for Device ID. Use two machines or distinct OS users for a join test.
 
 ```powershell
 $env:TICKHAPPENS_EOS_CONFIG = 'D:/local/eos.local.json'

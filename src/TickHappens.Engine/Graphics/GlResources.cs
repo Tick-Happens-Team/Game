@@ -20,13 +20,20 @@ public sealed class ShaderProgram : IDisposable
 
     public static ShaderProgram Compute(GL gl, string path) => Link(gl, Path.GetFileName(path), Compile(gl, ShaderType.ComputeShader, path));
 
-    private static uint Compile(GL gl, ShaderType type, string path)
+    /// <summary>Links a program from GLSL source strings (tools that ship without the shader directory).</summary>
+    public static ShaderProgram FromSource(GL gl, string name, string vertex, string fragment) =>
+        Link(gl, name, CompileSource(gl, ShaderType.VertexShader, name + ".vert", vertex),
+            CompileSource(gl, ShaderType.FragmentShader, name + ".frag", fragment));
+
+    private static uint Compile(GL gl, ShaderType type, string path) => CompileSource(gl, type, path, File.ReadAllText(path));
+
+    private static uint CompileSource(GL gl, ShaderType type, string name, string source)
     {
         uint s = gl.CreateShader(type);
-        gl.ShaderSource(s, File.ReadAllText(path));
+        gl.ShaderSource(s, source);
         gl.CompileShader(s);
         gl.GetShader(s, ShaderParameterName.CompileStatus, out int ok);
-        if (ok == 0) throw new InvalidOperationException($"{path}: {gl.GetShaderInfoLog(s)}");
+        if (ok == 0) throw new InvalidOperationException($"{name}: {gl.GetShaderInfoLog(s)}");
         return s;
     }
 

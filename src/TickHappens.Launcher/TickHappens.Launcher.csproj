@@ -1,14 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net10.0-windows</TargetFramework>
     <OutputType>WinExe</OutputType>
-    <UseWindowsForms>true</UseWindowsForms>
     <InvariantGlobalization>false</InvariantGlobalization>
     <Version>0.1.0</Version>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../TickHappens.Distribution/TickHappens.Distribution.csproj" />
+    <ProjectReference Include="../TickHappens.Engine/TickHappens.Engine.csproj" />
     <ProjectReference Include="../TickHappens.Localization/TickHappens.Localization.csproj" />
     <EmbeddedResource Include="$(ReleasePublicKey)" Condition="'$(ReleasePublicKey)' != ''" LogicalName="ReleasePublicKey.pem" />
+    <InternalsVisibleTo Include="TickHappens.Tests" />
   </ItemGroup>
 </Project>
