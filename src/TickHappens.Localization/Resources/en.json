@@ -105,6 +105,7 @@
   "online.confirmNickname": "SAVE  ENTER",
   "online.editNickname": "EDIT NICKNAME  F4",
   "online.disconnected": "DISCONNECTED",
+  "online.playerDied": "{0} died",
   "online.downed": "DOWNED",
   "online.teamHint": "HOLD TAB - TEAM ITEMS",
   "online.teamItems": "TEAM ITEMS",

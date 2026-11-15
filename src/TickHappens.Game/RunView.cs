@@ -786,10 +786,11 @@ internal sealed partial class RunView : IDisposable
         else
         {
             SetVisionMask(world, hero);
+            coopHud?.DrawTeammates(_renderer, world, _displayPlayers);
             if (!paused && interruption is null) itemPanel?.Draw(_renderer, world, online);
             _hud.Draw(_renderer, world, hero, frameDt, paused, online, interruption, canReconnect, itemPanel?.IsOpen == true);
         }
-        coopHud?.Draw(_renderer, world, _displayPlayers);
+        coopHud?.Draw(_renderer, world, frameDt);
         overlay?.Invoke(_renderer);
         _renderer.Finish();
     }
