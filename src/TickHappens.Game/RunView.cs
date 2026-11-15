@@ -58,7 +58,7 @@ internal sealed class RunView : IDisposable
 
     public PixelRenderer Renderer => _renderer;
 
-    public RunView(GL gl, AtlasData atlas, ContentSet content)
+    public RunView(GL gl, AtlasData atlas, ContentSet content, GameSettings settings)
     {
         AtlasSprite S(string id) => atlas.Sprites.TryGetValue(id, out var s) ? s
             : throw new InvalidDataException($"atlas has no sprite '{id}'. Rebuild Assets with TickHappens.AssetTool -- build.");
@@ -115,7 +115,7 @@ internal sealed class RunView : IDisposable
         look.HighlightTintB = 0.85f;
         look.Vignette = 0.45f;
         look.TiltShift = 1.4f;
-        _hud = new Hud();
+        _hud = new Hud(settings);
     }
 
     private static uint TintFromHex(string hex)

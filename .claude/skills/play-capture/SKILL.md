@@ -15,5 +15,5 @@ From `D:\tickhappens\Game`:
 - Magnify a region: `dotnet run --project tools/TickHappens.AssetTool -- crop IN.png X Y W H ZOOM OUT.png`.
 - Open PNGs with the Read tool and actually look: readability of hero vs crowd, HUD overlap, UI artifacts, effect blowout, arena edges.
 
-Interactive controls: hero screen A/D or arrows + Space/Enter; in a run WASD/arrows move, SPACE dash, P pause, R back to hero select (after death or while paused), ESC quit.
+Interactive controls: hero screen W/S or arrows + Space/Enter, F3 settings; in a solo run WASD/arrows move, Space dash, Esc/P pause, R back to hero select (after death or while paused).
 All screenshots stay under `D:\tickhappens\.tmp\`.

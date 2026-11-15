@@ -9,11 +9,11 @@ using TickHappens.Localization;
 
 namespace TickHappens.Game;
 
-internal sealed class CoopHud(OnlineGame game)
+internal sealed class CoopHud(OnlineGame game, SettingsMenu settings)
 {
     private static readonly uint[] TeamColors = [0xFFDEF08F, 0xFF99DFFF, 0xFFF9B478, 0xFFF3A9E4];
     private const uint Background = 0xFF151018, Foreground = 0xFFF4F1FF;
-    private readonly PauseMenu _pauseMenu = new(online: true);
+    private readonly PauseMenu _pauseMenu = new(settings, online: true);
     private bool _tab;
     private int _itemOffset;
     public bool CapturesInput => _pauseMenu.IsOpen || _tab;

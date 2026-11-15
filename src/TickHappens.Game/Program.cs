@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using TickHappens.Engine.Assets;
+using TickHappens.Engine.Graphics;
 using TickHappens.Engine.Platform;
 using TickHappens.Game;
 using TickHappens.Game.Content;
@@ -99,10 +100,13 @@ if (characterId != null)
 }
 
 var atlas = AtlasData.Load(AssetPaths.Get("atlas", "main.json"));
+var settings = GameSettings.Load();
 using var window = new GameWindow(Localizer.Get("app.title"), 1280, 720, vsync: !demo && !noVsync);
-using var view = new RunView(window.Gl, atlas, content);
+using var view = new RunView(window.Gl, atlas, content, settings);
 // Automated captures (--frames) stay off the speakers unless they record the mix.
 using var audio = new GameAudio(!noAudio && frames == 0, noAudio ? null : recordAudio);
+audio.ApplyVolumes(settings);
+var settingsMenu = new SettingsMenu(settings, audio);
 // The menu shows the selected hero standing in a quiet arena; the run starts from a fresh world.
 bool inMenu = stayInMenu || (!demo && characterId == null);
 var world = new RunWorld(content, seed, content.Characters[selected].Id);
@@ -112,9 +116,16 @@ double last = clock.Elapsed.TotalSeconds, fpsTimer = 0;
 int fpsFrames = 0;
 using var online = new OnlineGame(content);
 var onlineMenu = new OnlineMenu(online);
-var coopHud = new CoopHud(online);
-var pauseMenu = new PauseMenu();
-Action<TickHappens.Engine.Graphics.PixelRenderer> drawPauseMenu = renderer => pauseMenu.Draw(renderer);
+var coopHud = new CoopHud(online, settingsMenu);
+var pauseMenu = new PauseMenu(settingsMenu);
+Action<PixelRenderer> drawPauseMenu = renderer => pauseMenu.Draw(renderer);
+Action<PixelRenderer> drawSettingsMenu = settingsMenu.Draw;
+Action<PixelRenderer> drawHeroMenu = renderer =>
+{
+    if (!stayInMenu) onlineMenu.Draw(renderer);
+    settingsMenu.DrawEntry(renderer);
+};
+bool mainSettingsOpen = false;
 bool wasOnlinePlaying = false;
 if (inMenu) audio.MenuMusic(); else audio.RunMusic();
 bool audioInRun = !inMenu;
@@ -128,15 +139,21 @@ for (int frame = 1; !window.QuitRequested; frame++)
     last = now;
 
     bool onlineMenuWasOpen = onlineMenu.IsOpen;
+    bool openedMainSettings = false;
     if (inMenu && online.Playing && online.Interrupted && window.WasPressed(Key.Escape)) online.Leave();
     else if (inMenu && online.Playing && !(online.CanReconnect && window.WasPressed(Key.F7)))
         coopHud.Read(window, view.Renderer);
     else if (inMenu && online.CanReconnect && window.WasPressed(Key.F7)) online.Reconnect();
-    else if (inMenu && !stayInMenu && !online.Playing)
+    else if (inMenu && !mainSettingsOpen && !onlineMenuWasOpen && !online.Playing &&
+        settingsMenu.EntryPressed(window, view.Renderer))
+    {
+        settingsMenu.Open(window);
+        mainSettingsOpen = true;
+        openedMainSettings = true;
+    }
+    else if (inMenu && !mainSettingsOpen && !stayInMenu && !online.Playing)
         onlineMenu.Read(window, view.Renderer, content.Characters[selected].Id, seed);
-    int chestChoice = window.WasPressed(Key.D1) ? 1 : window.WasPressed(Key.D2) ? 2 : window.WasPressed(Key.D3) ? 3 : 0;
-    var netInput = new RunInput(Axis(Key.D, Key.Right, Key.A, Key.Left),
-        Axis(Key.S, Key.Down, Key.W, Key.Up), window.IsDown(Key.Space) || window.WasPressed(Key.Space), chestChoice);
+    var netInput = settings.ReadInput(window);
     online.Update(frameDt, coopHud.CapturesInput ? default : netInput);
     if (online.Playing != wasOnlinePlaying)
     {
@@ -155,9 +172,17 @@ for (int frame = 1; !window.QuitRequested; frame++)
             interruption: online.Interrupted ? online.Status : null, canReconnect: online.CanReconnect,
             localAlpha: online.LocalAlpha, localCorrection: online.ViewCorrection, coopHud: coopHud);
     }
+    else if (inMenu && mainSettingsOpen)
+    {
+        // The click or key that opens settings must not also activate a settings row.
+        if (!openedMainSettings && settingsMenu.Read(window, view.Renderer)) mainSettingsOpen = false;
+        view.Draw(window.Width, window.Height, world, 1, true, frameDt, selected,
+            mainSettingsOpen ? drawSettingsMenu : drawHeroMenu);
+    }
     else if (inMenu && (onlineMenu.IsOpen || onlineMenuWasOpen))
     {
-        view.Draw(window.Width, window.Height, world, 1, true, frameDt, selected, onlineMenu.Draw);
+        view.Draw(window.Width, window.Height, world, 1, true, frameDt, selected,
+            onlineMenu.IsOpen ? onlineMenu.Draw : drawHeroMenu);
     }
     else if (inMenu)
     {
@@ -166,8 +191,8 @@ for (int frame = 1; !window.QuitRequested; frame++)
             string next = Localizer.Languages.First(language => language != Localizer.Language);
             if (!Localizer.Select(next)) Console.Error.WriteLine(Localizer.Get("language.saveError"));
         }
-        int delta = (window.WasPressed(Key.D) || window.WasPressed(Key.Right) || window.WasPressed(Key.Down) ? 1 : 0)
-                  - (window.WasPressed(Key.A) || window.WasPressed(Key.Left) || window.WasPressed(Key.Up) ? 1 : 0);
+        int delta = (window.WasPressed(Key.S) || window.WasPressed(Key.Down) || window.WasPressed(Key.Right) ? 1 : 0)
+                  - (window.WasPressed(Key.W) || window.WasPressed(Key.Up) || window.WasPressed(Key.Left) ? 1 : 0);
         if (delta != 0)
         {
             audio.Play("ui_move", 0.5f, 0, 0, 2);
@@ -184,7 +209,7 @@ for (int frame = 1; !window.QuitRequested; frame++)
             audio.Play("ui_confirm", 0.6f, 0, 0, 1);
         }
         view.Draw(window.Width, window.Height, world, 1, paused: true, frameDt, menuSelection: selected,
-            overlay: stayInMenu ? null : onlineMenu.Draw);
+            overlay: drawHeroMenu);
     }
     else
     {
@@ -204,7 +229,7 @@ for (int frame = 1; !window.QuitRequested; frame++)
         }
 
         if (inMenu)
-            view.Draw(window.Width, window.Height, world, 1, paused: true, frameDt, menuSelection: selected, overlay: onlineMenu.Draw);
+            view.Draw(window.Width, window.Height, world, 1, paused: true, frameDt, menuSelection: selected, overlay: drawHeroMenu);
         else
         {
             if (loop.Paused != pauseMenu.IsOpen) loop.TogglePause();
@@ -248,7 +273,3 @@ for (int frame = 1; !window.QuitRequested; frame++)
     window.Present();
 }
 return 0;
-
-int Axis(Key positive, Key positiveArrow, Key negative, Key negativeArrow) =>
-    (window.IsDown(positive) || window.IsDown(positiveArrow) ? 1 : 0) -
-    (window.IsDown(negative) || window.IsDown(negativeArrow) ? 1 : 0);

@@ -121,10 +121,11 @@ public sealed class GameWindow : IDisposable
 /// <summary>USB HID scancodes (layout-independent physical keys).</summary>
 public enum Key
 {
-    A = 4, D = 7, E = 8, N = 17, P = 19, Q = 20, R = 21, S = 22, W = 26,
+    A = 4, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
     D1 = 30, D2 = 31, D3 = 32, D4 = 33, D5 = 34, D6 = 35, D7 = 36, D8 = 37, D9 = 38, D0 = 39,
     Return = 40, Escape = 41, Backspace = 42, Tab = 43, Space = 44,
     Semicolon = 51, Period = 55,
     F1 = 58, F2 = 59, F3 = 60, F4 = 61, F5 = 62, F6 = 63, F7 = 64, F12 = 69,
     Right = 79, Left = 80, Down = 81, Up = 82,
+    LeftCtrl = 224, LeftShift, RightCtrl = 228, RightShift,
 }
