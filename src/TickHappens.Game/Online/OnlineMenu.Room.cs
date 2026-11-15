@@ -95,9 +95,13 @@ internal sealed partial class OnlineMenu
         Hud.Frame(ui, layout.X + 8, stageTop, stageWidth, layout.Foot + 38 - stageTop, Edge, Stage);
         int bayWidth = stageWidth / CoopSession.MaxPlayers;
         int heroScale = Math.Clamp(Math.Min((layout.Foot - stageTop - 7) / 25, (bayWidth - 8) / 28), 1, 4);
+        int? hoveredHero = null;
+        int infoX = 0;
+        int? infoBottom = null;
         for (int slot = 0; slot < CoopSession.MaxPlayers; slot++)
         {
-            int x = layout.X + 8 + bayWidth * slot + bayWidth / 2;
+            int bayX = layout.X + 8 + bayWidth * slot;
+            int x = bayX + bayWidth / 2;
             bool present = game.PlayerPresent(slot);
             bool local = game.LocalSlot == slot;
             uint accent = local ? Teal : present ? StageLight : Edge;
@@ -108,7 +112,16 @@ internal sealed partial class OnlineMenu
 
             Hud.Pedestal(ui, x, layout.Foot, Math.Min(40, bayWidth / 2 - 6), 9, accent);
             if (present && hero is int index)
+            {
                 preview.DrawHero(ui, index, time + slot * 0.19f, x, layout.Foot + 1, heroScale);
+                if (Hits(renderer, mouse, bayX, stageTop, bayWidth, layout.Foot + 31 - stageTop))
+                {
+                    hoveredHero = index;
+                    int right = bayX + bayWidth + 4;
+                    infoX = right + Hud.HeroInfoWidth <= renderer.UiW
+                        ? right : bayX - 4 - Hud.HeroInfoWidth;
+                }
+            }
 
             DrawFitted(ui, present ? game.PlayerName(slot) : Localizer.Get("online.emptySlot"),
                 x, layout.Foot + 13, bayWidth - 6, present ? Text : Muted);
@@ -136,7 +149,13 @@ internal sealed partial class OnlineMenu
                 int index = first + i, x = left + i * PortraitStep;
                 bool selected = index == game.SelectedHero;
                 bool hover = Hits(renderer, mouse, x, layout.Roster, PortraitStep - 4, PortraitHeight);
-                if (hover) focus = index;
+                if (hover)
+                {
+                    focus = index;
+                    hoveredHero = index;
+                    infoX = x + (PortraitStep - 4 - Hud.HeroInfoWidth) / 2;
+                    infoBottom = layout.Roster - 4;
+                }
                 Hud.Frame(ui, x, layout.Roster, PortraitStep - 4, PortraitHeight,
                     selected ? Teal : hover ? StageLight : Edge, selected || hover ? Highlight : Panel);
                 preview.DrawHero(ui, index, selected ? time : 0, x + (PortraitStep - 4) / 2, layout.Roster + 25, 1);
@@ -151,6 +170,9 @@ internal sealed partial class OnlineMenu
         else
             DrawFitted(ui, Localizer.Get("online.waitingHost"), layout.ButtonX(2) + layout.ButtonWidth / 2,
                 layout.Buttons + 5, layout.ButtonWidth, Muted);
+
+        if (hoveredHero is int heroIndex)
+            Hud.DrawHeroInfo(renderer, ui, game.Hero(heroIndex), infoX, stageTop, bottom: infoBottom);
     }
 
     private static void DrawFitted(PixelCanvas ui, string text, int x, int y, int width, uint color)

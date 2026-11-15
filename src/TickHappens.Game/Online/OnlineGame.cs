@@ -73,7 +73,8 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
     public int HeroCount => content.Characters.Count;
     public string Nickname { get; private set; } = "";
     public int SelectedHero { get; private set; }
-    public string HeroName(int hero) => Hud.CharacterName(content.Characters[hero]);
+    public CharacterDef Hero(int index) => content.Characters[index];
+    public string HeroName(int hero) => Hud.CharacterName(Hero(hero));
     public bool PlayerPresent(int slot) => _session?.IsPresent(slot) == true;
     public int? PlayerHero(int slot) => _session?.Profile(slot)?.Hero;
     public string PlayerName(int slot) => _session?.Profile(slot)?.Nickname is { Length: > 0 } name
