@@ -247,7 +247,11 @@ public sealed partial class EosTransport
         }
         foreach (string id in _removed) _members.Remove(id);
         foreach (var (id, user) in _refreshed)
-            if (_members.TryAdd(id, user) && IsAllowed(id)) Accept(user);
+        {
+            if (!_members.TryAdd(id, user) || !IsAllowed(id)) continue;
+            Console.WriteLine("EOS lobby peer discovered.");
+            Accept(user);
+        }
         foreach (string id in _removed) PeerDisconnected?.Invoke(id);
     }
 
@@ -255,6 +259,7 @@ public sealed partial class EosTransport
     {
         _lobbyId = null;
         HostPeer = null;
+        _receivedRoomPacket = false;
         foreach (var user in _members.Values) Close(user);
         _members.Clear();
         _refreshed.Clear();
