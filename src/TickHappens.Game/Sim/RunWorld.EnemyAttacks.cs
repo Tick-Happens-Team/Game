@@ -63,15 +63,22 @@ public sealed partial class RunWorld
         var kind = _enemyKind[EDef[slot]];
         if (def.Behavior == "witch" && decoy == null)
         {
-            var from = pos;
+            Strike(target, pos);
+            var from = target.Pos;
             foreach (var player in _players)
             {
-                if (!player.Active || player.Hp <= 0 || (player != target && Vector2.DistanceSquared(player.Pos, target.Pos) > 90 * 90)) continue;
-                Emit(EventKind.ItemBeam, from.X, from.Y, x2: player.Pos.X, y2: player.Pos.Y);
-                HealFromEnemyHit(slot, def, HurtPlayer(player, EDamage[slot], kind, from.X, from.Y, slot), lifestealCap);
+                if (player == target || !player.Active || player.Hp <= 0 ||
+                    Vector2.DistanceSquared(player.Pos, target.Pos) > 90 * 90) continue;
+                Strike(player, from);
                 from = player.Pos;
             }
             return;
+
+            void Strike(PlayerState player, Vector2 source)
+            {
+                Emit(EventKind.ItemBeam, source.X, source.Y, x2: player.Pos.X, y2: player.Pos.Y);
+                HealFromEnemyHit(slot, def, HurtPlayer(player, EDamage[slot], kind, source.X, source.Y, slot), lifestealCap);
+            }
         }
         if (def.ShotRange > 0)
         {

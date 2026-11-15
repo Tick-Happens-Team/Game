@@ -52,6 +52,32 @@ public sealed class EnemyAttacksTests
         Assert.Equal(0, world.EnemyShots.Length);
     }
 
+    [Fact]
+    public void WitchLightningHitsThePrimaryTargetBeforeChainingToNearbyPlayers()
+    {
+        var world = IsolatedWorld(playerCount: 2);
+        world.SetPlayerActive(1, true);
+        var primary = world.Players[1];
+        var secondary = world.Players[0];
+        primary.Pos = secondary.Pos + new Vector2(80, 0);
+        primary.AttackTimer = 100;
+        int witchType = world.Content.EnemyIndex("witch");
+        world.Content.Enemies[witchType].Speed = 0;
+        var witchPos = primary.Pos + new Vector2(180, 0);
+        world.SpawnEnemy(witchType, witchPos);
+
+        for (int i = 0; i <= RunWorld.EnemyWindupTicks; i++)
+            world.StepCoop([default, default]);
+
+        var beams = world.Events.Where(e => e.Kind == EventKind.ItemBeam).ToArray();
+        Assert.Equal(2, beams.Length);
+        Assert.Equal(witchPos.X, beams[0].X);
+        Assert.Equal(primary.Pos.X, beams[0].X2);
+        Assert.Equal(primary.Pos.X, beams[1].X);
+        Assert.Equal(secondary.Pos.X, beams[1].X2);
+        Assert.Equal(2, world.Events.Count(e => e.Kind == EventKind.PlayerHurt));
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -110,12 +136,12 @@ public sealed class EnemyAttacksTests
         TestWorld.Close(firstStep * 1.01f, start.X - world.EX[enemy], 3);
     }
 
-    private static RunWorld IsolatedWorld()
+    private static RunWorld IsolatedWorld(int playerCount = 1)
     {
         var content = TestContent.LoadCore();
         foreach (var wave in content.Waves.Waves) wave.PerSecond = 0;
         content.Characters[0].Stats.Regen = 0;
-        var world = new RunWorld(content);
+        var world = new RunWorld(content, playerCount: playerCount);
         world.Player.AttackTimer = 100;
         return world;
     }

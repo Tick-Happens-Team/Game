@@ -364,6 +364,6 @@
   "content.enemies.prospector.name": "Prospector",
   "content.enemies.ancient_cultist.name": "Ancient Cultist",
   "content.characters.king_arthur.name": "King Arthur",
-  "content.characters.king_arthur.passive": "Excalibur replaces projectiles with a physical slash in front of Arthur. Base radius 15.",
+  "content.characters.king_arthur.passive": "Excalibur replaces projectiles with a physical slash in front of Arthur. Base radius 30.",
   "content.characters.king_arthur.growth": "+0.25 Excalibur radius per level."
 }

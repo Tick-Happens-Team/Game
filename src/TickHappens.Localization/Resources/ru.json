@@ -364,6 +364,6 @@
   "content.enemies.prospector.name": "Старатель",
   "content.enemies.ancient_cultist.name": "Древний культист",
   "content.characters.king_arthur.name": "Король Артур",
-  "content.characters.king_arthur.passive": "Экскалибур заменяет снаряды физическим ударом перед Артуром. Базовый радиус 15.",
+  "content.characters.king_arthur.passive": "Экскалибур заменяет снаряды физическим ударом перед Артуром. Базовый радиус 30.",
   "content.characters.king_arthur.growth": "+0,25 к радиусу Экскалибура за уровень."
 }
