@@ -3,6 +3,7 @@
   "app.stats": "TickHappens | {0:F0} FPS | врагов {1}",
   "hud.level": "{0}  УР {1}",
   "hud.hp": "ХП {0}/{1}",
+  "hud.souls": "ДУШИ {0}",
   "hud.time": "{0}:{1:00}",
   "hud.statues": "СТАТУИ +{0}:{1:00}",
   "hud.gold": "ЗОЛОТО {0}  СУНДУК {1}",

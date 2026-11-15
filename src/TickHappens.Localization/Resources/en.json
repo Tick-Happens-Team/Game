@@ -3,6 +3,7 @@
   "app.stats": "TickHappens | {0:F0} FPS | enemies {1}",
   "hud.level": "{0}  LV {1}",
   "hud.hp": "HP {0}/{1}",
+  "hud.souls": "SOULS {0}",
   "hud.time": "{0}:{1:00}",
   "hud.statues": "STATUES +{0}:{1:00}",
   "hud.gold": "GOLD {0}  CHEST {1}",

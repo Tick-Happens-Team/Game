@@ -132,6 +132,8 @@ internal sealed class Hud(GameSettings settings)
         Bar(ui, 2, 2, w - 4, 5, p.Xp / p.XpNext, Teal, TealDark);
         PixelFont.Draw(ui, Localizer.Format("hud.level", CharacterName(p.Character), p.Level), 4, 10, White, Ink);
         PixelFont.Draw(ui, Localizer.Format("hud.hp", (int)MathF.Ceiling(p.Hp), (int)MathF.Ceiling(world.MaxHealth)), 4, 20, 0xFF7070FFu, Ink);
+        if (p.Character.Id == "necromancer")
+            PixelFont.Draw(ui, Localizer.Format("hud.souls", p.Souls), 4, 30, Teal, Ink);
         int secs = (int)world.RunSeconds;
         PixelFont.DrawCentered(ui, Localizer.Format("hud.time", secs / 60, secs % 60), w / 2, 10, White, Ink, 2);
         if (world.BonusSeconds > 0)
