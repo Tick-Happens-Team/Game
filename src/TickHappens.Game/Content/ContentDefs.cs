@@ -37,6 +37,10 @@ public enum Stat
     GoldGain,
     /// <summary>Dash cooldown multiplier. Default 1.</summary>
     DashCooldown,
+    PhysicalCrit, MagicalCrit, CritDamage, MagicalLifesteal,
+    StationaryRegen, RechargingShield, GoldRefund, DashSpeedBonus,
+    EnemyLifestealCap, PhysicalBlock, DamageReroll, FinisherChance, DamageReflection,
+    EliteDamage, HighestHealthDamage, DashLength, ExtraDashCharges, Lifesteal,
 }
 
 public enum DamageKind { Physical, Magical, Pure }
@@ -107,7 +111,7 @@ public sealed class CharacterDef
     [JsonPropertyName("passives")] public List<PassiveDef> Passives { get; set; } = [];
 }
 
-/// <summary>Active behaviour of an item that attacks on its own (engine kinds: bolt, pulse, chain, blast).</summary>
+/// <summary>Active behaviour of an item that attacks on its own (see ContentLoader.WeaponKinds).</summary>
 public sealed class ItemWeapon
 {
     [JsonPropertyName("kind")] public string Kind { get; set; } = "";
@@ -119,19 +123,59 @@ public sealed class ItemWeapon
     [JsonPropertyName("pierce")] public int Pierce { get; set; } = 1;
     [JsonPropertyName("range")] public float Range { get; set; } = 200;
     [JsonPropertyName("area")] public float Area { get; set; }
+    [JsonPropertyName("angle")] public float Angle { get; set; }
+    [JsonPropertyName("bossDamage")] public float BossDamage { get; set; }
+    [JsonPropertyName("duration")] public float Duration { get; set; }
+    [JsonPropertyName("speedBonus")] public float SpeedBonus { get; set; }
+    [JsonPropertyName("minDamage")] public float MinDamage { get; set; }
+    [JsonPropertyName("slow")] public float Slow { get; set; }
+    [JsonPropertyName("chance")] public float Chance { get; set; }
+}
+
+public sealed class CompanionDef
+{
+    [JsonPropertyName("kind")] public string Kind { get; set; } = "";
+    [JsonPropertyName("sprite")] public string Sprite { get; set; } = "";
+    [JsonPropertyName("damageType")] public string DamageType { get; set; } = "physical";
+    [JsonPropertyName("interval")] public float Interval { get; set; }
+    [JsonPropertyName("attackInterval")] public float AttackInterval { get; set; }
+    [JsonPropertyName("duration")] public float Duration { get; set; }
+    [JsonPropertyName("health")] public float Health { get; set; }
+    [JsonPropertyName("damage")] public float Damage { get; set; }
+    [JsonPropertyName("speed")] public float Speed { get; set; }
+    [JsonPropertyName("range")] public float Range { get; set; }
+    [JsonPropertyName("area")] public float Area { get; set; }
+    [JsonPropertyName("slow")] public float Slow { get; set; }
+    [JsonPropertyName("stun")] public float Stun { get; set; }
+    [JsonPropertyName("chance")] public float Chance { get; set; }
+}
+
+public sealed class ItemEffect
+{
+    [JsonPropertyName("kind")] public string Kind { get; set; } = "";
+    [JsonPropertyName("value")] public float Value { get; set; }
+    [JsonPropertyName("secondary")] public float Secondary { get; set; }
+    [JsonPropertyName("chance")] public float Chance { get; set; }
+    [JsonPropertyName("duration")] public float Duration { get; set; }
+    [JsonPropertyName("radius")] public float Radius { get; set; }
+    [JsonPropertyName("threshold")] public float Threshold { get; set; }
 }
 
 public sealed class ItemDef
 {
     [JsonPropertyName("id")] public string Id { get; set; } = "";
     [JsonPropertyName("name")] public string Name { get; set; } = "";
-    /// <summary>common | rare | epic | mythic | legendary</summary>
+    /// <summary>common | rare | epic | mythic | legendary | cursed</summary>
     [JsonPropertyName("rarity")] public string Rarity { get; set; } = "common";
     [JsonPropertyName("description")] public string Description { get; set; } = "";
     /// <summary>Applied once per copy owned (copies stack).</summary>
     [JsonPropertyName("mods")] public List<StatMod> Mods { get; set; } = [];
     /// <summary>Optional attack behaviour; extra copies add +1 count.</summary>
     [JsonPropertyName("weapon")] public ItemWeapon? Weapon { get; set; }
+    [JsonPropertyName("xpOnPickup")] public float XpOnPickup { get; set; }
+    [JsonPropertyName("companion")] public CompanionDef? Companion { get; set; }
+    [JsonPropertyName("effect")] public ItemEffect? Effect { get; set; }
+    [JsonPropertyName("bossDrop")] public string? BossDrop { get; set; }
 }
 
 public sealed class EnemyDef
@@ -156,6 +200,7 @@ public sealed class EnemyDef
     [JsonPropertyName("goldChance")] public float GoldChance { get; set; }
     /// <summary>Bosses are excluded from execute effects.</summary>
     [JsonPropertyName("boss")] public bool Boss { get; set; }
+    [JsonPropertyName("elite")] public bool Elite { get; set; }
 }
 
 public sealed class WaveDef
@@ -224,7 +269,7 @@ public sealed class RunRules
     [JsonPropertyName("arenaSize")] public int ArenaSize { get; set; } = 2048;
     [JsonPropertyName("xpBase")] public float XpBase { get; set; } = 5;
     [JsonPropertyName("xpGrowth")] public float XpGrowth { get; set; } = 1.18f;
-    [JsonPropertyName("invulnerableSeconds")] public float InvulnerableSeconds { get; set; } = 0.5f;
+    [JsonPropertyName("invulnerableSeconds")] public float InvulnerableSeconds { get; set; } = 0.1f;
     [JsonPropertyName("units")] public UnitRules Units { get; set; } = new();
     [JsonPropertyName("basicAttack")] public AttackDef BasicAttack { get; set; } = new();
     [JsonPropertyName("dash")] public DashRules Dash { get; set; } = new();
@@ -236,6 +281,7 @@ public sealed class RunRules
 public sealed class ContentSet
 {
     public static readonly string[] Rarities = ["common", "rare", "epic", "mythic", "legendary"];
+    public const string CursedRarity = "cursed";
 
     public required List<CharacterDef> Characters { get; init; }
     public required List<ItemDef> Items { get; init; }

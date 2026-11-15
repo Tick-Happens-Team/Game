@@ -14,7 +14,7 @@ Status markers follow the main [roadmap](../ROADMAP.md): `[x]` verified, `[ ]` p
 - **Damage types:** `physical`, `magical` and `pure` are supported. Physical and magical damage use the corresponding defences, while pure damage bypasses them.
 - **VFX:** explosion, impact, slash, lightning, sparkle, pickup, and GPU particles.
 
-Milestone M1 is playable: stat model v2 (S0), hero basic attack (S1), the damage pipeline with types and percentage defences (S2), chest loot by rarity with stacking items (S13), six C1 heroes with sprites, six I1 items, and the character select screen. The latest sheet values still need to be applied to the playable roster, four I1 items, and chest rarity chances.
+Milestone M1 is playable: stat model v2 (S0), hero basic attack (S1), the damage pipeline with types and percentage defences (S2), chest loot by rarity with stacking items (S13), six C1 heroes with sprites and the character select screen. The item catalog implements all 62 sheet entries. The five cursed rewards are wired to boss IDs and enter normal play when their bosses are added to waves. The playable hero stats still need a separate sheet-parity pass.
 
 ## 2. Engine systems
 
@@ -104,104 +104,106 @@ Stats are copied from the owner's table. Growth means the per-level value of the
 
 ## 5. Items ordered by ease
 
-There are 62 planned items: 57 in the chest rarity pool and five cursed boss drops. The sheet sets chest rarity chances at 40% common, 25% rare, 17% epic, 12% mythic, and 6% legendary. The current build uses weights of 55/25/12/6/2 in `rules.json`; matching the sheet is pending under S13. A damage type of «—» means the item deals no damage. Four playable I1 items still use older values: Sneakers +10% speed, Tin of Sprats +25 HP, Expander +15% area, and Heavy Shackles −50% speed/+30% damage.
+There are 62 planned items: 57 in the chest rarity pool and five cursed boss drops. The chest rolls use 40% common, 25% rare, 17% epic, 12% mythic, and 6% legendary as rarity weights. Each chest offers two distinct items while the run continues. Press 1 or 2 within 10 seconds. The first option is granted on timeout. Heart of the Gold Vein adds key 3 and a third item to every second chest opened while held. A damage type of «—» means the item deals no damage.
+
+Values the sheet leaves open use tunable defaults in `items.json`. Accelerator grants +50% movement speed. Jetpack increases dash distance and duration by 75%. Wooden Stick pulses every 5 s, Magic Projectile fires every 3 s, and Poor Man's Shield refreshes every 12 s. Sword reaches 75, Flamethrower 110, Fan 150, and Leader's Heart 250. Cane checks its chance on a basic attack once its cooldown is ready. Repeated summons have per-item caps and a shared 64-entity simulation cap.
 
 ### Tier I1: stat items (S0, S10 for dash cooldown)
 
 | Item | Rarity | Effect | Implementation | Status |
 |---|---|---|---|---|
-| Sneakers | Common | +4% move speed | `moveSpeed` pct (exists) | [~] |
-| Tin of Sprats | Common | +23 max HP | `maxHp` add (exists) | [~] |
+| Sneakers | Common | +4% move speed | `moveSpeed` pct (exists) | [x] |
+| Tin of Sprats | Common | +23 max HP | `maxHp` add (exists) | [x] |
 | Chocolate | Common | +3% magical damage | `magicDamage` pct | [x] |
 | Snack Bar | Common | −10% dash cooldown | `dashCooldown` pct | [x] |
-| Expander | Epic | +20% radius of all items and weapons | `area` pct (exists) | [~] |
-| Heavy Shackles | Legendary | −40% move speed, +25% all outgoing hero damage | `moveSpeed` and `might` pct | [~] |
+| Expander | Epic | +20% radius of all items and weapons | `area` pct (exists) | [x] |
+| Heavy Shackles | Legendary | −40% move speed, +25% all outgoing hero damage | `moveSpeed` and `might` pct | [x] |
 
 ### Tier I2: crit, sustain, progression, and dash (S3, S4, S5, S10, S13)
 
 | Item | Rarity | Effect | Implementation | Status |
 |---|---|---|---|---|
-| Fork | Mythic | +33% physical crit chance | S3 | [ ] |
-| Needle | Rare | +10% crit damage | S3 | [ ] |
-| Bloodstone | Mythic | +33% magical crit chance and +25% magical lifesteal | S3 and S4 | [ ] |
-| Sentient Grass | Rare | while standing still, regenerates 2.25% of max HP per second | `whileStill` plus regen (S5) | [ ] |
-| Grandma's Compote | Rare | shield equal to 15% of max HP, replenished after 8 s without taking damage | shield (S4) | [ ] |
-| Star of David | Epic | refunds 15% of every gold purchase | `onGoldSpent` (S5, S13) | [ ] |
-| Jar of Wind | Rare | +1 dash charge | S10 | [ ] |
-| Whoopee Cushion | Common | every dash gives +5% move speed for 3 s | `onDash` buff (S5, S10) | [ ] |
-| Jetpack | Epic | longer dash | S10 | [ ] |
-| Accelerator | Mythic | every 27.18 s: +speed for 3.14 s; touching enemies deals 16.1 physical damage | `everySeconds` buff plus contact damage (S5) | [ ] |
-| Hyena Tooth | Epic | on pickup grants 100 × run minute / 3 XP | item-acquired hook and run clock (S5, S13) | [ ] |
+| Fork | Mythic | +33% physical crit chance | S3 | [x] |
+| Needle | Rare | +10% crit damage | S3 | [x] |
+| Bloodstone | Mythic | +33% magical crit chance and +25% magical lifesteal | S3 and S4 | [x] |
+| Sentient Grass | Rare | while standing still, regenerates 2.25% of max HP per second | `whileStill` plus regen (S5) | [x] |
+| Grandma's Compote | Rare | shield equal to 15% of max HP, replenished after 8 s without taking damage | shield (S4) | [x] |
+| Star of David | Epic | refunds 15% of every gold purchase | `onGoldSpent` (S5, S13) | [x] |
+| Jar of Wind | Rare | +1 dash charge | S10 | [x] |
+| Whoopee Cushion | Common | every dash gives +5% move speed for 3 s | `onDash` buff (S5, S10) | [x] |
+| Jetpack | Epic | longer dash | S10 | [x] |
+| Accelerator | Mythic | every 27.18 s: +speed for 3.14 s; touching enemies deals 16.1 physical damage | `everySeconds` buff plus contact damage (S5) | [x] |
+| Hyena Tooth | Epic | on pickup grants 100 × run minute / 3 XP | item-acquired hook and run clock (S5, S13) | [x] |
 
 ### Tier I3: weapons and conditional damage (S1, S2, S6; E0 for target roles)
 
 | Item | Rarity | Effect | Implementation | Damage type | Status |
 |---|---|---|---|---|---|
-| Sword | Common | strikes in a 120° forward cone every 1.5 s for 10 damage | `melee` plus slash VFX | Physical | [ ] |
-| Soda | Common | every 3 s drops a soda bomb behind; it explodes after 2 s for 15 in radius 50 | `dropped` plus explosion VFX | Magical | [ ] |
-| Flamethrower | Epic | burns enemies in a 120° forward cone for 25 dps; runs for 5 s and cools down for 3 s | timed `cone` (CombatArea.Cone) with the fire VFX from 0.12 | Magical | [ ] |
-| Trident | Epic | every 7 s throws a returning trident to range 200 at speed 75; deals 30 damage to enemies it pierces | `boomerang` | Physical | [ ] |
-| Magic Projectile | Rare | shot at a random enemy, 25 damage; on a kill it bounces to an enemy within 500 | `bounce` | Magical | [ ] |
-| Electric Gloves | Epic | 20% chance on the hero’s attack: lightning dealing 15 damage and bouncing up to 5 times | `onAttack` proc plus `chain` (exists) | Magical | [ ] |
-| Rocket | Mythic | 25% chance on attack to fire a rocket for 33% of the attack’s damage | `onAttack` proc plus projectile | Physical | [ ] |
-| Laser | Legendary | instantly kills one enemy every 9 s, excluding bosses | `execute` | Pure | [ ] |
-| Galactic Rifle | Epic | every 22 s hits the highest-HP enemy for 20% of current HP (5% against bosses) | `snipe` targeting without a wind-up | Physical | [ ] |
-| Cane | Common | 0.5% chance on a 30 s cooldown to kill the highest-HP enemy; deals 165 damage to bosses | `execute` with a proc chance | Pure | [ ] |
-| Finisher | Legendary | 50% chance to finish an enemy below 12% HP (excluding bosses) | `onHit` execute | Pure | [ ] |
-| Клинок палача | Epic | +14% damage against elites and bosses | target-role damage multiplier (S2, E0) | — | [ ] |
-| Прицел | Rare | +11% damage against the highest-HP enemy | target-based damage multiplier (S2) | — | [ ] |
+| Sword | Common | strikes in a 120° forward cone every 1.5 s for 10 damage | `melee` plus slash VFX | Physical | [x] |
+| Soda | Common | every 3 s drops a soda bomb behind; it explodes after 2 s for 15 in radius 50 | `dropped` plus explosion VFX | Magical | [x] |
+| Flamethrower | Epic | burns enemies in a 120° forward cone for 25 dps; runs for 5 s and cools down for 3 s | timed `cone` (CombatArea.Cone) with the fire VFX from 0.12 | Magical | [x] |
+| Trident | Epic | every 7 s throws a returning trident to range 200 at speed 75; deals 30 damage to enemies it pierces | `boomerang` | Physical | [x] |
+| Magic Projectile | Rare | shot at a random enemy, 25 damage; on a kill it bounces to an enemy within 500 | `bounce` | Magical | [x] |
+| Electric Gloves | Epic | 20% chance on the hero’s attack: lightning dealing 15 damage and bouncing up to 5 times | `onAttack` proc plus `chain` (exists) | Magical | [x] |
+| Rocket | Mythic | 25% chance on attack to fire a rocket for 33% of the attack’s damage | `onAttack` proc plus projectile | Physical | [x] |
+| Laser | Legendary | instantly kills one enemy every 9 s, excluding bosses | `execute` | Pure | [x] |
+| Galactic Rifle | Epic | every 22 s hits the highest-HP enemy for 20% of current HP (5% against bosses) | `snipe` targeting without a wind-up | Physical | [x] |
+| Cane | Common | 0.5% chance on a 30 s cooldown to kill the highest-HP enemy; deals 165 damage to bosses | `execute` with a proc chance | Pure | [x] |
+| Finisher | Legendary | 50% chance to finish an enemy below 12% HP (excluding bosses) | `onHit` execute | Pure | [x] |
+| Клинок палача | Epic | +14% damage against elites and bosses | target-role damage multiplier (S2, E0) | — | [x] |
+| Прицел | Rare | +11% damage against the highest-HP enemy | target-based damage multiplier (S2) | — | [x] |
 
 ### Tier I4: status effects and defensive procs (S7, S8, S9)
 
 | Item | Rarity | Effect | Implementation | Damage type | Status |
 |---|---|---|---|---|---|
-| Сыр с плесенью | Mythic | 33% chance on damage dealt to inflict delayed poison damage equal to 6.5% of the original damage | poison (S7) | Magical | [ ] |
-| Aura | Mythic | slows enemies by 25% within 150 and deals 20 dps | slow plus damage zone (S7, S8) | Magical | [ ] |
-| Wooden Stick | Legendary | slows and deals 30–55 damage within 550; both effects are stronger closer to the hero | proximity-scaled slow and damage (S7) | Pure | [ ] |
-| Icicle | Mythic | 13% chance on kill: the enemy freezes and explodes for 30 nearby, leaving an icicle that heals 30% of current HP | `onKill` freeze, explosion, heal pickup (S5, S7) | Magical | [ ] |
-| Dice | Mythic | 33% chance to change an attack's or item's damage type to a different type at random | damage-type remap in S2 | — | [ ] |
-| Shield | Common | blocks one physical attack, 10 s cooldown | S9 | — | [ ] |
-| Welding Mask | Legendary | 15% chance to block any damage, 0.25 s cooldown; restricts vision to a 45° cone | S9 block plus vision | — | [ ] |
-| Nettle | Epic | reflects 15% of damage dealt by enemies | S9 reflect | Pure | [ ] |
-| Garlic | Epic | caps enemy lifesteal at 20% | enemy lifesteal cap (20%) | — | [ ] |
-| Fan | Epic | slows enemies behind the hero by 20% and adds 15 move speed | rear-facing slow (S7) and `moveSpeed` bonus | — | [ ] |
+| Сыр с плесенью | Mythic | 33% chance on damage dealt to inflict delayed poison damage equal to 6.5% of the original damage | poison (S7) | Magical | [x] |
+| Aura | Mythic | slows enemies by 25% within 150 and deals 20 dps | slow plus damage zone (S7, S8) | Magical | [x] |
+| Wooden Stick | Legendary | slows and deals 30–55 damage within 550; both effects are stronger closer to the hero | proximity-scaled slow and damage (S7) | Pure | [x] |
+| Icicle | Mythic | 13% chance on kill: the enemy freezes and explodes for 30 nearby, leaving an icicle that heals 30% of current HP | `onKill` freeze, explosion, heal pickup (S5, S7) | Magical | [x] |
+| Dice | Mythic | 33% chance to change an attack's or item's damage type to a different type at random | damage-type remap in S2 | — | [x] |
+| Shield | Common | blocks one physical attack, 10 s cooldown | S9 | — | [x] |
+| Welding Mask | Legendary | 15% chance to block any damage, 0.25 s cooldown; restricts vision to a 45° cone | S9 block plus vision | — | [x] |
+| Nettle | Epic | reflects 15% of damage dealt by enemies | S9 reflect | Pure | [x] |
+| Garlic | Epic | caps enemy lifesteal at 20% | enemy lifesteal cap (20%) | — | [x] |
+| Fan | Epic | slows enemies behind the hero by 20% and adds 15 move speed | rear-facing slow (S7) and `moveSpeed` bonus | — | [x] |
 
 ### Tier I5: companions and summons (S11)
 
 | Item | Rarity | Effect | Implementation | Damage type | Status |
 |---|---|---|---|---|---|
-| Garden Gnome | Rare | every 7 s summons a gnome with 150 HP and 10 damage | summon, attack nearest | Physical | [ ] |
-| FPV DRONE | Rare | a drone flies into an enemy and explodes for 35 in radius 100, then respawns after 10 s | summon, kamikaze | Physical | [ ] |
-| Sausages | Epic | a friendly dog fetches XP orbs within 1000 | summon, fetch XP | — | [ ] |
-| Bait | Epic | every 10 s summons a 150 HP boar that spits poison, slows by 25%, and deals 20 damage in radius 120 | summon, area poison and slow (S7) | Magical | [ ] |
-| Death Eagle | Mythic | every 10 s the circling eagle dives on a random target, dealing 50 damage and stunning for 0.3 s in radius 150 | summon, orbit, stun (S7) | Physical | [ ] |
-| Leech | Common | every 60 s summons a creature with 200 HP that transfers its HP to the player at 20 per second | summon, HP drain to owner (S4) | — | [ ] |
-| Satanic Bible | Legendary | 16% chance to turn hit enemies into allied demons (22 damage, 2 hits/s, live 11 s) | enemy conversion into summons (S11) | Pure | [ ] |
+| Garden Gnome | Rare | every 7 s summons a gnome with 150 HP and 10 damage | summon, attack nearest | Physical | [x] |
+| FPV DRONE | Rare | a drone flies into an enemy and explodes for 35 in radius 100, then respawns after 10 s | summon, kamikaze | Physical | [x] |
+| Sausages | Epic | a friendly dog fetches XP orbs within 1000 | summon, fetch XP | — | [x] |
+| Bait | Epic | every 10 s summons a 150 HP boar that spits poison, slows by 25%, and deals 20 damage in radius 120 | summon, area poison and slow (S7) | Magical | [x] |
+| Death Eagle | Mythic | every 10 s the circling eagle dives on a random target, dealing 50 damage and stunning for 0.3 s in radius 150 | summon, orbit, stun (S7) | Physical | [x] |
+| Leech | Common | every 60 s summons a creature with 200 HP that transfers its HP to the player at 20 per second | summon, HP drain to owner (S4) | — | [x] |
+| Satanic Bible | Legendary | 16% chance to turn hit enemies into allied demons (22 damage, 2 hits/s, live 11 s) | enemy conversion into summons (S11) | Pure | [x] |
 
 ### Tier I6: ally auras (S12; most value in co-op)
 
 | Item | Rarity | Effect | Implementation | Status |
 |---|---|---|---|---|
-| F.B. Ring | Common | +15 HP to allies within 300 | aura | [ ] |
-| Leader's Heart | Common | +8 attack speed to nearby allies | aura | [ ] |
-| Totem | Common | heals all allied creatures within 500 at 1 HP/s | heal aura | [ ] |
-| Vampire Hood | Rare | 15% lifesteal to all allies within 185 | lifesteal aura (S4) | [ ] |
-| Poor Man's Shield | Rare | 50 shield to the ally with the lowest HP | targeted shield (S4) | [ ] |
-| Motivation Mask | Epic | +15% physical damage to allies within 300 | aura | [ ] |
-| Shared Heart | Epic | the hero receives 10% of healing done to allies and 5% of healing done to summons | heal share | [ ] |
-| Dumbbell | Epic | +125 HP to allies and +50 HP to summons within 250 | aura | [ ] |
-| Шипастые ботинки | Mythic | +30 attack speed to allies within 325; 7% chance to redirect a physical hit above 35 to its source | aura plus reflect (S9) | [ ] |
-| Dominator Helm | Legendary | +13% armor to allies within 765 and 7% chance to block a physical hit on an ally; applies to all allies | aura plus block (S9) | [ ] |
+| F.B. Ring | Common | +15 HP to allies within 300 | aura | [x] |
+| Leader's Heart | Common | +8 attack speed to nearby allies | aura | [x] |
+| Totem | Common | heals all allied creatures within 500 at 1 HP/s | heal aura | [x] |
+| Vampire Hood | Rare | 15% lifesteal to all allies within 185 | lifesteal aura (S4) | [x] |
+| Poor Man's Shield | Rare | 50 shield to the ally with the lowest HP | targeted shield (S4) | [x] |
+| Motivation Mask | Epic | +15% physical damage to allies within 300 | aura | [x] |
+| Shared Heart | Epic | the hero receives 10% of healing done to allies and 5% of healing done to summons | heal share | [x] |
+| Dumbbell | Epic | +125 HP to allies and +50 HP to summons within 250 | aura | [x] |
+| Шипастые ботинки | Mythic | +30 attack speed to allies within 325; 7% chance to redirect a physical hit above 35 to its source | aura plus reflect (S9) | [x] |
+| Dominator Helm | Legendary | +13% armor to allies within 765 and 7% chance to block a physical hit on an ally; applies to all allies | aura plus block (S9) | [x] |
 
 ### Tier I7: cursed boss drops (E6, S13)
 
 | Item | Boss | Effect | Implementation | Status |
 |---|---|---|---|---|
-| Перевёрнутый крест | Древний культист | once prevents death, restores full HP, grants 3.5 s of invulnerability, and is consumed | death override and item consumption (S4, S5) | [ ] |
-| Сердце золотой жилы | Старатель | every second chest offers a third reward option | per-player chest counter and reward choices (S13) | [ ] |
-| Маска Фантома | Фантом | 10% chance on kill to create a 4 s illusion that repeats attacks at 25% damage; at most one illusion | on-kill mirrored summon (S5, S11) | [ ] |
-| Разбитые часы | Хранитель времени | every 13 s resets one item that is on cooldown | periodic cooldown reset (S5) | [ ] |
-| Сердце Пожирателя | Пожиратель | below 15% HP, devours a random non-boss enemy and restores 20% of max HP; 35 s cooldown | HP threshold trigger, filtered execute, and heal (S4–S6) | [ ] |
+| Перевёрнутый крест | Древний культист | once prevents death, restores full HP, grants 3.5 s of invulnerability, and is consumed | death override and item consumption (S4, S5) | [~] |
+| Сердце золотой жилы | Старатель | every second chest offers a third reward option | per-player chest counter and reward choices (S13) | [~] |
+| Маска Фантома | Фантом | 10% chance on kill to create a 4 s illusion that repeats attacks at 25% damage; at most one illusion | on-kill mirrored summon (S5, S11) | [~] |
+| Разбитые часы | Хранитель времени | every 13 s resets one item that is on cooldown | periodic cooldown reset (S5) | [~] |
+| Сердце Пожирателя | Пожиратель | below 15% HP, devours a random non-boss enemy and restores 20% of max HP; 35 s cooldown | HP threshold trigger, filtered execute, and heal (S4–S6) | [~] |
 
 **Coverage:** 6 + 11 + 13 + 10 + 7 + 10 + 5 = 62 items.
 
@@ -323,11 +325,11 @@ Art for every character, enemy and summon goes through recipes (`art-recipe` ski
 ## 9. Open questions for the owner
 
 1. **Executes.** Laser and Finisher exclude bosses, and Galactic Rifle deals 5% current HP to bosses. Cane deals 165 damage to bosses. Do any of these effects treat elites differently?
-2. **Accelerator.** The speed bonus amount is not specified.
+2. **Accelerator.** The agreed movement speed bonus is +50%.
 3. **Timekeeper.** Does "doubles the flow of time" double the run clock (difficulty) while it is alive, or speed up the whole game?
 4. **Guardian.** What share of the protected enemies' damage does it take, and within what radius?
 5. **Boss schedule.** At which run-clock minutes do the bosses appear, and in what order? May the developer propose the waves?
 6. **XP target.** What level should a typical 15-minute run reach? Enemy XP is now 7–500 per kill.
 7. **Gold.** The enemy table has no gold column. Which enemies drop gold, and how much?
 8. **Siphoner.** What is the range of its drain?
-9. **Сердце золотой жилы.** The sheet calls for a third option every second chest. The current game auto-awards one item, so the baseline chest choices and their selection flow need to be specified.
+9. **Сердце золотой жилы.** Standard chests offer two items while movement continues. With the heart, every second chest offers three.

@@ -7,7 +7,7 @@ namespace TickHappens.Game.Sim;
 public sealed partial class RunWorld
 {
     public const int SnapshotCapacity = 64 * 1024;
-    private const byte SnapshotVersion = 2;
+    private const byte SnapshotVersion = 3;
     private int _replicaTick = -1;
     private readonly ushort[] _enemySnapshotSlots = new ushort[ushort.MaxValue / 8];
 
@@ -37,9 +37,22 @@ public sealed partial class RunWorld
                 w.Int(p.Wallet.NextPrice);
                 w.Int(p.InvulnTicks);
                 w.Int(p.DashTicks);
+                w.Int(p.DashTicksTotal);
+                w.Int(p.DashChargesUsed);
                 w.Int(p.DashCooldownTicks);
+                w.Int(p.DashSpeedTicks);
+                w.Int(p.AcceleratorTicks);
+                w.Float(p.AcceleratorSpeedBonus);
+                w.Float(p.Shield);
+                w.Float(p.BonusShield);
+                w.Int(p.IllusionUntilTick);
+                WritePoint(ref w, p.IllusionPosition.X, p.IllusionPosition.Y);
                 w.Int(p.NearbyChest);
                 w.Int(p.LastChestItem);
+                w.Int(p.ChestOfferFirst);
+                w.Int(p.ChestOfferSecond);
+                w.Int(p.ChestOfferThird);
+                w.Int(p.ChestOfferUntilTick);
                 w.Byte((byte)((p.Walking ? 1 : 0) | (p.FacingLeft ? 2 : 0) | (p.PrevDash ? 4 : 0)));
                 w.Int(p.LastAppliedInput);
                 w.Short(EncodeAngle(p.Facing));
@@ -78,12 +91,25 @@ public sealed partial class RunWorld
                 int hp = Math.Clamp((int)MathF.Ceiling(EHp[i] / EMaxHp[i] * 63), 1, 63);
                 w.Byte((byte)(hp | (EFlash[i] > 0 ? 64 : 0)));
             }
+            int companions = 0;
+            foreach (ref readonly var ally in Companions) if (ally.Active) companions++;
+            w.Byte((byte)companions);
+            for (int i = 0; i < CompanionCapacity; i++)
+            {
+                ref readonly var ally = ref _companions[i];
+                if (!ally.Active) continue;
+                w.Byte((byte)i);
+                w.Int(ally.Id);
+                w.Short(ally.Item);
+                w.Byte((byte)(ally.Owner | (ally.FacingLeft ? 4 : 0)));
+                WritePoint(ref w, ally.Pos.X, ally.Pos.Y);
+            }
             w.Short(CountActive(GAlive));
             for (int i = 0; i < PickupCapacity; i++)
             {
                 if (!GAlive[i]) continue;
                 WritePoint(ref w, GX[i], GY[i]);
-                w.Byte(GKind[i] == PickupKind.Xp ? (byte)0 : (byte)(1 + GOwner[i]));
+                w.Byte(GKind[i] == PickupKind.Xp ? (byte)0 : (byte)(1 + ((int)GKind[i] - 1) * 4 + GOwner[i]));
                 w.Short(Math.Min(ushort.MaxValue, GValue[i]));
             }
             w.Short(CountActive(PAlive));
@@ -91,6 +117,7 @@ public sealed partial class RunWorld
             {
                 if (!PAlive[i]) continue;
                 WritePoint(ref w, PX[i], PY[i]);
+                w.Byte((byte)PStyle[i]);
                 w.Short((int)Math.Clamp(MathF.Round(PVx[i] * 4), short.MinValue, short.MaxValue) & ushort.MaxValue);
                 w.Short((int)Math.Clamp(MathF.Round(PVy[i] * 4), short.MinValue, short.MaxValue) & ushort.MaxValue);
             }
@@ -131,6 +158,7 @@ public sealed partial class RunWorld
             Phase = (RunPhase)phase;
         }
         for (int i = 0; i < playerCount; i++) ReadPlayer(ref r, i, apply, previousAlpha);
+        if (apply) UpdateAllPlayerStats();
         Require(r.Short() == Statues.Length);
         for (int i = 0; i < Statues.Length; i++)
         {
@@ -189,20 +217,47 @@ public sealed partial class RunWorld
             _enemyHigh = high;
             AliveEnemies = count;
         }
+        int companions = r.Byte();
+        Require(companions <= CompanionCapacity);
+        int lastCompanion = -1;
+        ulong aliveCompanions = 0;
+        for (int i = 0; i < companions; i++)
+        {
+            int slot = r.Byte(), id = r.Int(), item = r.Short(), flags = r.Byte();
+            var pos = ReadPoint(ref r);
+            Require(slot > lastCompanion && slot < CompanionCapacity && id > 0 && flags <= 7 &&
+                (flags & 3) < playerCount && item < Content.Items.Count && Content.Items[item].Companion != null);
+            lastCompanion = slot;
+            if (!apply) continue;
+            aliveCompanions |= 1UL << slot;
+            ref var ally = ref _companions[slot];
+            var prevPos = ally.Active && ally.Id == id ? Vector2.Lerp(ally.Prev, ally.Pos, previousAlpha) : pos;
+            ally = new Companion
+            {
+                Active = true, Id = id, Item = item, Owner = flags & 3, FacingLeft = (flags & 4) != 0, Pos = pos, Prev = prevPos,
+            };
+        }
+        if (apply)
+            for (int i = 0; i < CompanionCapacity; i++)
+                if ((aliveCompanions & (1UL << i)) == 0) _companions[i].Active = false;
+
         int pickups = r.Short();
         Require(pickups <= PickupCapacity);
         if (apply) Array.Clear(GAlive);
         for (int i = 0; i < pickups; i++)
         {
             var position = ReadPoint(ref r);
-            int owner = r.Byte(), value = r.Short();
-            Require(owner <= playerCount);
+            int packed = r.Byte(), value = r.Short();
+            int owner = packed == 0 ? -1 : (packed - 1) & 3;
+            var kind = packed == 0 ? PickupKind.Xp : (PickupKind)(1 + (packed - 1) / 4);
+            Require(kind <= PickupKind.Cursed && owner < playerCount &&
+                (kind != PickupKind.Cursed || value < Content.Items.Count && Content.Items[value].Rarity == ContentSet.CursedRarity));
             if (!apply) continue;
             GAlive[i] = true;
             GX[i] = position.X;
             GY[i] = position.Y;
-            GKind[i] = owner == 0 ? PickupKind.Xp : PickupKind.Gold;
-            GOwner[i] = owner - 1;
+            GKind[i] = kind;
+            GOwner[i] = owner;
             GValue[i] = value;
         }
         int projectiles = r.Short();
@@ -211,9 +266,12 @@ public sealed partial class RunWorld
         for (int i = 0; i < projectiles; i++)
         {
             var position = ReadPoint(ref r);
+            var style = (ProjectileStyle)r.Byte();
+            Require(style <= ProjectileStyle.Phantom);
             float vx = (short)r.Short() * 0.25f, vy = (short)r.Short() * 0.25f;
             if (!apply) continue;
-            PAlive[i] = vx != 0 || vy != 0;
+            PAlive[i] = true;
+            PStyle[i] = style;
             PX[i] = position.X;
             PY[i] = position.Y;
             PVx[i] = vx;
@@ -237,8 +295,15 @@ public sealed partial class RunWorld
         float hp = r.Float();
         int level = r.Int();
         float xp = r.Float(), xpNext = r.Float();
-        int kills = r.Int(), gold = r.Int(), price = r.Int(), invulnerable = r.Int(), dash = r.Int(), cooldown = r.Int();
-        int chest = r.Int(), item = r.Int(), flags = r.Byte();
+        int kills = r.Int(), gold = r.Int(), price = r.Int(), invulnerable = r.Int(), dash = r.Int();
+        int dashTotal = r.Int(), dashChargesUsed = r.Int(), cooldown = r.Int();
+        int dashSpeed = r.Int(), accelerator = r.Int();
+        float speedBonus = r.Float(), shield = r.Float(), bonusShield = r.Float();
+        int illusionUntil = r.Int();
+        var illusionPos = ReadPoint(ref r);
+        int chest = r.Int(), item = r.Int();
+        int firstOffer = r.Int(), secondOffer = r.Int(), thirdOffer = r.Int(), offerUntil = r.Int();
+        int flags = r.Byte();
         int lastAppliedInput = r.Int();
         var facing = DecodeAngle(r.Short());
         var dashDirection = DecodeAngle(r.Short());
@@ -246,7 +311,13 @@ public sealed partial class RunWorld
         Require(character < Content.Characters.Count && hp >= 0 && level > 0 && xp >= 0 && xpNext > 0 &&
             kills >= 0 && gold >= 0 && price > 0 && invulnerable >= 0 && dash >= 0 && cooldown >= 0 &&
             chest >= -1 && chest < Chests.Length && item >= -1 && item < Content.Items.Count && flags <= 7 && lastAppliedInput >= 0 &&
-            equipped <= Content.Items.Count);
+            dashTotal >= dash && dashChargesUsed is >= 0 and <= 9 && dashSpeed >= 0 && accelerator >= 0 &&
+            speedBonus >= 0 && shield >= 0 && bonusShield >= 0 && illusionUntil >= 0 && equipped <= Content.Items.Count &&
+            (firstOffer == -1 && secondOffer == -1 && thirdOffer == -1 && offerUntil == 0 ||
+            firstOffer >= 0 && firstOffer < Content.Items.Count && secondOffer >= 0 &&
+            secondOffer < Content.Items.Count && firstOffer != secondOffer && offerUntil > 0 &&
+            (thirdOffer == -1 || thirdOffer >= 0 && thirdOffer < Content.Items.Count &&
+                thirdOffer != firstOffer && thirdOffer != secondOffer)));
         if (apply)
         {
             if (!p.Active || p.Character != Content.Characters[character])
@@ -273,10 +344,24 @@ public sealed partial class RunWorld
             p.Wallet.ApplyReplica(gold, price);
             p.InvulnTicks = invulnerable;
             p.DashTicks = dash;
+            p.DashTicksTotal = dashTotal;
+            p.DashChargesUsed = dashChargesUsed;
             p.DashCooldownTicks = cooldown;
+            p.DashSpeedTicks = dashSpeed;
+            p.AcceleratorTicks = accelerator;
+            p.AcceleratorSpeedBonus = speedBonus;
+            p.Shield = shield;
+            p.BonusShield = bonusShield;
+            p.IllusionUntilTick = illusionUntil;
+            p.IllusionPosition = illusionPos;
             p.NearbyChest = chest;
             p.LastChestItem = item;
+            p.ChestOfferFirst = firstOffer;
+            p.ChestOfferSecond = secondOffer;
+            p.ChestOfferThird = thirdOffer;
+            p.ChestOfferUntilTick = offerUntil;
             Array.Clear(p.ItemStacks);
+            p.EffectItems.Clear();
             p.Stats.ClearItems();
             ApplyLevelStats(p);
             UpdateDynamicStats(p);
@@ -289,6 +374,7 @@ public sealed partial class RunWorld
             previous = id;
             if (!apply) continue;
             p.ItemStacks[id] = copies;
+            if (Content.Items[id].Effect != null) p.EffectItems.Add(id);
             foreach (var m in Content.Items[id].Mods)
                 if (ContentLoader.TryParseStat(m.Stat, out var stat)) p.Stats.Apply(stat, m.Add * copies, m.Pct * copies);
         }

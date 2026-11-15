@@ -30,6 +30,7 @@ internal sealed class Hud
         "epic" => 0xFFC070E0u,
         "mythic" => 0xFF1D56F2u,
         "legendary" => 0xFF3DC2FFu,
+        "cursed" => 0xFFFFA168u,
         _ => 0xFFCFC6D4u,
     };
 
@@ -39,6 +40,7 @@ internal sealed class Hud
         "epic" => Localizer.Get("rarity.epic"),
         "mythic" => Localizer.Get("rarity.mythic"),
         "legendary" => Localizer.Get("rarity.legendary"),
+        "cursed" => Localizer.Get("rarity.cursed"),
         _ => Localizer.Get("rarity.common"),
     };
 
@@ -112,11 +114,18 @@ internal sealed class Hud
         // HP and dash bars under the hero.
         var (hx, hy) = renderer.WorldToUi(hero.X, hero.Y + 3);
         Bar(ui, hx - 9, hy, 18, 3, p.Hp / MathF.Max(1, world.MaxHealth), Red, RedDark);
+        if (p.Shield + p.BonusShield > 0)
+            Bar(ui, hx - 9, hy - 3, 18, 1, (p.Shield + p.BonusShield) / MathF.Max(1, world.MaxHealth), Teal, TealDark);
         if (p.DashCooldownTicks > 0)
         {
             float full = world.Rules.Dash.Cooldown * p.Stats[Stat.DashCooldown] * p.Stats[Stat.Cooldown] * RunWorld.TicksPerSecond;
             Bar(ui, hx - 9, hy + 4, 18, 2, 1 - p.DashCooldownTicks / MathF.Max(1, full), Teal, TealDark);
         }
+
+        int dashCapacity = RunWorld.DashChargeCapacity(p);
+        if (dashCapacity > 1)
+            for (int i = 0; i < dashCapacity; i++)
+                ui.Set(hx - dashCapacity + i * 2, hy + 8, i < dashCapacity - p.DashChargesUsed ? Teal : Grey);
 
         // Top: XP bar, hero and level, run clock (with statue bonus), gold and chest price, kills.
         Bar(ui, 2, 2, w - 4, 5, p.Xp / p.XpNext, Teal, TealDark);
@@ -149,7 +158,8 @@ internal sealed class Hud
             var (cx, cy) = renderer.WorldToUi(world.Chests[world.NearbyChest].X, world.Chests[world.NearbyChest].Y - 26);
             PixelFont.DrawCentered(ui, Localizer.Format("hud.needGold", p.Wallet.NextPrice), cx, cy, Gold, Ink);
         }
-        if (_noticeAge < 2.6f)
+        if (p.Hp > 0 && p.ChestOfferFirst >= 0) DrawChestOffer(ui, world, w);
+        else if (_noticeAge < 2.6f)
         {
             if (!paused) _noticeAge += dt;
             PixelFont.DrawCentered(ui, _notice, w / 2, 40, _noticeColor, Ink);
@@ -162,6 +172,46 @@ internal sealed class Hud
             Dim(ui, w, h, 0.5f);
             PixelFont.DrawCentered(ui, Localizer.Get("hud.paused"), w / 2, h / 2 - 8, White, Ink, 2);
             PixelFont.DrawCentered(ui, Localizer.Get("hud.pauseHelp"), w / 2, h / 2 + 12, Grey, Ink);
+        }
+    }
+
+    private static void DrawChestOffer(PixelCanvas ui, RunWorld world, int width)
+    {
+        var p = world.Player;
+        int left = Math.Max(0, p.ChestOfferUntilTick - world.Tick);
+        int seconds = (left + RunWorld.TicksPerSecond - 1) / RunWorld.TicksPerSecond;
+        int count = p.ChestOfferThird >= 0 ? 3 : 2;
+        int cardWidth = Math.Min(220, (width - 20) / count);
+        int totalWidth = cardWidth * count + (count - 1) * 4;
+        int x = (width - totalWidth) / 2;
+        PixelFont.DrawCentered(ui, Localizer.Format("hud.chestChoice", seconds), width / 2, 43, Gold, Ink);
+        Bar(ui, x + 1, 53, totalWidth - 2, 2, (float)left / RunWorld.ChestChoiceTicks, Gold, Panel);
+        DrawChestCard(ui, world.Content.Items[p.ChestOfferFirst], 1, x, cardWidth);
+        DrawChestCard(ui, world.Content.Items[p.ChestOfferSecond], 2, x + cardWidth + 4, cardWidth);
+        if (count == 3) DrawChestCard(ui, world.Content.Items[p.ChestOfferThird], 3, x + (cardWidth + 4) * 2, cardWidth);
+    }
+
+    private static void DrawChestCard(PixelCanvas ui, ItemDef item, int choice, int x, int width)
+    {
+        const int top = 58;
+        int columns = Math.Max(1, (width - 12) / PixelFont.Advance);
+        string title = $"[{choice}] {ItemName(item)}";
+        string description = Localizer.Content("items", item.Id, "description", item.Description);
+        var titleLines = Wrap(title, columns).ToArray();
+        var descriptionLines = Wrap(description, columns).ToArray();
+        uint rarityColor = RarityColor(item.Rarity);
+        Box(ui, x, top, width, 12 + (titleLines.Length + descriptionLines.Length) * PixelFont.LineHeight, rarityColor);
+        int y = top + 5;
+        foreach (string line in titleLines)
+        {
+            PixelFont.Draw(ui, line, x + 6, y, rarityColor, Ink);
+            y += PixelFont.LineHeight;
+        }
+        y += 2;
+        foreach (string line in descriptionLines)
+        {
+            PixelFont.Draw(ui, line, x + 6, y, White, Ink);
+            y += PixelFont.LineHeight;
         }
     }
 

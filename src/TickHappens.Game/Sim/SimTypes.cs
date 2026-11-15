@@ -3,14 +3,14 @@ using TickHappens.Game.Content;
 
 namespace TickHappens.Game.Sim;
 
-/// <summary>Per-tick player input. Movement and dash are the only manual gameplay actions.</summary>
-public readonly record struct RunInput(int X, int Y, bool Dash = false);
+/// <summary>Per-tick player input. Movement, dash and chest choices are manual actions.</summary>
+public readonly record struct RunInput(int X, int Y, bool Dash = false, int ChestChoice = 0);
 
 public enum RunPhase { Playing, Dead }
 
 public enum EventKind : byte
 {
-    Hit, Kill, Bolt, Pulse, Chain, Blast, LevelUp, Statue, Chest, PlayerHurt, Dash, Pickup, Elite,
+    Hit, Kill, Bolt, Pulse, Chain, Blast, LevelUp, Statue, Chest, PlayerHurt, Dash, Pickup, Elite, Melee, ItemBeam, Flame, Frost, BossReward,
 }
 
 /// <summary>Gameplay event for cosmetics (VFX, sound, damage numbers). Never drives simulation.</summary>
@@ -46,7 +46,7 @@ public struct SimRng(uint seed)
 }
 
 /// <summary>Identifies who dealt damage: the basic attack or an item (for item-damage bonuses and credit).</summary>
-public readonly record struct DamageSourceRef(int PlayerId, int ItemDef = -1)
+public readonly record struct DamageSourceRef(int PlayerId, int ItemDef = -1, bool SuppressProcs = false, int CompanionSlot = -1)
 {
     public bool FromItem => ItemDef >= 0;
 }
@@ -57,6 +57,8 @@ public sealed class PlayerState
     public bool Active;
     public int NearbyChest = -1;
     public int LastChestItem = -1;
+    public int ChestOfferFirst = -1, ChestOfferSecond = -1, ChestOfferThird = -1;
+    public int ChestOfferUntilTick;
     public Vector2 Pos, Prev, Facing = Vector2.UnitY;
     public bool FacingLeft, Walking;
     public float Hp;
@@ -66,11 +68,21 @@ public sealed class PlayerState
     public required ChestWallet Wallet;
     public required CharacterDef Character;
     public required AttackDef Attack;
-    /// <summary>Copies owned per item definition (items come only from chests and stack).</summary>
+    /// <summary>Copies owned per item definition.</summary>
     public required int[] ItemStacks;
     /// <summary>Cooldown timers of item weapons, per item definition.</summary>
     public required float[] ItemTimers;
+    public required float[] ItemPulseTimers;
     public float AttackTimer;
+    public int DashSpeedTicks, PhysicalBlockTick, ShieldRechargeTick;
+    public float Shield, RefundCarry;
+    public int AcceleratorTicks;
+    public readonly List<int> EffectItems = [];
+    public int DashChargesUsed, DashTicksTotal, BoughtChests, IllusionUntilTick;
+    public float BonusShield, AuraBlockChance, PhysicalAuraBonus;
+    public Vector2 IllusionPosition;
+    public int ConversionItem = -1;
+    public float AcceleratorSpeedBonus;
     /// <summary>Fractional gold carried between pickups so small multipliers (+10% gold) are never rounded away.</summary>
     public float GoldCarry;
     public int InvulnTicks, DashTicks, DashCooldownTicks;

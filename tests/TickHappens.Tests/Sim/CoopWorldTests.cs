@@ -51,6 +51,9 @@ public sealed class CoopWorldTests
 
         world.StepCoop([default, default, default, default]);
         Assert.True(world.ChestOpen[0]);
+        Assert.True(remote.ChestOfferFirst >= 0);
+        Assert.Equal(-1, world.Player.ChestOfferFirst);
+        world.StepCoop([default, new RunInput(1, 0, ChestChoice: 2), default, default]);
         Assert.Equal(1, remote.ItemStacks.Sum());
         Assert.Equal(0, world.Player.ItemStacks.Sum());
         Assert.Equal(25 - content.Rules.Chests.StartPrice, remote.Wallet.Gold);
@@ -84,6 +87,9 @@ public sealed class CoopWorldTests
         Assert.Equal(host.Player.Character.Id, client.Player.Character.Id);
         Assert.Equal(host.Players[1].Wallet.Gold, client.Player.Wallet.Gold);
         Assert.Equal(host.Players[1].ItemStacks, client.Player.ItemStacks);
+        Assert.Equal(host.Players[1].ChestOfferFirst, client.Player.ChestOfferFirst);
+        Assert.Equal(host.Players[1].ChestOfferSecond, client.Player.ChestOfferSecond);
+        Assert.Equal(host.Players[1].ChestOfferUntilTick, client.Player.ChestOfferUntilTick);
         Assert.Equal(host.ChestOpen, client.ChestOpen);
         Assert.True(client.EAlive[enemy]);
         Assert.InRange(Vector2.Distance(client.Chests[0], host.Chests[0]), 0, 0.04f);

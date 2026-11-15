@@ -2,7 +2,7 @@
   "arenaSize": 2048,
   "xpBase": 5,
   "xpGrowth": 1.18,
-  "invulnerableSeconds": 0.5,
+  "invulnerableSeconds": 0.1,
   "units": {
     "moveSpeedScale": 3,
     "attacksPerUnit": 0.04,
@@ -33,11 +33,11 @@
     "startPrice": 10,
     "priceGrowth": 1.5,
     "rarityWeights": {
-      "common": 55,
+      "common": 40,
       "rare": 25,
-      "epic": 12,
-      "mythic": 6,
-      "legendary": 2
+      "epic": 17,
+      "mythic": 12,
+      "legendary": 6
     }
   }
 }

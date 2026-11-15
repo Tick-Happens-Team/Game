@@ -11,7 +11,7 @@ public sealed class ContentException(IReadOnlyList<string> errors)
 /// <summary>Loads and validates a content mod directory (characters, items, enemies, waves, rules).</summary>
 public static class ContentLoader
 {
-    public static readonly string[] WeaponKinds = ["bolt", "pulse", "chain", "blast"];
+    public static readonly string[] WeaponKinds = ["bolt", "pulse", "chain", "blast", "melee", "execute", "snipe", "accelerator", "wood", "aura", "sustainedCone", "boomerang", "bounce", "dropped", "cane", "rocket", "attackChain"];
 
     /// <summary>Finds content/core next to the executable (release) or in the Game repository (development).</summary>
     public static string FindCore()
@@ -134,14 +134,66 @@ public static class ContentLoader
         foreach (var it in c.Items)
         {
             string w = $"items.json '{it.Id}'";
-            if (!ContentSet.Rarities.Contains(it.Rarity)) e.Add($"{w}: rarity '{it.Rarity}' must be one of {string.Join("/", ContentSet.Rarities)}");
-            if (it.Mods.Count == 0 && it.Weapon == null) e.Add($"{w}: needs stat mods or a weapon");
+            if (it.Rarity != ContentSet.CursedRarity && !ContentSet.Rarities.Contains(it.Rarity))
+                e.Add($"{w}: rarity '{it.Rarity}' must be one of {string.Join("/", ContentSet.Rarities.Append(ContentSet.CursedRarity))}");
+            if (it.Rarity == ContentSet.CursedRarity && string.IsNullOrWhiteSpace(it.BossDrop))
+                e.Add($"{w}: cursed item needs a bossDrop id");
+            if (it.BossDrop is { } boss &&
+                (it.Rarity != ContentSet.CursedRarity || c.Enemies.Find(enemy => enemy.Id == boss) is { Boss: false }))
+                e.Add($"{w}: bossDrop '{boss}' must link a cursed item to a boss");
+            if (it.XpOnPickup < 0) e.Add($"{w}: xpOnPickup must be nonnegative");
+            if (it.Mods.Count == 0 && it.Weapon == null && it.XpOnPickup == 0 && it.Companion == null && it.Effect == null)
+                e.Add($"{w}: needs stat mods, a weapon, pickup XP, a companion or an effect");
             foreach (var m in it.Mods) CheckStat(w, m.Stat);
+            if (it.Effect is { } effect)
+            {
+                if (effect.Kind is not ("armorAura" or "attackSpeedAura" or "healthAura" or "physicalAura" or
+                    "lifestealAura" or "summonRegenAura" or "healShare" or "lowestHealthShield" or
+                    "weldingBlock" or "rearSlow" or "poison" or "icicle" or "revive" or "extraChestChoice" or
+                    "illusion" or "resetCooldown" or "devour"))
+                    e.Add($"{w}: unknown effect kind '{effect.Kind}'");
+                if (effect.Value < 0 || effect.Secondary < 0 || effect.Chance is < 0 or > 1 ||
+                    effect.Duration < 0 || effect.Radius < 0 || effect.Threshold < 0)
+                    e.Add($"{w}: invalid effect parameters");
+                if (effect.Kind == "weldingBlock" && effect.Value is <= 0 or >= 360)
+                    e.Add($"{w}: weldingBlock needs a vision angle in (0, 360)");
+                if (it.Weapon != null || it.Companion != null) e.Add($"{w}: effect needs its own item cooldown");
+            }
+            if (it.Companion is { } companion)
+            {
+                CheckDamage(w, companion.DamageType);
+                if (companion.Kind is not ("gnome" or "dog" or "drone" or "boar" or "eagle" or "leech" or "demon"))
+                    e.Add($"{w}: unknown companion kind '{companion.Kind}'");
+                if (string.IsNullOrWhiteSpace(companion.Sprite) || companion.Speed <= 0 ||
+                    companion.Interval < 0 || companion.AttackInterval < 0 || companion.Duration < 0 ||
+                    companion.Health < 0 || companion.Damage < 0 || companion.Area < 0 ||
+                    companion.Range < 0 || companion.Slow is < 0 or > 1 || companion.Stun < 0 ||
+                    companion.Chance is < 0 or > 1)
+                    e.Add($"{w}: invalid companion stats or missing sprite");
+                if (it.Weapon != null) e.Add($"{w}: companion and weapon cannot share an item cooldown");
+            }
             if (it.Weapon is { } wp)
             {
                 if (!WeaponKinds.Contains(wp.Kind)) e.Add($"{w}: weapon kind '{wp.Kind}' must be one of {string.Join("/", WeaponKinds)}");
                 CheckDamage(w, wp.DamageType);
-                if (wp.Damage <= 0 || wp.Cooldown <= 0.05f || wp.Count < 1) e.Add($"{w}: weapon needs damage > 0, cooldown > 0.05, count >= 1");
+                if ((wp.Kind != "execute" && wp.Damage <= 0) || wp.Cooldown <= 0.05f || wp.Count < 1)
+                    e.Add($"{w}: weapon needs positive damage (except execute), cooldown > 0.05 and count >= 1");
+                if (wp.Kind is "melee" or "sustainedCone" && (wp.Area <= 0 || wp.Angle is <= 0 or >= 360))
+                    e.Add($"{w}: melee needs area > 0 and angle in (0, 360)");
+                if (wp.Kind == "snipe" && (wp.Damage > 1 || wp.BossDamage is <= 0 or > 1))
+                    e.Add($"{w}: snipe needs damage and bossDamage fractions in (0, 1]");
+                if (wp.Kind == "accelerator" && (wp.Duration <= 0 || wp.Duration >= wp.Cooldown || wp.SpeedBonus <= 0))
+                    e.Add($"{w}: accelerator needs positive speedBonus and duration shorter than cooldown");
+                if (wp.Kind is "wood" or "aura" or "dropped" or "attackChain" && wp.Area <= 0)
+                    e.Add($"{w}: {wp.Kind} needs area > 0");
+                if (wp.Kind is "sustainedCone" or "dropped" && (wp.Duration <= 0 || wp.Duration >= wp.Cooldown))
+                    e.Add($"{w}: {wp.Kind} needs a positive duration shorter than its cooldown");
+                if (wp.Kind is "wood" or "aura" && (wp.Slow is <= 0 or >= 1 || wp.MinDamage < 0 || wp.MinDamage > wp.Damage))
+                    e.Add($"{w}: {wp.Kind} needs slow in (0, 1) and minDamage between 0 and damage");
+                if (wp.Kind is "rocket" or "attackChain" or "cane" && wp.Chance is <= 0 or > 1)
+                    e.Add($"{w}: {wp.Kind} needs chance in (0, 1]");
+                if (wp.Kind is "boomerang" or "bounce" or "rocket" && (wp.Speed <= 0 || wp.Range <= 0))
+                    e.Add($"{w}: {wp.Kind} needs speed and range > 0");
                 if (wp.Kind == "bolt" && (wp.Speed <= 0 || wp.Pierce < 1)) e.Add($"{w}: bolt needs speed > 0 and pierce >= 1");
                 if (wp.Kind is "bolt" or "chain" or "blast" && wp.Range <= 0) e.Add($"{w}: {wp.Kind} needs range > 0");
                 if (wp.Kind is "pulse" or "blast" or "chain" && wp.Area <= 0) e.Add($"{w}: {wp.Kind} needs area > 0");
@@ -175,8 +227,11 @@ public static class ContentLoader
         var r = c.Rules;
         if (r.ArenaSize < 512) e.Add("rules.json: arenaSize must be >= 512");
         if (r.Chests.PriceGrowth != 1.5m) e.Add("rules.json: chests.priceGrowth is fixed at 1.5 by the game design");
-        foreach (var k in r.Chests.RarityWeights.Keys)
-            if (!ContentSet.Rarities.Contains(k)) e.Add($"rules.json: chests.rarityWeights has unknown rarity '{k}'");
+        foreach (var (rarity, weight) in r.Chests.RarityWeights)
+        {
+            if (!ContentSet.Rarities.Contains(rarity)) e.Add($"rules.json: chests.rarityWeights has unknown rarity '{rarity}'");
+            if (!float.IsFinite(weight) || weight < 0) e.Add($"rules.json: rarity weight for '{rarity}' must be finite and nonnegative");
+        }
         if (c.Items.Count > 0 && !c.Items.Any(i => r.Chests.RarityWeights.GetValueOrDefault(i.Rarity) > 0))
             e.Add("rules.json: chests.rarityWeights gives zero weight to every item rarity");
         CheckDamage("rules.json basicAttack", r.BasicAttack.DamageType);

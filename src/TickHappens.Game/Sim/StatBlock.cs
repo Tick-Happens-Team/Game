@@ -19,8 +19,9 @@ public sealed class StatBlock
     public StatBlock()
     {
         foreach (var s in new[] { Stat.HpMultiplier, Stat.Might, Stat.PhysicalDamage, Stat.MagicalDamage, Stat.ItemDamage,
-                     Stat.Area, Stat.Cooldown, Stat.GoldGain, Stat.DashCooldown })
+                     Stat.Area, Stat.Cooldown, Stat.GoldGain, Stat.DashCooldown, Stat.EliteDamage, Stat.HighestHealthDamage, Stat.DashLength })
             _base[(int)s] = 1;
+        _base[(int)Stat.CritDamage] = 2;
     }
 
     public void SetBase(Stat s, float v) => _base[(int)s] = v;
