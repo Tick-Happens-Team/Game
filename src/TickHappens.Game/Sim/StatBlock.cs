@@ -19,7 +19,7 @@ public sealed class StatBlock
     public StatBlock()
     {
         foreach (var s in new[] { Stat.HpMultiplier, Stat.Might, Stat.PhysicalDamage, Stat.MagicalDamage, Stat.ItemDamage,
-                     Stat.Area, Stat.Cooldown, Stat.GoldGain, Stat.DashCooldown, Stat.EliteDamage, Stat.HighestHealthDamage, Stat.DashLength })
+                     Stat.Area, Stat.Cooldown, Stat.GoldGain, Stat.DashCooldown, Stat.EliteDamage, Stat.HighestHealthDamage, Stat.DashLength, Stat.DamageTaken })
             _base[(int)s] = 1;
         _base[(int)Stat.CritDamage] = 2;
     }
@@ -63,6 +63,7 @@ public sealed class StatBlock
             {
                 // Cooldown-like multipliers never drop below 25% of base; other stats never go negative.
                 Stat.Cooldown or Stat.DashCooldown => MathF.Max(0.25f, v),
+                Stat.DamageTaken => MathF.Max(0.1f, v),
                 _ => MathF.Max(0, v),
             };
         }

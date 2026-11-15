@@ -97,7 +97,7 @@ Stats are copied from the owner's table. Growth means the per-level value of the
 
 | # | Character | HP | Regen (HP/s) | Move speed | Attack speed | Armor | Magic resist | Damage | Passive → implementation | Growth | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 14 | Nekotyan | 175/+3.5 | 0.15 | 45 | 35 | 2.5% | 2.5% | 15/+1.5 | allies take −8% damage and heal 1.75 HP within radius 200; self bonuses ×1.75 → ally aura (S12) | −0.3 percentage points damage taken, +1.25 radius, +0.25 regen per level | [ ] |
+| 14 | Nekotyan | 175/+3.5 | 0.15 | 45 | 35 | 2.5% | 2.5% | 15/+1.5 | allies take −8% damage and heal 1.75 HP within radius 200; self bonuses ×1.75 → ally aura (S12) | −0.3 percentage points damage taken, +1.25 radius, +0.25 regen per level | [x] |
 | 15 | Puppeteer | 200/+3 | 1 | 30 | 20 | 5% | 5% | 20/+1 | +10% damage and attack speed for allies and allied creatures → ally buff (S12); needs summons from items to matter in solo | 1% | [ ] |
 | 16 | Necromancer | 200/+5 | 1 | 30 | 25 | 0% | 15% | 15/+1 | killed enemies leave souls; every 30 s spends them: 1–20 souls → healing ghost, 21–50 → warrior ghost (HP and damage = souls), 51+ → big area ghost (HP and damage = souls); during the cooldown each soul adds +0.5% damage → soul counter (`onKill`), three summon AIs (S11), ally heal (S12) | +0.1% damage per soul per level | [ ] |
 | 17 | Иллюзионист | 175/+3 | 2 | 30 | 30 | 5% | 15% | 15/+1.5 | every 15 s creates a copy with 30% of the hero's max HP; it lasts 8 s, draws enemies, and repeats the hero's attacks at 25% damage; at most one copy → timed summon with decoy aggro and mirrored attacks (S5, S11) | +0.25 percentage points of illusion damage per level | [ ] |
@@ -303,7 +303,7 @@ Each milestone is playable content.
 | M4b "Bosses" | E6, E4b | All five bosses and the cultist roster | Boss schedule in waves.json. Each boss beaten in a scripted test. |
 | Boss rewards | E6, S13, relevant I7 effect systems | Five cursed items | Each boss drops its assigned reward. Старатель's reward requires chest reward choices. |
 | M5 "Companions" | S11 | Items I5; Иллюзионист | Summon AI and owner credit tests. 50 summons stay within budget. |
-| M6 "Allies" | S12 (+P3 co-op) | Items I6; Nekotyan, Puppeteer, Necromancer | Auras work in solo (summons) and in a 2-player loopback test. |
+| M6 "Allies" | S12 (+P3 co-op) | Items I6; Nekotyan (done: character `aura` block lowers `damageTaken` and adds regen for players and summons, stacks between Nekotyans), Puppeteer, Necromancer | Auras work in solo (summons) and in a 2-player loopback test. |
 
 Art for every character, enemy and summon goes through recipes (`art-recipe` skill) alongside its milestone.
 

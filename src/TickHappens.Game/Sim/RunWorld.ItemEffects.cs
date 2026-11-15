@@ -44,8 +44,24 @@ public sealed partial class RunWorld
                     if (stat == Stat.PhysicalDamage) target.PhysicalAuraBonus += value;
                 }
             }
+            if (source.Character.Aura is not { } aura) continue;
+            float auraRange = CharacterAuraRadius(source, aura);
+            float reduction = CharacterAuraValue(source, aura.DamageReduction, aura.DamageReductionPerLevel);
+            float regen = CharacterAuraValue(source, aura.Regen, aura.RegenPerLevel);
+            foreach (var target in _players)
+            {
+                if (!target.Active || target.Hp <= 0 || Vector2.DistanceSquared(source.Pos, target.Pos) > auraRange * auraRange) continue;
+                float scale = target == source ? aura.SelfMultiplier : 1;
+                target.Stats.ApplyDynamic(Stat.DamageTaken, -reduction * scale, 0);
+                target.Stats.ApplyDynamic(Stat.Regen, regen * scale, 0);
+            }
         }
     }
+
+    private static float CharacterAuraValue(PlayerState source, float value, float perLevel) => value + perLevel * (source.Level - 1);
+
+    private float CharacterAuraRadius(PlayerState source, CharacterAura aura) =>
+        CharacterAuraValue(source, aura.Radius, aura.RadiusPerLevel) * source.Stats[Stat.Area];
 
     private void StepItemEffects(PlayerState p)
     {
@@ -158,12 +174,21 @@ public sealed partial class RunWorld
 
     private void UpdateCompanionAuras(ref Companion ally)
     {
-        ally.Armor = ally.BlockChance = ally.AttackSpeed = ally.PhysicalDamage = ally.Lifesteal = 0;
+        ally.Armor = ally.BlockChance = ally.AttackSpeed = ally.PhysicalDamage = ally.Lifesteal = ally.DamageReduction = 0;
         float capacity = ally.MaxHealth;
         float regen = 0;
         foreach (var source in _players)
         {
             if (!source.Active || source.Hp <= 0) continue;
+            if (source.Character.Aura is { } aura)
+            {
+                float auraRange = CharacterAuraRadius(source, aura);
+                if (Vector2.DistanceSquared(source.Pos, ally.Pos) <= auraRange * auraRange)
+                {
+                    ally.DamageReduction += CharacterAuraValue(source, aura.DamageReduction, aura.DamageReductionPerLevel);
+                    regen += CharacterAuraValue(source, aura.Regen, aura.RegenPerLevel);
+                }
+            }
             foreach (int item in source.EffectItems)
             {
                 var effect = Content.Items[item].Effect!;

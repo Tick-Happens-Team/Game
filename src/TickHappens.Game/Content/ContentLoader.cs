@@ -130,6 +130,12 @@ public static class ContentLoader
                 CheckStat(w, p.Stat);
                 if (p.Per is not (null or "runMinute")) e.Add($"{w}: passive 'per' must be omitted or 'runMinute', got '{p.Per}'");
             }
+            if (ch.Aura is { } aura)
+            {
+                if (aura.Radius <= 0 || aura.RadiusPerLevel < 0) e.Add($"{w}: aura radius must be > 0 and radiusPerLevel >= 0");
+                if (aura.DamageReduction is < 0 or >= 1 || aura.DamageReductionPerLevel < 0 || aura.Regen < 0 || aura.RegenPerLevel < 0 || aura.SelfMultiplier <= 0)
+                    e.Add($"{w}: aura damageReduction must be in [0, 1); growth, regen >= 0 and selfMultiplier > 0");
+            }
         }
         foreach (var it in c.Items)
         {

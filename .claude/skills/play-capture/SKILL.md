@@ -8,7 +8,7 @@ From `D:\tickhappens\Game`:
 - Game autopilot (deterministic, fixed 60 FPS frame time, seeded):
   `dotnet run -c Release --project src/TickHappens.Game -- --demo --frames N --screenshot ../.tmp/screenshots/NAME.png [--seed S]`
   - 60 frames = 1 s of play. 900 ≈ 15 s, 7200 ≈ 2 min, 14400 ≈ 4 min. The last line prints tick, run clock, level, HP, kills, enemies, gold, loadout.
-  - `--character ID` picks the hero (octarine, swordsman, smith, goflin, celestial_mage, watchman); `--menu --character ID --frames 30` captures the character select screen.
+  - `--character ID` picks the hero (octarine, swordsman, smith, goflin, celestial_mage, watchman, nekochan); `--menu --character ID --frames 30` captures the character select screen.
 - Visual bench: `dotnet run --project src/TickHappens.VisualBench -- --demo --frames N --screenshot ../.tmp/screenshots/NAME.png [--art recipe|pxs]`.
 - Magnify a region: `dotnet run --project tools/TickHappens.AssetTool -- crop IN.png X Y W H ZOOM OUT.png`.
 - Open PNGs with the Read tool and actually look: readability of hero vs crowd, HUD overlap, UI artifacts, effect blowout, arena edges.
