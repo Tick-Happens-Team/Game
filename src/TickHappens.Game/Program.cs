@@ -106,6 +106,8 @@ int fpsFrames = 0;
 using var online = new OnlineGame(content);
 var onlineMenu = new OnlineMenu(online);
 var coopHud = new CoopHud(online);
+var pauseMenu = new PauseMenu();
+Action<TickHappens.Engine.Graphics.PixelRenderer> drawPauseMenu = renderer => pauseMenu.Draw(renderer);
 bool wasOnlinePlaying = false;
 
 for (int frame = 1; !window.QuitRequested; frame++)
@@ -116,7 +118,6 @@ for (int frame = 1; !window.QuitRequested; frame++)
     float frameDt = demo ? 1f / 60 : (float)Math.Min(0.1, now - last);
     last = now;
 
-    bool escapeHandled = inMenu && (onlineMenu.IsOpen || online.Playing);
     bool onlineMenuWasOpen = onlineMenu.IsOpen;
     if (inMenu && online.Playing && online.Interrupted && window.WasPressed(Key.Escape)) online.Leave();
     else if (inMenu && online.Playing && !(online.CanReconnect && window.WasPressed(Key.F7)))
@@ -148,7 +149,6 @@ for (int frame = 1; !window.QuitRequested; frame++)
     {
         view.Draw(window.Width, window.Height, world, 1, true, frameDt, selected, onlineMenu.Draw);
     }
-    else if (window.WasPressed(Key.Escape) && !escapeHandled) break;
     else if (inMenu)
     {
         if (window.WasPressed(Key.F4))
@@ -176,21 +176,32 @@ for (int frame = 1; !window.QuitRequested; frame++)
     }
     else
     {
-        if (window.WasPressed(Key.R) && (world.Phase == RunPhase.Dead || loop.Paused))
+        bool ended = world.Phase == RunPhase.Dead;
+        bool toHeroSelect = ended
+            ? window.WasPressed(Key.R) || window.WasPressed(Key.Escape)
+            : pauseMenu.Read(window, view.Renderer);
+        if (toHeroSelect)
         {
             seed++;
-            if (demo) { world = new RunWorld(content, seed, content.Characters[selected].Id); loop = new RunLoop(world); view.Reset(); }
-            else { inMenu = true; world = new RunWorld(content, seed, content.Characters[selected].Id); loop = new RunLoop(world); }
+            world = new RunWorld(content, seed, content.Characters[selected].Id);
+            loop = new RunLoop(world);
+            pauseMenu.Reset();
+            view.Reset();
+            inMenu = !demo;
         }
-        if (window.WasPressed(Key.P) && world.Phase == RunPhase.Playing) loop.TogglePause();
 
-        var input = demo ? DemoPilot.Decide(world)
-            : new RunInput(Axis(Key.D, Key.Right, Key.A, Key.Left), Axis(Key.S, Key.Down, Key.W, Key.Up), window.IsDown(Key.Space), chestChoice);
-        loop.Advance(frameDt, input);
-        view.Consume(world);
-        world.ClearEvents();
-        view.Draw(window.Width, window.Height, world, world.Phase == RunPhase.Playing ? loop.Interpolation : 1,
-            loop.Paused || world.Phase != RunPhase.Playing, frameDt);
+        if (inMenu)
+            view.Draw(window.Width, window.Height, world, 1, paused: true, frameDt, menuSelection: selected, overlay: onlineMenu.Draw);
+        else
+        {
+            if (loop.Paused != pauseMenu.IsOpen) loop.TogglePause();
+            var input = demo ? DemoPilot.Decide(world) : netInput;
+            loop.Advance(frameDt, input);
+            view.Consume(world);
+            world.ClearEvents();
+            view.Draw(window.Width, window.Height, world, world.Phase == RunPhase.Playing ? loop.Interpolation : 1,
+                loop.Paused || world.Phase != RunPhase.Playing, frameDt, overlay: drawPauseMenu);
+        }
     }
 
     fpsFrames++;

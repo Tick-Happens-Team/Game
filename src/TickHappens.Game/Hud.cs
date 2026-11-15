@@ -167,12 +167,7 @@ internal sealed class Hud
 
         if (world.Phase == RunPhase.Dead || interruption is not null)
             DrawResults(ui, world, w, h, online, interruption, canReconnect);
-        else if (paused)
-        {
-            Dim(ui, w, h, 0.5f);
-            PixelFont.DrawCentered(ui, Localizer.Get("hud.paused"), w / 2, h / 2 - 8, White, Ink, 2);
-            PixelFont.DrawCentered(ui, Localizer.Get("hud.pauseHelp"), w / 2, h / 2 + 12, Grey, Ink);
-        }
+        else if (paused) Dim(ui, w, h, 0.5f);
     }
 
     private static void DrawChestOffer(PixelCanvas ui, RunWorld world, int width)

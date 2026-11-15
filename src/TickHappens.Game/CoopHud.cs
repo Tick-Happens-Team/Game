@@ -11,72 +11,37 @@ namespace TickHappens.Game;
 
 internal sealed class CoopHud(OnlineGame game)
 {
-    private enum Menu { Closed, Pause, Settings, End }
     private static readonly uint[] TeamColors = [0xFFDEF08F, 0xFF99DFFF, 0xFFF9B478, 0xFFF3A9E4];
-    private const uint Background = 0xFF151018, Panel = 0xFF332239, Foreground = 0xFFF4F1FF;
-    private Menu _menu;
+    private const uint Background = 0xFF151018, Foreground = 0xFFF4F1FF;
+    private readonly PauseMenu _pauseMenu = new(online: true);
     private bool _tab;
-    private bool _vsync;
     private int _itemOffset;
-    public bool CapturesInput => _menu != Menu.Closed || _tab;
+    public bool CapturesInput => _pauseMenu.IsOpen || _tab;
 
     public void Reset()
     {
-        _menu = Menu.Closed;
+        _pauseMenu.Reset();
         _tab = false;
         _itemOffset = 0;
     }
 
     public void Read(GameWindow window, PixelRenderer renderer)
     {
-        if (window.WasPressed(Key.Escape))
+        bool wasOpen = _pauseMenu.IsOpen;
+        if (_pauseMenu.Read(window, renderer, canEnd: game.IsHost))
         {
-            if (_menu is Menu.Settings or Menu.End) _menu = Menu.Pause;
-            else
-            {
-                _menu = _menu == Menu.Closed ? Menu.Pause : Menu.Closed;
-                if (game.IsHost) game.SetPaused(_menu != Menu.Closed);
-            }
+            game.Leave();
+            return;
         }
+        if (game.IsHost && wasOpen != _pauseMenu.IsOpen) game.SetPaused(_pauseMenu.IsOpen);
 
-        _tab = _menu == Menu.Closed && !game.Interrupted && window.IsDown(Key.Tab);
+        _tab = !_pauseMenu.IsOpen && !game.Interrupted && window.IsDown(Key.Tab);
         if (_tab)
         {
             if (window.WasPressed(Key.Down)) _itemOffset++;
             if (window.WasPressed(Key.Up)) _itemOffset = Math.Max(0, _itemOffset - 1);
         }
         else _itemOffset = 0;
-
-        if (_menu == Menu.Closed) return;
-        bool Click(int offset)
-        {
-            return window.LeftClick is { } p && Math.Abs(p.X * renderer.ViewW - renderer.ViewW / 2) < 98 &&
-                p.Y * renderer.ViewH - renderer.ViewH / 2 >= offset && p.Y * renderer.ViewH - renderer.ViewH / 2 < offset + 16;
-        }
-
-        if (_menu == Menu.Pause)
-        {
-            if (window.WasPressed(Key.Return) || Click(-18))
-            {
-                _menu = Menu.Closed;
-                if (game.IsHost) game.SetPaused(false);
-            }
-            else if (window.WasPressed(Key.F4) || Click(2)) _menu = Menu.Settings;
-            else if (game.IsHost && (window.WasPressed(Key.F2) || Click(22))) _menu = Menu.End;
-        }
-        else if (_menu == Menu.Settings)
-        {
-            if (window.WasPressed(Key.F4) || Click(-18))
-            {
-                string language = Localizer.Languages.First(code => code != Localizer.Language);
-                if (!Localizer.Select(language)) Console.Error.WriteLine(Localizer.Get("language.saveError"));
-            }
-            else if (window.WasPressed(Key.F5) || Click(2)) window.SetVsync(!window.Vsync);
-            else if (Click(22)) _menu = Menu.Pause;
-        }
-        else if (game.IsHost && (window.WasPressed(Key.Return) || Click(2))) game.Leave();
-        else if (Click(22)) _menu = Menu.Pause;
-        _vsync = window.Vsync;
     }
 
     public void Draw(PixelRenderer renderer, RunWorld world, Vector2[] positions)
@@ -106,7 +71,7 @@ internal sealed class CoopHud(OnlineGame game)
             PixelFont.DrawCentered(ui, Localizer.Get("online.teamHint"), w / 2, h - 12, Foreground, Background);
         }
         if (_tab) DrawItems(ui, world, w, h);
-        if (_menu != Menu.Closed) DrawMenu(ui, w, h);
+        if (_pauseMenu.IsOpen) _pauseMenu.Draw(renderer, canEnd: game.IsHost);
         else if (game.Paused)
             PixelFont.DrawCentered(ui, Localizer.Get("online.pausedByHost"), w / 2, h / 2 - 4, Foreground, Background);
     }
@@ -164,42 +129,6 @@ internal sealed class CoopHud(OnlineGame game)
         }
         if (longest > visibleRows)
             PixelFont.DrawCentered(ui, Localizer.Get("online.scrollItems"), w / 2, 24 + rowHeight * 2, Foreground, Background);
-    }
-
-    private void DrawMenu(PixelCanvas ui, int w, int h)
-    {
-        int x = w / 2, y = h / 2;
-        Fill(ui, x - 103, y - 44, 206, 88, Background);
-        string heading = _menu switch
-        {
-            Menu.Settings => "online.settingsTitle",
-            Menu.End => "online.confirmEnd",
-            _ => "online.pauseMenu",
-        };
-        PixelFont.DrawCentered(ui, Localizer.Get(heading), x, y - 36, Foreground, Background);
-        if (_menu == Menu.Pause)
-        {
-            Button("online.resume", -18);
-            Button("online.settings", 2);
-            if (game.IsHost) Button("online.end", 22);
-        }
-        else if (_menu == Menu.Settings)
-        {
-            Button("online.language", -18);
-            Button(_vsync ? "online.vsyncOn" : "online.vsyncOff", 2);
-            Button("online.pauseBack", 22);
-        }
-        else
-        {
-            Button("online.endConfirmButton", 2);
-            Button("online.pauseBack", 22);
-        }
-
-        void Button(string key, int offset)
-        {
-            Fill(ui, x - 98, y + offset, 196, 16, Panel);
-            PixelFont.DrawCentered(ui, Localizer.Get(key), x, y + offset + 4, Foreground, Background);
-        }
     }
 
     private static void Fill(PixelCanvas ui, int x, int y, int w, int h, uint color)
