@@ -11,6 +11,12 @@ Players install the game through the launcher from GitHub Releases. Hosting and 
 
 ## Transport contract
 
+### LAN and direct IPv4
+
+Open **Co-op** with **F1** in the character menu. On the host, choose **Create lobby** with **F2**. Clients on the same subnet can choose **Find LAN room** with **F3**. If discovery finds multiple rooms or broadcasts are blocked, use **Direct IP** with **F5** and enter the host's IPv4 address. An optional `:port` overrides the default UDP port 39230. The period key enters a dot and the semicolon key enters a colon. The host can start with **Enter** once two or more players are in the room.
+
+For a two-computer smoke test, allow inbound UDP 39230 on the host's private network. Try discovery and direct IPv4 in separate runs, move and dash on both peers, and verify that closing the host shows the guest's results. Both users need matching game builds and enabled gameplay content.
+
 ### Local Windows EOS build
 
 Use the official EOS C# SDK 1.19.2.1. Keep its `SDK` folder outside the repository. The build references the SDK source and Win64 shipping binary only when `TickHappensEosSdk` is set. Standard CI and offline builds run without EOS. Public Windows package integration is tracked in roadmap 3.5.
@@ -24,9 +30,9 @@ dotnet run --project src/TickHappens.Game "-p:TickHappensEosSdk=$sdk" -- --eos-p
 dotnet run --project src/TickHappens.Game "-p:TickHappensEosSdk=$sdk"
 ```
 
-The probe signs in, creates and publishes a room code, and destroys the lobby. In the character menu choose **Online**, then **Create lobby** or **Join by code**. The host can start after at least one compatible peer connects. Join before the host starts the run. The prototype uses the host's selected character for the team. Escape leaves the room. Set `TICKHAPPENS_EOS_FORCE_RELAY=1` on both machines to exercise relay-only connections. By default EOS tries a direct connection first, with relay fallback.
+The probe signs in, creates and publishes a room code, and destroys the lobby. In the character menu open **Co-op** with **F1**, switch to EOS with **F6**, then choose **Create lobby** or **Join by code**. The host can start after at least one compatible peer connects. Join before the host starts the run. The prototype uses the host's selected character for the team. Escape leaves the room. Use **F5** in the EOS menu to enable relay-only mode before joining or hosting. The `TICKHAPPENS_EOS_FORCE_RELAY=1` environment variable sets its initial value. By default EOS tries a direct connection first, with relay fallback.
 
-The current transport sends host snapshots at 10 Hz and player input at 30 Hz. Hosts advance the game and clients render snapshots. Motion reconciliation, gameplay-event cosmetics on clients, reconnect, mod installation on join, and peak bandwidth validation are outstanding. Use identical core and enabled mod data on all machines.
+The current transport sends host snapshots at 10 Hz and player input at 30 Hz. Hosts advance the game and clients render snapshots. The host sends reliable gameplay-event batches, including chain paths and visual seeds. Clients replay those events and read loot and progression from authoritative snapshots. Delta compression, motion reconciliation, reconnect, mod installation on join, and peak bandwidth validation are outstanding. Use identical core and enabled mod data on all machines.
 
 ```csharp
 interface ITransport {
@@ -64,6 +70,6 @@ A disconnected client can return within 60 seconds using the same room code. If 
 
 ## Security and release checks
 
-Validate input and rate-limit messages and join attempts. Expire room codes. The host decides damage and loot. Use the minimal EOS Peer2Peer client policy. Any client credentials shipped with a future player build are visible to players. Keep the local config out of Git. Outside opted-in developer builds, fetch the proprietary SDK only in release CI and pin managed and native components to the same official release. Verify redistribution terms and notices. Forks register their own product. Builds without EOS support single-player and tests. LAN transport is still planned.
+Validate input and rate-limit messages and join attempts. Expire room codes. The host decides damage and loot. Use the minimal EOS Peer2Peer client policy. Any client credentials shipped with a future player build are visible to players. Keep the local config out of Git. Outside opted-in developer builds, fetch the proprietary SDK only in release CI and pin managed and native components to the same official release. Verify redistribution terms and notices. Forks register their own product. Builds without EOS support single-player and LAN co-op.
 
 Smoke-test the shipped ZIP against the target EOS deployment. Verify connections across independent NAT and CGNAT networks, including ForceRelays. Verify understandable failure when outbound access is blocked and when EOS is unavailable. Check online play with the launcher closed.

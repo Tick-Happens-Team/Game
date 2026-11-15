@@ -92,7 +92,7 @@ internal sealed class Hud
     public static string ItemName(ItemDef item) =>
         Localizer.Content("items", item.Id, "name", string.IsNullOrEmpty(item.Name) ? item.Id : item.Name);
 
-    public void Draw(PixelRenderer renderer, RunWorld world, Vector2 hero, float dt, bool paused, bool online)
+    public void Draw(PixelRenderer renderer, RunWorld world, Vector2 hero, float dt, bool paused, bool online, bool interrupted)
     {
         var ui = PixelCanvas.ColorOf(renderer.UiFrame);
         int w = renderer.ViewW, h = renderer.ViewH;
@@ -155,7 +155,7 @@ internal sealed class Hud
             PixelFont.DrawCentered(ui, _notice, w / 2, 40, _noticeColor, Ink);
         }
 
-        if (world.Phase == RunPhase.Dead) DrawDeath(ui, world, w, h, online);
+        if (world.Phase == RunPhase.Dead || interrupted) DrawResults(ui, world, w, h, online, interrupted);
         else if (paused)
         {
             Dim(ui, w, h, 0.5f);
@@ -240,12 +240,13 @@ internal sealed class Hud
                 ui.Set(x + xx, y + yy, xx == 0 || yy == 0 || xx == bw - 1 || yy == bh - 1 ? border : Panel);
     }
 
-    private static void DrawDeath(PixelCanvas ui, RunWorld world, int w, int h, bool online)
+    private static void DrawResults(PixelCanvas ui, RunWorld world, int w, int h, bool online, bool interrupted)
     {
         Dim(ui, w, h, 0.65f);
         var p = world.Player;
         int secs = (int)(world.Tick * RunWorld.Dt);
-        PixelFont.DrawCentered(ui, Localizer.Get("hud.fallen"), w / 2, h / 2 - 50, 0xFF6060FFu, Ink, 3);
+        PixelFont.DrawCentered(ui, Localizer.Get(interrupted ? "online.hostClosed" : "hud.fallen"),
+            w / 2, h / 2 - 50, 0xFF6060FFu, Ink, interrupted ? 1 : 3);
         PixelFont.DrawCentered(ui, Localizer.Format("hud.summaryTime", secs / 60, secs % 60, (int)world.RunSeconds / 60, (int)world.RunSeconds % 60), w / 2, h / 2 - 12, White, Ink);
         PixelFont.DrawCentered(ui, Localizer.Format("hud.summary", CharacterName(p.Character), p.Level, p.Kills, p.Wallet.Gold), w / 2, h / 2 + 2, White, Ink);
         PixelFont.DrawCentered(ui, online ? Localizer.Get("hud.leave") : Localizer.Get("hud.restart"),

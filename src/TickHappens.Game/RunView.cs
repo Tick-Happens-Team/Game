@@ -33,7 +33,6 @@ internal sealed class RunView : IDisposable
     private readonly Hud _hud;
     private readonly Random _cosmetic = new(7);
     private float _shake, _time;
-    private uint _fxSeed = 1;
 
     public PixelRenderer Renderer => _renderer;
 
@@ -94,14 +93,14 @@ internal sealed class RunView : IDisposable
                 case EventKind.Hit:
                     _hud.DamageNumber(e.X, e.Y - 14, e.Value, (DamageKind)e.A);
                     if (impacts++ < MaxImpactsPerFrame && _effects.Count < MaxCpuEffects && _cosmetic.NextSingle() < 0.35f)
-                        _effects.Add(new ImpactEffect(new ImpactOptions { X = e.X * 2, Y = (e.Y - 6) * 2, Size = 0.45f, Seed = _fxSeed++ }));
+                        _effects.Add(new ImpactEffect(new ImpactOptions { X = e.X * 2, Y = (e.Y - 6) * 2, Size = 0.45f, Seed = e.Seed }));
                     break;
                 case EventKind.Kill:
                     Burst(e.X, e.Y - 6, 10, 70, 0xFFE070C0u, 0xFF5C1F4Au, 1.4f);
                     break;
                 case EventKind.Blast:
                     if (_effects.Count < MaxCpuEffects)
-                        _effects.Add(new ExplosionEffect(new ExplosionOptions { X = e.X * 2, Y = e.Y * 2, Size = MathF.Max(0.5f, e.Value / 40), Seed = _fxSeed++, Shake = Shake }));
+                        _effects.Add(new ExplosionEffect(new ExplosionOptions { X = e.X * 2, Y = e.Y * 2, Size = MathF.Max(0.5f, e.Value / 40), Seed = e.Seed, Shake = Shake }));
                     Burst(e.X, e.Y, 90, 240, 0xFFA6F3FFu, 0xFF1D56F2u, 2.2f);
                     break;
                 case EventKind.Chain:
@@ -112,7 +111,7 @@ internal sealed class RunView : IDisposable
                     if (_effects.Count < MaxCpuEffects)
                         _effects.Add(new LightningEffect(new LightningOptions
                         {
-                            Kind = LightningKind.Arc, From = (pts[e.A].X * 2, pts[e.A].Y * 2), To = to, Duration = 0.35f, Seed = _fxSeed++,
+                            Kind = LightningKind.Arc, From = (pts[e.A].X * 2, pts[e.A].Y * 2), To = to, Duration = 0.35f, Seed = e.Seed,
                         }));
                     break;
                 }
@@ -122,18 +121,18 @@ internal sealed class RunView : IDisposable
                     break;
                 case EventKind.LevelUp:
                     if (_effects.Count < MaxCpuEffects)
-                        _effects.Add(new SparkleEffect(new SparkleOptions { X = e.X * 2, Y = (e.Y - 26) * 2, Size = 12, Seed = _fxSeed++ }));
+                        _effects.Add(new SparkleEffect(new SparkleOptions { X = e.X * 2, Y = (e.Y - 26) * 2, Size = 12, Seed = e.Seed }));
                     RingBurst(e.X, e.Y - 10, 26, 0xFFDEF08Fu, 0xFFC0C43Fu);
                     _hud.Notice(Localizer.Format("notice.level", e.Value), 0xFFDEF08Fu);
                     break;
                 case EventKind.Statue:
-                    _effects.Add(new SparkleEffect(new SparkleOptions { X = e.X * 2, Y = (e.Y - 24) * 2, Seed = _fxSeed++ }));
+                    _effects.Add(new SparkleEffect(new SparkleOptions { X = e.X * 2, Y = (e.Y - 24) * 2, Seed = e.Seed }));
                     Burst(e.X, e.Y - 20, 160, 160, 0xFF6BE2FFu, 0xFF3DC2FFu, 2.4f);
                     _hud.Notice(Localizer.Format("notice.statue", e.Value), 0xFF6BE2FFu);
                     Shake(0.5f);
                     break;
                 case EventKind.Chest:
-                    _effects.Add(new SparkleEffect(new SparkleOptions { X = e.X * 2, Y = (e.Y - 12) * 2, Size = 10, Seed = _fxSeed++ }));
+                    _effects.Add(new SparkleEffect(new SparkleOptions { X = e.X * 2, Y = (e.Y - 12) * 2, Size = 10, Seed = e.Seed }));
                     Burst(e.X, e.Y - 8, 60, 120, 0xFF6BE2FFu, 0xFF2A8AFFu, 2f);
                     if (e.A >= 0)
                     {
@@ -197,7 +196,7 @@ internal sealed class RunView : IDisposable
 
     /// <summary>Draws a frame; with <paramref name="menuSelection"/> ≥ 0 the character select screen is drawn over the scene.</summary>
     public void Draw(int width, int height, RunWorld world, float alpha, bool paused, float frameDt,
-        int menuSelection = -1, Action<PixelRenderer>? overlay = null, bool online = false)
+        int menuSelection = -1, Action<PixelRenderer>? overlay = null, bool online = false, bool interrupted = false)
     {
         _time += paused ? 0 : frameDt;
         var p = world.Player;
@@ -340,7 +339,7 @@ internal sealed class RunView : IDisposable
         _particles.Draw(ox, oy, tw, th, _time);
 
         if (menuSelection >= 0) _hud.DrawMenu(_renderer, world.Content, menuSelection);
-        else _hud.Draw(_renderer, world, hero, frameDt, paused, online);
+        else _hud.Draw(_renderer, world, hero, frameDt, paused, online, interrupted);
         overlay?.Invoke(_renderer);
         _renderer.Finish();
     }
