@@ -63,6 +63,8 @@
   "online.searching": "FINDING LOBBY",
   "online.waitingPlayers": "WAITING FOR PLAYERS",
   "online.waitingHost": "WAITING FOR HOST",
+  "online.resumeExpired": "PLAYER SLOT COULD NOT BE RESTORED",
+  "online.reconnect": "F7 - RECONNECT",
   "online.hostClosed": "HOST CLOSED THE ROOM",
   "online.closed": "LOBBY CLOSED",
   "online.error": "CONNECTION FAILED",

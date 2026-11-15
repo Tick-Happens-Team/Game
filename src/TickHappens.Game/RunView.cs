@@ -196,7 +196,7 @@ internal sealed class RunView : IDisposable
 
     /// <summary>Draws a frame; with <paramref name="menuSelection"/> ≥ 0 the character select screen is drawn over the scene.</summary>
     public void Draw(int width, int height, RunWorld world, float alpha, bool paused, float frameDt,
-        int menuSelection = -1, Action<PixelRenderer>? overlay = null, bool online = false, bool interrupted = false)
+        int menuSelection = -1, Action<PixelRenderer>? overlay = null, bool online = false, string? interruption = null, bool canReconnect = false)
     {
         _time += paused ? 0 : frameDt;
         var p = world.Player;
@@ -339,7 +339,7 @@ internal sealed class RunView : IDisposable
         _particles.Draw(ox, oy, tw, th, _time);
 
         if (menuSelection >= 0) _hud.DrawMenu(_renderer, world.Content, menuSelection);
-        else _hud.Draw(_renderer, world, hero, frameDt, paused, online, interrupted);
+        else _hud.Draw(_renderer, world, hero, frameDt, paused, online, interruption, canReconnect);
         overlay?.Invoke(_renderer);
         _renderer.Finish();
     }

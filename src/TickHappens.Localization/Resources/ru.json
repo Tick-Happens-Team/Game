@@ -63,6 +63,8 @@
   "online.searching": "ИЩЕМ ЛОББИ",
   "online.waitingPlayers": "ОЖИДАНИЕ ИГРОКОВ",
   "online.waitingHost": "ОЖИДАНИЕ ХОСТА",
+  "online.resumeExpired": "НЕ УДАЛОСЬ ВОССТАНОВИТЬ МЕСТО",
+  "online.reconnect": "F7 - ПЕРЕПОДКЛЮЧИТЬСЯ",
   "online.hostClosed": "ХОСТ ЗАКРЫЛ КОМНАТУ",
   "online.closed": "ЛОББИ ЗАКРЫТО",
   "online.error": "ОШИБКА ПОДКЛЮЧЕНИЯ",

@@ -10,6 +10,9 @@ namespace TickHappens.Game.Online;
 internal sealed class OnlineGame(ContentSet content) : IDisposable
 {
     private const int SnapshotTicks = 3;
+    private sealed record ReconnectTarget(IPEndPoint? LanAddress, string? EosCode, string Character, uint Seed, Guid Key);
+    private ReconnectTarget? _reconnect;
+    private bool _resuming;
     private readonly byte[] _eventPacket = new byte[CoopSession.MaxEventBytes];
     private readonly byte[] _snapshot = new byte[RunWorld.SnapshotCapacity];
     private readonly RunInput[] _inputs = new RunInput[4];
@@ -34,6 +37,7 @@ internal sealed class OnlineGame(ContentSet content) : IDisposable
     private bool _hostEnded;
     private bool _started;
     private bool _sentFinal;
+    private bool _sendResumeSnapshot;
 
     public RunWorld? World { get; private set; }
     public string? RoomCode { get; private set; }
@@ -44,8 +48,21 @@ internal sealed class OnlineGame(ContentSet content) : IDisposable
     public int? LanPort => IsHost ? _lan?.Port : null;
     public int PlayerCount => _session?.PlayerCount ?? 0;
     public bool Interrupted { get; private set; }
+    public bool CanReconnect => Interrupted && !Busy && !InRoom && _reconnect is not null;
     public bool Playing => _started && World is not null;
     public float Alpha => Math.Clamp((float)(_accumulator / (RunWorld.Dt * (IsHost ? 1 : SnapshotTicks))), 0, 1);
+
+    public void Reconnect()
+    {
+        if (!CanReconnect || _reconnect is not { } target) return;
+        _resuming = true;
+        if (target.LanAddress is { } address)
+            ConnectLan(false, address, target.Character, target.Seed);
+#if TICKHAPPENS_EOS
+        else
+            Connect(target.EosCode, target.Character, target.Seed);
+#endif
+    }
 
     public void ConnectLan(bool host, IPEndPoint? address, string character, uint seed)
     {
@@ -64,7 +81,7 @@ internal sealed class OnlineGame(ContentSet content) : IDisposable
         }
         catch (Exception error)
         {
-            Leave();
+            CloseRoom(Interrupted);
             SetError(error);
         }
     }
@@ -106,7 +123,11 @@ internal sealed class OnlineGame(ContentSet content) : IDisposable
             }
             else BeginRoom();
         }
-        catch (Exception error) { SetError(error); }
+        catch (Exception error)
+        {
+            CloseRoom(Interrupted);
+            SetError(error);
+        }
     }
 
     private void BeginRoom()
@@ -159,7 +180,7 @@ internal sealed class OnlineGame(ContentSet content) : IDisposable
 #if TICKHAPPENS_EOS
             _signingIn = false;
 #endif
-            if (!wasLeaving) Leave();
+            if (!wasLeaving) CloseRoom(Interrupted);
             SetError(error);
         }
     }
@@ -167,12 +188,19 @@ internal sealed class OnlineGame(ContentSet content) : IDisposable
     private void OpenSession(ICoopTransport transport, string? hostPeer)
     {
         string hash = Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(content, ContentSet.Json)));
-        var session = new CoopSession(transport, hash, hostPeer);
+        Guid key = _resuming && _reconnect is { } target ? target.Key : Guid.NewGuid();
+        var session = new CoopSession(transport, hash, hostPeer, resumeKey: key, resume: _resuming);
         _session = session;
         if (session.IsHost)
         {
             World = new RunWorld(content, _seed, _character!, playerCount: 4, localPlayerId: 0);
             session.PeerJoined += slot => World.SetPlayerActive(slot, true);
+            session.PeerResumed += slot =>
+            {
+                World.RestoreCoopPlayer(slot);
+                _sendResumeSnapshot = true;
+                _sentFinal = false;
+            };
             session.PeerLeft += slot =>
             {
                 _inputs[slot] = default;
@@ -188,8 +216,14 @@ internal sealed class OnlineGame(ContentSet content) : IDisposable
         else
         {
             session.HostDisconnected += () => _hostEnded = true;
+            string? eosCode = null;
+#if TICKHAPPENS_EOS
+            if (_lan is null) eosCode = _joinCode;
+#endif
+            _reconnect = new ReconnectTarget(_lan?.HostAddress, eosCode, _character!, _seed, key);
+            RunWorld? replica = null;
             RunWorld Replica(int slot) =>
-                World ??= new RunWorld(content, _seed, _character!, playerCount: 4, localPlayerId: slot);
+                replica ??= new RunWorld(content, _seed, _character!, playerCount: 4, localPlayerId: slot);
             session.EventsReceived += packet =>
             {
                 if (session.LocalPlayerSlot is int slot) Replica(slot).TryApplyEvents(packet.Span);
@@ -199,6 +233,8 @@ internal sealed class OnlineGame(ContentSet content) : IDisposable
                 if (session.LocalPlayerSlot is not int slot) return;
                 var world = Replica(slot);
                 if (!world.TryApplySnapshot(packet.Span)) return;
+                World = world;
+                _resuming = Interrupted = false;
                 _started = true;
                 _accumulator = 0;
             };
@@ -229,18 +265,11 @@ internal sealed class OnlineGame(ContentSet content) : IDisposable
             if (_hostEnded || _session?.JoinError is not null)
             {
                 string message = Localizer.Get(_session?.JoinError ?? "online.hostClosed");
-                var results = _hostEnded && Playing ? World : null;
-                _hostEnded = false;
-                Leave();
-                if (results is not null)
-                {
-                    World = results;
-                    _started = Interrupted = true;
-                }
+                bool keepResults = Interrupted || (_hostEnded && Playing);
+                CloseRoom(keepResults);
                 Status = message;
             }
-            if (_session is null) return;
-            if (!Playing) return;
+            if (_session is null || !Playing || Interrupted) return;
             _accumulator += dt;
             if (IsHost)
             {
@@ -253,10 +282,12 @@ internal sealed class OnlineGame(ContentSet content) : IDisposable
                     World!.StepCoop(_inputs);
                     for (int slot = 0; slot < _inputs.Length; slot++) _inputs[slot] = _inputs[slot] with { Dash = false };
                     bool ended = World.Phase == RunPhase.Dead;
-                    if ((!ended && World.Tick % SnapshotTicks == 0) || (ended && !_sentFinal))
+                    if (_sendResumeSnapshot || (!ended && World.Tick % SnapshotTicks == 0) || (ended && !_sentFinal))
                     {
                         int size = World.WriteSnapshot(_snapshot);
-                        if (size > 0) _session.BroadcastSnapshot(World.Tick, _snapshot.AsSpan(0, size), reliable: ended);
+                        if (size > 0)
+                            _session.BroadcastSnapshot(World.Tick, _snapshot.AsSpan(0, size), reliable: ended || _sendResumeSnapshot);
+                        _sendResumeSnapshot = false;
                         _sentFinal = ended;
                     }
                     while (nextEvent < World.Events.Count)
@@ -282,7 +313,7 @@ internal sealed class OnlineGame(ContentSet content) : IDisposable
         }
         catch (Exception error)
         {
-            Leave();
+            CloseRoom(Interrupted);
             SetError(error);
         }
     }
@@ -290,7 +321,9 @@ internal sealed class OnlineGame(ContentSet content) : IDisposable
     private double _inputTime;
     private bool _dashQueued;
 
-    public void Leave()
+    public void Leave() => CloseRoom(keepResults: false);
+
+    private void CloseRoom(bool keepResults)
     {
         if (Busy && _lan is null)
         {
@@ -299,9 +332,14 @@ internal sealed class OnlineGame(ContentSet content) : IDisposable
         }
         _session?.Dispose();
         _session = null;
-        World = null;
+        if (!keepResults)
+        {
+            World = null;
+            _reconnect = null;
+        }
+        _started = Interrupted = keepResults;
         RoomCode = null;
-        _started = _dashQueued = _sentFinal = Interrupted = _hostEnded = false;
+        _dashQueued = _sentFinal = _sendResumeSnapshot = _hostEnded = _resuming = false;
         _accumulator = _inputTime = 0;
         Array.Clear(_inputs);
         Array.Clear(_lastInput);

@@ -32,7 +32,7 @@ dotnet run --project src/TickHappens.Game "-p:TickHappensEosSdk=$sdk"
 
 The probe signs in, creates and publishes a room code, and destroys the lobby. In the character menu open **Co-op** with **F1**, switch to EOS with **F6**, then choose **Create lobby** or **Join by code**. The host can start after at least one compatible peer connects. Join before the host starts the run. The prototype uses the host's selected character for the team. Escape leaves the room. Use **F5** in the EOS menu to enable relay-only mode before joining or hosting. The `TICKHAPPENS_EOS_FORCE_RELAY=1` environment variable sets its initial value. By default EOS tries a direct connection first, with relay fallback.
 
-The current transport sends host snapshots at 10 Hz and player input at 30 Hz. Hosts advance the game and clients render snapshots. The host sends reliable gameplay-event batches, including chain paths and visual seeds. Clients replay those events and read loot and progression from authoritative snapshots. Delta compression, motion reconciliation, reconnect, mod installation on join, and peak bandwidth validation are outstanding. Use identical core and enabled mod data on all machines.
+The current transport sends host snapshots at 10 Hz and player input at 30 Hz. Hosts advance the game and clients render snapshots. The host sends reliable gameplay-event batches, including chain paths and visual seeds. Clients replay those events and read loot and progression from authoritative snapshots. Delta compression, motion reconciliation, mod installation on join, and peak bandwidth validation are outstanding. Use identical core and enabled mod data on all machines.
 
 ```csharp
 interface ITransport {
@@ -66,7 +66,7 @@ At 1,000 enemies and roughly five bytes per enemy at 20 Hz, estimated traffic is
 
 The handshake includes protocol and game versions, the base content hash, and SHA-256 over sorted `(id, version, sha256)` entries for required mods. If game or content is incompatible, offer the compatible release via the launcher. For missing mods, download the exact versions and hashes into a session profile. Explain when a required mod is unavailable in the catalog.
 
-A disconnected client can return within 60 seconds using the same room code. If the host leaves, end the run and show results. Host migration is outside the current plan.
+When a connection drops during a run, the client shows the latest results. Press **F7** in that window to retry the previous LAN address or EOS room code. Keep the guest game process open to preserve the reconnect key. If the host is still running, it restores the same player slot and progress for up to 60 seconds from when it detected the disconnect. EOS reconnect still needs verification between separate devices. Host migration is outside the current plan.
 
 ## Security and release checks
 

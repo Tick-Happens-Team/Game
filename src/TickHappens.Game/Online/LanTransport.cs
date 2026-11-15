@@ -46,6 +46,7 @@ public sealed class LanTransport : ICoopTransport, IDisposable
             if (!host)
             {
                 HostPeer = id;
+                HostAddress = new IPEndPoint(peer.Address, peer.Port);
                 _joining?.TrySetResult();
             }
         };
@@ -86,6 +87,7 @@ public sealed class LanTransport : ICoopTransport, IDisposable
     }
 
     public string? HostPeer { get; private set; }
+    public IPEndPoint? HostAddress { get; private set; }
     public bool Discoverable { get; set; } = true;
     public int Port => _network.LocalPort;
     public event Action<string, ReadOnlyMemory<byte>>? PacketReceived;
