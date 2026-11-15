@@ -12,7 +12,7 @@ namespace TickHappens.Launcher;
 internal sealed unsafe class Screen : IDisposable
 {
     public const int W = 640, H = 360;
-    public const uint Backdrop = 0xFF1A0F14;
+    public const uint Backdrop = 0xFFF0F5F7;
 
     private const string Vertex = """
         #version 430 core

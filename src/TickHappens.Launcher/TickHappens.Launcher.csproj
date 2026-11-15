@@ -3,12 +3,20 @@
     <OutputType>WinExe</OutputType>
     <InvariantGlobalization>false</InvariantGlobalization>
     <Version>0.1.0</Version>
+    <!-- Hero sprites for the cover page come from the sibling Assets checkout, like the game's development build. -->
+    <TickHappensAssetsRoot Condition="'$(TICKHAPPENS_ASSETS_ROOT)' != ''">$(TICKHAPPENS_ASSETS_ROOT)</TickHappensAssetsRoot>
+    <TickHappensAssetsRoot Condition="'$(TickHappensAssetsRoot)' == ''">$(MSBuildThisFileDirectory)../../../Assets</TickHappensAssetsRoot>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../TickHappens.Distribution/TickHappens.Distribution.csproj" />
     <ProjectReference Include="../TickHappens.Engine/TickHappens.Engine.csproj" />
     <ProjectReference Include="../TickHappens.Localization/TickHappens.Localization.csproj" />
     <EmbeddedResource Include="$(ReleasePublicKey)" Condition="'$(ReleasePublicKey)' != ''" LogicalName="ReleasePublicKey.pem" />
+    <EmbeddedResource Include="../../content/core/characters.json" LogicalName="characters.json" />
     <InternalsVisibleTo Include="TickHappens.Tests" />
+  </ItemGroup>
+  <ItemGroup Condition="Exists('$(TickHappensAssetsRoot)/assets/atlas/main.png')">
+    <EmbeddedResource Include="$(TickHappensAssetsRoot)/assets/atlas/main.png" LogicalName="atlas.png" />
+    <EmbeddedResource Include="$(TickHappensAssetsRoot)/assets/atlas/main.json" LogicalName="atlas.json" />
   </ItemGroup>
 </Project>

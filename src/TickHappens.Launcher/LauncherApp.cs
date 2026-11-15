@@ -28,6 +28,7 @@ internal sealed class LauncherApp
     private readonly CancellationTokenSource _cancellation = new();
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private readonly List<(string Id, bool Enabled)> _mods = [];
+    private readonly Cover _cover = new();
 
     private Page _page;
     private volatile string _status = "";
@@ -241,8 +242,8 @@ internal sealed class LauncherApp
     private bool Button(PixelCanvas c, string text, int x, int y, int w, int h, bool enabled = true, bool selected = false)
     {
         bool hover = enabled && Hover(x, y, w, h);
-        uint face = !enabled ? PanelDark : selected ? PanelLight : hover ? Mix(Panel, PanelLight, 0.6f) : Panel;
-        Bevel(c, x, y, w, h, face, Mix(face, Text, 0.25f), Mix(face, Ink, 0.5f));
+        uint face = !enabled ? Panel : selected ? White : hover ? Mix(Panel, White, 0.6f) : Panel;
+        Bevel(c, x, y, w, h, face, White, PanelDark);
         if (selected) Fill(c, x + 2, y + 2, 2, h - 4, Accent);
         Centered(c, text, x + w / 2, y + (h - 7) / 2, enabled ? Text : Muted);
         return enabled && Clicked(x, y, w, h);
@@ -263,9 +264,9 @@ internal sealed class LauncherApp
 
     private void DrawSidebar(PixelCanvas c, float time)
     {
-        Fill(c, 0, 0, Sidebar, Screen.H, PanelDark);
+        Fill(c, 0, 0, Sidebar, Screen.H, Panel);
         Fill(c, Sidebar - 1, 0, 1, Screen.H, Ink);
-        Fill(c, Sidebar - 2, 0, 1, Screen.H, Panel);
+        Fill(c, Sidebar - 2, 0, 1, Screen.H, White);
 
         // Logo: a small clock and the stacked title.
         int cx = 22, cy = 26;
@@ -277,7 +278,7 @@ internal sealed class LauncherApp
         c.Line(cx, cy, cx + 3, cy, Ink);
         Label(c, "TICK", 38, 14, Gold, 2);
         Label(c, "HAPPENS", 38, 30, Text, 1);
-        Fill(c, 12, 46, Sidebar - 24, 1, Panel);
+        Fill(c, 12, 46, Sidebar - 24, 1, PanelDark);
 
         (Page Page, string Key)[] pages = [(Page.Play, "launcher.page.play"), (Page.Mods, "launcher.page.mods"), (Page.Settings, "launcher.page.settings")];
         for (int i = 0; i < pages.Length; i++)
@@ -293,47 +294,21 @@ internal sealed class LauncherApp
     private void DrawPlay(PixelCanvas c, float time)
     {
         int x0 = Sidebar, w = Screen.W - Sidebar;
-        Scenery.Draw(c, x0, 0, w, BarTop, time);
-
-        // Title with a hard drop shadow.
-        int tx = x0 + w / 2 + 70;
-        PixelFontShadowed(c, "TICK", tx, 82, Gold, 4);
-        PixelFontShadowed(c, "HAPPENS", tx, 116, Text, 3);
-        Centered(c, Localizer.Get("launcher.tagline"), tx, 146, Accent);
-
-        // Installed release card.
-        int cardX = x0 + 12, cardY = 12, cardW = 168, cardH = 46;
-        Shade(c, cardX, cardY, cardW, cardH, Ink, 0.72f);
-        Fill(c, cardX, cardY, cardW, 1, PanelLight);
-        if (_installed is { } v)
-        {
-            Label(c, Localizer.Format("launcher.installed", v.Game), cardX + 8, cardY + 8, Text);
-            Label(c, Localizer.Format("launcher.assetsVersion", v.Assets), cardX + 8, cardY + 20, Muted);
-            Label(c, Localizer.Format("launcher.release", v.Sequence), cardX + 8, cardY + 32, Muted);
-        }
-        else
-        {
-            Label(c, Localizer.Get("launcher.notInstalled"), cardX + 8, cardY + 8, Text);
-            foreach (var (line, i) in Wrap(Localizer.Get("launcher.firstRun"), cardW - 16).Take(2).Select((line, i) => (line, i)))
-                Label(c, line, cardX + 8, cardY + 20 + i * 10, Muted);
-        }
-    }
-
-    private static void PixelFontShadowed(PixelCanvas c, string text, int cx, int y, uint color, int scale)
-    {
-        int x = cx - Measure(text, scale) / 2;
-        TickHappens.Engine.Ui.PixelFont.Draw(c, text, x + scale, y + scale, Ink, 0, scale);
-        TickHappens.Engine.Ui.PixelFont.Draw(c, text, x, y, color, 0, scale);
+        _cover.Draw(c, x0, 0, w, BarTop, time, Localizer.Get("launcher.tagline"));
+        string installed = _installed is { } v
+            ? Localizer.Format("launcher.installedLine", v.Game, v.Sequence)
+            : Localizer.Get("launcher.notInstalled");
+        Label(c, installed, Screen.W - 10 - Measure(installed), 8, Muted);
     }
 
     private void DrawMods(PixelCanvas c)
     {
         int x0 = Sidebar + 16, w = Screen.W - Sidebar - 32;
-        Label(c, Localizer.Get("launcher.mods"), x0, 16, Gold, 2);
+        Label(c, Localizer.Get("launcher.mods"), x0, 16, Ink, 2);
         Label(c, Localizer.Get("launcher.modsHint"), x0, 38, Muted);
         if (Button(c, Localizer.Get("launcher.folder"), x0 + w - 150, 12, 150, 20)) OpenFolder(_modsDirectory);
 
-        Bevel(c, x0, ModListTop - 6, w, BarTop - ModListTop, PanelDark, Panel, Ink);
+        Bevel(c, x0, ModListTop - 6, w, BarTop - ModListTop, White, White, PanelDark);
         if (_mods.Count == 0)
         {
             foreach (var (line, i) in Wrap(Localizer.Get("launcher.noMods"), w - 32).Select((line, i) => (line, i)))
@@ -346,7 +321,7 @@ internal sealed class LauncherApp
             var (id, enabled) = _mods[index];
             bool hover = Hover(x0 + 4, y - 2, w - 8, ModRowHeight - 2);
             if (hover) Fill(c, x0 + 4, y - 2, w - 8, ModRowHeight - 2, Panel);
-            Bevel(c, x0 + 10, y, 12, 12, enabled ? Green : PanelDark, enabled ? GreenLight : Panel, enabled ? GreenDark : Ink);
+            Bevel(c, x0 + 10, y, 12, 12, enabled ? Green : Panel, enabled ? GreenLight : White, enabled ? GreenDark : PanelDark);
             if (enabled)
             {
                 c.Line(x0 + 13, y + 6, x0 + 15, y + 8, Ink);
@@ -359,14 +334,14 @@ internal sealed class LauncherApp
         {
             int track = BarTop - ModListTop - 16, thumb = Math.Max(10, track * VisibleMods / _mods.Count);
             int offset = (track - thumb) * _modScroll / Math.Max(1, _mods.Count - VisibleMods);
-            Fill(c, x0 + w - 8, ModListTop - 2 + offset, 3, thumb, PanelLight);
+            Fill(c, x0 + w - 8, ModListTop - 2 + offset, 3, thumb, PanelDark);
         }
     }
 
     private void DrawSettings(PixelCanvas c)
     {
         int x0 = Sidebar + 16;
-        Label(c, Localizer.Get("launcher.page.settings"), x0, 16, Gold, 2);
+        Label(c, Localizer.Get("launcher.page.settings"), x0, 16, Ink, 2);
 
         Label(c, Localizer.Get("launcher.language"), x0, 52, Text);
         for (int i = 0; i < Localizer.Languages.Count; i++)
@@ -404,9 +379,9 @@ internal sealed class LauncherApp
     private void DrawBar(PixelCanvas c, float time)
     {
         int x0 = Sidebar, w = Screen.W - Sidebar;
-        Fill(c, x0, BarTop, w, Screen.H - BarTop, PanelDark);
+        Fill(c, x0, BarTop, w, Screen.H - BarTop, Panel);
         Fill(c, x0, BarTop, w, 1, Ink);
-        Fill(c, x0, BarTop + 1, w, 1, Panel);
+        Fill(c, x0, BarTop + 1, w, 1, White);
 
         int playW = 132, playH = 34, playX = Screen.W - playW - 10, playY = BarTop + (Screen.H - BarTop - playH) / 2;
         int textW = playX - x0 - 24;
@@ -417,13 +392,13 @@ internal sealed class LauncherApp
             Label(c, lines[0], x0 + 12, BarTop + 10, statusColor);
             float progress = Math.Clamp(transfer.Received / (float)Math.Max(1, transfer.Expected), 0, 1);
             int barW = textW, fill = (int)((barW - 4) * progress);
-            Bevel(c, x0 + 12, BarTop + 22, barW, 10, Ink, PanelDark, PanelDark);
+            Bevel(c, x0 + 12, BarTop + 22, barW, 10, White, PanelDark, White);
             Fill(c, x0 + 14, BarTop + 24, fill, 6, Accent);
-            Fill(c, x0 + 14, BarTop + 24, fill, 1, Text);
+            Fill(c, x0 + 14, BarTop + 24, fill, 1, Mix(Accent, White, 0.6f));
             // A light sweep across the filled part.
             int sweep = (int)(time * 90) % Math.Max(1, barW + 40) - 20;
             for (int dx = 0; dx < 6; dx++)
-                if (sweep + dx >= 0 && sweep + dx < fill) Fill(c, x0 + 14 + sweep + dx, BarTop + 25, 1, 5, Mix(Accent, Text, 0.6f));
+                if (sweep + dx >= 0 && sweep + dx < fill) Fill(c, x0 + 14 + sweep + dx, BarTop + 25, 1, 5, Mix(Accent, White, 0.5f));
             Label(c, Localizer.Format("launcher.progress", Megabytes(transfer.Received), Megabytes(transfer.Expected)),
                 x0 + 12, BarTop + 34, Muted);
         }
@@ -435,9 +410,9 @@ internal sealed class LauncherApp
 
         bool enabled = CanPlay;
         bool hover = enabled && Hover(playX, playY, playW, playH);
-        uint face = !enabled ? PanelLight : hover ? GreenLight : Green;
-        Fill(c, playX - 1, playY - 1, playW + 2, playH + 2, enabled ? GoldDark : Ink);
-        Bevel(c, playX, playY, playW, playH, face, enabled ? Rgb(0xE0, 0xFF, 0xB8) : PanelLight, enabled ? GreenDark : Panel);
+        uint face = !enabled ? Panel : hover ? GreenLight : Green;
+        if (enabled) Fill(c, playX - 1, playY - 1, playW + 2, playH + 2, GoldDark);
+        Bevel(c, playX, playY, playW, playH, face, enabled ? Rgb(0xE0, 0xFF, 0xB8) : White, enabled ? GreenDark : PanelDark);
         string label = _gameRunning ? Localizer.Get("launcher.inGame")
             : Busy ? Localizer.Get("launcher.wait")
             : Localizer.Get("launcher.play");

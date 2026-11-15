@@ -8,20 +8,22 @@ internal static class Paint
 {
     public static uint Rgb(int r, int g, int b) => 0xFF000000u | (uint)b << 16 | (uint)g << 8 | (uint)r;
 
-    // Dusk palette shared with the game's menus.
-    public static readonly uint Ink = Rgb(0x18, 0x10, 0x15);
-    public static readonly uint Panel = Rgb(0x39, 0x22, 0x33);
-    public static readonly uint PanelLight = Rgb(0x57, 0x3B, 0x51);
-    public static readonly uint PanelDark = Rgb(0x26, 0x17, 0x22);
-    public static readonly uint Text = Rgb(0xFF, 0xF1, 0xF4);
-    public static readonly uint Muted = Rgb(0xB0, 0x9A, 0xB4);
-    public static readonly uint Accent = Rgb(0x8F, 0xF0, 0xDE);
-    public static readonly uint Gold = Rgb(0xFF, 0xC8, 0x57);
-    public static readonly uint GoldDark = Rgb(0xB8, 0x6A, 0x2A);
-    public static readonly uint Green = Rgb(0x6C, 0xD0, 0x5B);
+    // Light box-cover palette: paper ground, dark plum ink, pale bevelled panels.
+    public static readonly uint Paper = Rgb(0xF7, 0xF5, 0xF0);
+    public static readonly uint White = Rgb(0xFF, 0xFF, 0xFF);
+    public static readonly uint Ink = Rgb(0x2A, 0x22, 0x33);
+    public static readonly uint Panel = Rgb(0xEA, 0xE6, 0xEE);
+    public static readonly uint PanelLight = White;
+    public static readonly uint PanelDark = Rgb(0xC9, 0xC1, 0xD2);
+    public static readonly uint Text = Ink;
+    public static readonly uint Muted = Rgb(0x85, 0x7C, 0x90);
+    public static readonly uint Accent = Rgb(0x2E, 0x9E, 0x96);
+    public static readonly uint Gold = Rgb(0xD9, 0x9A, 0x2B);
+    public static readonly uint GoldDark = Rgb(0x9C, 0x64, 0x18);
+    public static readonly uint Green = Rgb(0x5C, 0xC0, 0x4E);
     public static readonly uint GreenDark = Rgb(0x2E, 0x7A, 0x3A);
-    public static readonly uint GreenLight = Rgb(0xB4, 0xF0, 0x86);
-    public static readonly uint Danger = Rgb(0xFF, 0x7A, 0x6A);
+    public static readonly uint GreenLight = Rgb(0x9E, 0xE6, 0x7A);
+    public static readonly uint Danger = Rgb(0xC0, 0x3F, 0x36);
 
     public static void Fill(PixelCanvas c, int x, int y, int w, int h, uint color)
     {
@@ -50,10 +52,10 @@ internal static class Paint
 
     /// <summary>Text in the built-in pixel font. Characters the font lacks are replaced with close equivalents.</summary>
     public static void Label(PixelCanvas c, string text, int x, int y, uint color, int scale = 1) =>
-        PixelFont.Draw(c, Printable(text), x, y, color, Ink, scale);
+        PixelFont.Draw(c, Printable(text), x, y, color, 0, scale);
 
     public static void Centered(PixelCanvas c, string text, int cx, int y, uint color, int scale = 1) =>
-        PixelFont.DrawCentered(c, Printable(text), cx, y, color, Ink, scale);
+        PixelFont.DrawCentered(c, Printable(text), cx, y, color, 0, scale);
 
     public static int Measure(string text, int scale = 1) => PixelFont.Measure(Printable(text), scale);
 

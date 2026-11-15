@@ -74,6 +74,8 @@ Copy-Item -LiteralPath "$gameRoot/LICENSE" -Destination "$launcher/LICENSE-Game"
 Copy-Item -LiteralPath "$gameRoot/src/TickHappens.Engine/Vfx/LICENSE-SpriteFusion-VFX.txt" -Destination $game
 Copy-Item -LiteralPath "$assetSource/assets" -Destination $assets -Recurse
 Copy-Item -LiteralPath "$assetSource/LICENSE.md" -Destination "$assets/LICENSE-Assets.md"
+# The launcher embeds the hero atlas for its cover page.
+Copy-Item -LiteralPath "$assetSource/LICENSE.md" -Destination "$launcher/LICENSE-Assets.md"
 if (Test-Path -LiteralPath "$assetSource/THIRD_PARTY_NOTICES.md") {
     Copy-Item -LiteralPath "$assetSource/THIRD_PARTY_NOTICES.md" -Destination $assets
 }
