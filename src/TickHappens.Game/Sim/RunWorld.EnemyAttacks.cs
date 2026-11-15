@@ -6,6 +6,7 @@ namespace TickHappens.Game.Sim;
 public sealed partial class RunWorld
 {
     public const int EnemyWindupTicks = 8;
+    public const int KamikazeFuseTicks = TicksPerSecond;
     private const int CloudPulseTicks = TicksPerSecond / 5;
 
     public record struct EnemyShot(Vector2 Pos, Vector2 Velocity, int Life, float Damage, DamageKind Kind);
@@ -23,6 +24,8 @@ public sealed partial class RunWorld
     public ReadOnlySpan<EnemyCloud> EnemyClouds => _enemyClouds.AsSpan(0, _enemyCloudCount);
     public int EnemyWindup(int slot) => _enemyAttackTicks[slot];
 
+    public static int EnemyWindupDuration(EnemyDef def) => def.DetonateRange > 0 ? KamikazeFuseTicks : EnemyWindupTicks;
+
     private void StepEnemyAttack(int slot, EnemyDef def, PlayerState target, PlayerState? decoy, Vector2 targetPosition, bool stunned, float lifestealCap)
     {
         if (stunned)
@@ -39,7 +42,7 @@ public sealed partial class RunWorld
         if (_enemyAttackTicks[slot] == 0)
         {
             if (Tick >= _enemyAttackReady[slot] && distance <= range)
-                _enemyAttackTicks[slot] = EnemyWindupTicks;
+                _enemyAttackTicks[slot] = (byte)EnemyWindupDuration(def);
             return;
         }
         if (--_enemyAttackTicks[slot] > 0) return;

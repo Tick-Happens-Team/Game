@@ -548,7 +548,10 @@ internal sealed class RunView : IDisposable
                 int frame = anim.Frames[(int)((_time + id * 0.37f) * anim.Fps) % anim.Frames.Count];
                 int windup = world.EnemyWindup(id);
                 if (windup > 0 && _enemyAttackAnims[def] is { } attack)
-                    frame = attack.Frames[(RunWorld.EnemyWindupTicks - windup) * attack.Frames.Count / RunWorld.EnemyWindupTicks];
+                {
+                    int duration = RunWorld.EnemyWindupDuration(world.Content.Enemies[def]);
+                    frame = attack.Frames[(duration - windup) * attack.Frames.Count / duration];
+                }
                 uint tint = world.EFlash[id] > 0 ? 0x00FFFFFFu : _enemyTint[def];
                 _batch.Draw(_enemySprites[def], frame, pos.X - ox, pos.Y - oy, flipX: pos.X > hero.X, tint: tint);
             }
@@ -813,7 +816,7 @@ internal sealed class RunView : IDisposable
             float radius = world.Content.Enemies[world.EDef[i]].BlastRadius;
             var pos = world.EnemyPos(i, alpha);
             if (radius <= 0 || !VisibleArea(pos, radius)) continue;
-            float charge = 1 - world.EnemyWindup(i) / (float)RunWorld.EnemyWindupTicks;
+            float charge = 1 - world.EnemyWindup(i) / (float)RunWorld.KamikazeFuseTicks;
             for (int j = 0; j < 48; j++)
             {
                 float angle = j * (MathF.Tau / 48);
