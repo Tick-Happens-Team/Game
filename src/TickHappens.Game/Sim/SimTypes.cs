@@ -12,6 +12,7 @@ public enum EventKind : byte
 {
     Hit, Kill, Bolt, Pulse, Chain, Blast, LevelUp, Statue, Chest, PlayerHurt, Dash, Pickup, Elite, Melee, ItemBeam, Flame, Frost, BossReward,
     DroneBlast, HeroFireTrail, EnemyBlast,
+    EagleDive, BoarStomp, RocketImpact, WoodShockwave, WildAura, Laser, Rifle, CaneStrike, Revival,
 }
 
 public enum BlastStyle { Default, SodaSplash }
@@ -65,6 +66,7 @@ public sealed class PlayerState
     public Vector2 Pos, Prev, Facing = Vector2.UnitY;
     public bool FacingLeft, Walking;
     public float Hp;
+    public int RevivalTicks;
     public int Level = 1;
     public float Xp, XpNext;
     public required StatBlock Stats;

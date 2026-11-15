@@ -115,10 +115,24 @@ internal sealed class GameAudio : IDisposable
                     Play("bolt", 0.2f * near, pan, 0.08f, 3);
                     break;
                 case EventKind.Pulse:
+                case EventKind.WildAura:
                     Play("pulse", 0.45f * near, pan, 0.05f, 2);
+                    break;
+                case EventKind.EagleDive:
+                    Play("dash", 0.45f * near, pan, 0.06f, 2, 1.3f);
+                    break;
+                case EventKind.BoarStomp:
+                case EventKind.WoodShockwave:
+                    Play("hit", 0.55f * near, pan, 0.08f, 2, 0.65f);
+                    break;
+                case EventKind.Revival:
+                    Play("statue", 0.55f * near, pan, 0, 1, 1.15f);
                     break;
                 case EventKind.Chain:
                     Play("chain", 0.35f * near, pan, 0.1f, 2);
+                    break;
+                case EventKind.Blast when e.A == (int)BlastStyle.SodaSplash:
+                    Play("pulse", 0.4f * near, pan, 0.12f, 2, 1.6f);
                     break;
                 case EventKind.Blast:
                 case EventKind.DroneBlast:
