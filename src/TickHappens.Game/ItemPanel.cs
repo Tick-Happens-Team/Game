@@ -38,7 +38,7 @@ internal sealed class ItemPanel(Func<int, string> playerName)
         }
     }
 
-    public void Draw(PixelRenderer renderer, RunWorld world, bool online)
+    public void Draw(PixelRenderer renderer, RunWorld world, bool online, int headerBottom)
     {
         var ui = PixelCanvas.ColorOf(renderer.UiFrame);
         if (!IsOpen)
@@ -48,7 +48,8 @@ internal sealed class ItemPanel(Func<int, string> playerName)
             return;
         }
 
-        const int x = 6, y = Hud.RunHeaderBottom + 7, padding = 7, header = 18, footer = 15;
+        const int x = 6, padding = 7, header = 18, footer = 15;
+        int y = headerBottom + 7;
         int width = Math.Min(290, renderer.UiW / 2 - 12);
         int columns = (width - padding * 2) / PixelFont.Advance;
         int capacity = (renderer.UiH - y - header - footer - 6) / PixelFont.LineHeight;

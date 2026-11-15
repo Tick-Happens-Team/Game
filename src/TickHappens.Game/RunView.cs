@@ -849,8 +849,7 @@ internal sealed partial class RunView : IDisposable
             SetVisionMask(world, hero);
             if (!paused && interruption is null) DrawBossMarkers(world, alpha);
             coopHud?.DrawTeammates(_renderer, world, _displayPlayers);
-            if (!paused && interruption is null) itemPanel?.Draw(_renderer, world, online);
-            _hud.Draw(_renderer, world, hero, frameDt, paused, online, interruption, canReconnect, itemPanel?.IsOpen == true);
+            _hud.Draw(_renderer, world, hero, frameDt, paused, online, interruption, canReconnect, itemPanel);
         }
         coopHud?.Draw(_renderer, world, frameDt, itemPanel?.IsOpen == true);
         overlay?.Invoke(_renderer);
@@ -866,7 +865,7 @@ internal sealed partial class RunView : IDisposable
 
     private void DrawBossMarkers(RunWorld world, float alpha)
     {
-        const uint Marker = 0xFFFFCE70u, Border = 0xFF281622u;
+        const uint Marker = 0xFF70CEFFu, Border = 0xFF281622u;
         var color = PixelCanvas.ColorOf(_renderer.UiFrame);
         var min = new Vector2(19, Hud.RunHeaderBottom + 28);
         var max = new Vector2(_renderer.UiW - 19, _renderer.UiH - 25);
@@ -888,7 +887,9 @@ internal sealed partial class RunView : IDisposable
             Vector2 direction;
             if (Vector2.Clamp(target, min, max) == target)
             {
-                tip.Y = Math.Max(min.Y, y - sprite.Origin[1] * EnemyScale(enemy, sprite.W));
+                float height = sprite.Origin[1] * EnemyScale(enemy, sprite.W);
+                var (_, head) = _renderer.WorldToUi(p.X, p.Y - height - 4);
+                tip.Y = Math.Max(min.Y, head);
                 direction = Vector2.UnitY;
             }
             else

@@ -96,7 +96,7 @@ internal sealed partial class Hud(GameSettings settings)
         Localizer.Content("items", item.Id, "name", string.IsNullOrEmpty(item.Name) ? item.Id : item.Name);
 
     public void Draw(PixelRenderer renderer, RunWorld world, Vector2 hero, float dt, bool paused, bool online, string? interruption, bool canReconnect,
-        bool itemsOpen)
+        ItemPanel? itemPanel)
     {
         var ui = PixelCanvas.ColorOf(renderer.UiFrame);
         int w = renderer.UiW, h = renderer.UiH;
@@ -132,7 +132,8 @@ internal sealed partial class Hud(GameSettings settings)
         DrawRunHeader(ui, world, w);
         int bossBarsBottom = DrawBossBars(ui, world, w);
 
-        if (!itemsOpen) DrawItemSummary(ui, world, h);
+        if (!paused && interruption is null) itemPanel?.Draw(renderer, world, online, bossBarsBottom);
+        if (itemPanel?.IsOpen != true) DrawItemSummary(ui, world, h);
 
         // Chest hint and notices.
         if (world.NearbyChest >= 0)
