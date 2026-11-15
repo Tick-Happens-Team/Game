@@ -14,7 +14,7 @@ Status markers follow the main [roadmap](../ROADMAP.md): `[x]` verified, `[ ]` p
 - **Damage types:** `physical`, `magical` and `pure` are supported. Physical and magical damage use the corresponding defences, while pure damage bypasses them.
 - **VFX:** explosion, impact, slash, lightning, sparkle, pickup, and GPU particles.
 
-Milestone M1 is done: stat model v2 (S0), hero basic attack (S1), the damage pipeline with types and percentage defences (S2), chest loot by rarity with stacking items (S13), six C1 heroes with sprites, six I1 items and the character select screen, all covered by tests. Everything else below is pending unless marked otherwise.
+Milestone M1 is playable: stat model v2 (S0), hero basic attack (S1), the damage pipeline with types and percentage defences (S2), chest loot by rarity with stacking items (S13), six C1 heroes with sprites, six I1 items, and the character select screen. The latest sheet values still need to be applied to the playable roster, four I1 items, and chest rarity chances.
 
 ## 2. Engine systems
 
@@ -25,8 +25,8 @@ Milestone M1 is done: stat model v2 (S0), hero basic attack (S1), the damage pip
 | S2 | **Damage pipeline.** Hit = base × source multipliers (hero, items, damage type) → crit → target defence (armor % for physical, Magic resist % for magical, none for pure) → on-hit and on-damage-taken hooks. Every hit carries source (hero / item id / summon owner), type and flags (crit, proc, reflected). | S0 | Order-independent multiplier tests. Pure damage ignores defences. Summon damage credits the summon owner. |
 | S3 | **Crit:** separate chance per damage type and a shared crit damage multiplier. | S2 | Deterministic crit rolls from the seeded RNG. |
 | S4 | **Healing layer:** lifesteal (by damage type), shields (absorb, regenerating), heal-received events, a conditional regen hook. | S2 | Lifesteal and shields are tested. Shields show on the HUD. |
-| S5 | **Event hooks** usable from data: `onHit`, `onAttack` (proc chance), `onKill`, `onDamageTaken` (threshold accumulator), `onDash`, `onGoldSpent`, `onLevelUp`, `onDeath`, `everySeconds`, `whileStill`. | S2 | Each hook has a test. Hooks are tick-based and deterministic. |
-| S6 | **New weapon kinds:** `melee` (arc in the facing direction, slash VFX), `cone` (sustained, CombatArea.Cone), `boomerang` (out-and-back projectile), `bounce` (re-targets on kill), `dropped` (delayed bomb behind the hero), `trail` (ground hazard), `snipe` (charge, then hit the highest-HP enemy), `execute` (instant kill with a filter). | S1, S2 | Every kind is used by at least one item and verified in a capture. |
+| S5 | **Event hooks** usable from data: `onHit`, `onAttack` (proc chance), `onKill`, `onDamageTaken` (threshold accumulator), `onDash`, `onGoldSpent`, `onItemAcquired`, `onLevelUp`, `onDeath`, `everySeconds`, `whileStill`. | S2 | Each hook has a test. Hooks are tick-based and deterministic. |
+| S6 | **New weapon kinds:** `melee` (arc in the facing direction, slash VFX), `cone` (sustained, CombatArea.Cone), `boomerang` (out-and-back projectile), `bounce` (re-targets on kill), `dropped` (delayed bomb behind the hero), `trail` (ground hazard), `snipe` (hit the highest-HP enemy), `execute` (instant kill with a filter). | S1, S2 | Every kind is used by at least one item and verified in a capture. |
 | S7 | **Status effects on enemies:** slow (proximity-scaled), freeze, stun, poison or delayed damage over time, plus a boss flag that excludes executes and instant kills. | S2 | Effects stack by documented rules and have tests and VFX. |
 | S8 | **Ground hazards:** persistent damaging zones such as fire trails and soda bombs, pooled and with a budget. | S6 | 200 active hazards stay within the simulation budget. |
 | S9 | **Defensive procs:** block chance (any or physical only), block on cooldown, reflect (percentage and threshold), vision radius modifier. | S2, S5 | Tests cover each proc. Vision radius changes the camera or fog. |
@@ -46,13 +46,16 @@ The table uses these columns. The source marks every character as official.
 | Attack speed | attack speed | new `attackSpeed`, mapped to attacks/s (Q2) |
 | Armor | physical damage reduction in % | `armor` changes from flat to percent (Q3) |
 | Magic resist | magical damage reduction in % | new `magicResist` |
+| Regen | base HP restored per second | `regen` |
 | Damage `base/+lvl` | basic attack damage and per-level growth | new `damage`, `damagePerLevel` |
 | Growth per level | how the passive grows per level | passive parameter `perLevel` |
+
+The engine already reads `stats.regen` and applies it per second. All six playable heroes currently omit it, so their base regeneration is zero.
 
 **Proposed JSON:**
 
 ```json
-"stats": { "maxHp": 150, "maxHpPerLevel": 5, "moveSpeed": 25, "attackSpeed": 25, "armor": 0.05, "magicResist": 0.10, "damage": 15, "damagePerLevel": 2.75 },
+"stats": { "maxHp": 150, "maxHpPerLevel": 5, "regen": 2, "moveSpeed": 25, "attackSpeed": 25, "armor": 0.05, "magicResist": 0.10, "damage": 15, "damagePerLevel": 2.75 },
 "passives": [ { "id": "octarine_cooldown", "params": { "cooldown": -0.10 }, "perLevel": { "cooldown": -0.0015 } } ]
 ```
 
@@ -60,145 +63,147 @@ Tier C1 replaced the demo character `clockwarden` with six heroes using this mod
 
 ## 4. Characters ordered by ease
 
-Stats are copied from the owner's table. Growth means the per-level value of the passive.
+Stats are copied from the owner's table. Growth means the per-level value of the passive. C1 heroes are playable and await sheet parity. Часовой also needs its updated attack speed and damage, with per-level crit chance tracked under S3.
 
-### Tier C1: stat-only passives (S0, S1, S13 for gold)
+### Tier C1: playable heroes (S0, S1, S13 for gold; S3 for Watchman’s crit growth)
 
-| # | Character | HP | Move speed | Attack speed | Armor | Magic resist | Damage | Passive → implementation | Growth | Status |
-|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | Octarine | 150/+5 | 25 | 25 | 5% | 10% | 15/+2.75 | −10% cooldown on all abilities and items → `cooldown` pct | 0.15% | [x] |
-| 2 | Swordsman | 300/+5 | 18 | 20 | 10% | 3% | 20/+1 | armor rises every level → levelUp passive (exists, switches to %) | 1% | [x] |
-| 3 | Smith | 250/+2 | 30 | 25 | 5% | 4% | 15/+1.5 | +15% item damage → `itemDamage` multiplier (needs S2 source tags) | 1% | [x] |
-| 4 | Goflin | 200/+4 | 35 | 30 | 4% | 6% | 5/+0.5 | +10% gold → `goldGain` (S13) | 0.75% | [x] |
-| 5 | Celestial Mage | 200/+1 | 28 | 28 | 25% | 25% | 10/+0.25 | +25% magical damage, max HP always −65% → `magicDamage` pct and `maxHp` final multiplier 0.35 | 2.25% | [x] |
-| 6 | Watchman | 225/+1.5 | 40 | 50 | 5% | 5% | 3/+0.25 | +0.75 damage per minute of play → stat bound to run time (Q8) | +0.25 damage per level | [x] |
+| # | Character | HP | Regen (HP/s) | Move speed | Attack speed | Armor | Magic resist | Damage | Passive → implementation | Growth | Status |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | Octarine | 150/+5 | 2 | 25 | 25 | 5% | 10% | 15/+2.75 | −10% cooldown on all abilities and items → `cooldown` pct | 0.15% | [~] |
+| 2 | Swordsman | 300/+5 | 2 | 18 | 20 | 10% | 3% | 20/+1 | armor rises every level → levelUp passive (exists, switches to %) | 1% | [~] |
+| 3 | Smith | 250/+2 | 2.75 | 30 | 25 | 5% | 4% | 15/+1.5 | +15% item damage → `itemDamage` multiplier (needs S2 source tags) | 1% | [~] |
+| 4 | Goflin | 200/+4 | 2 | 35 | 30 | 4% | 6% | 5/+0.5 | +10% gold → `goldGain` (S13) | 0.75% | [~] |
+| 5 | Celestial Mage | 200/+1 | 1 | 28 | 28 | 25% | 25% | 10/+0.25 | +25% magical damage, max HP always −65% → `magicDamage` pct and `maxHp` final multiplier 0.35 | 2.25% | [~] |
+| 6 | Watchman | 225/+1.5 | 5 | 40 | 55 | 5% | 5% | 3.75/+0.35 | +0.75 damage per minute of play → stat bound to run time (Q8) | +1 percentage point crit chance | [~] |
 
 ### Tier C2: simple triggers (S2, S4, S5)
 
-| # | Character | HP | Move speed | Attack speed | Armor | Magic resist | Damage | Passive → implementation | Growth | Status |
-|---|---|---|---|---|---|---|---|---|---|---|
-| 7 | Vampire | 175/+5 | 35 | 30 | 5% | 0% | 15/+1.5 | 10% lifesteal from damage dealt → S4 | 1.05% | [ ] |
-| 8 | Miner | 300/+3 | 25 | 20 | 6% | 4% | 10/+1 | after taking 50 damage, explodes for 5 in radius 50 → `onDamageTaken` accumulator plus blast VFX | +2.5 damage and +2.5 radius | [ ] |
-| 9 | Cybernetic Cube | 150/+5 | 25 | 30 | 10% | 10% | 0/+0.1 | each level: a random stat +1..5, and damage the same way → seeded roll on `onLevelUp` | roll min/max +0.25..2.5 per level | [ ] |
-| 10 | Masochist | 190/+4 | 20 | 35 | 1% | 1% | 13.5/+2.15 | lower HP gives more regen, move speed, attack speed and damage → stats computed from missing HP | conversion +0.15% per level | [ ] |
+| # | Character | HP | Regen (HP/s) | Move speed | Attack speed | Armor | Magic resist | Damage | Passive → implementation | Growth | Status |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 7 | Vampire | 175/+5 | 2 | 35 | 30 | 5% | 0% | 15/+1.5 | 10% lifesteal from damage dealt → S4 | 1.05% | [ ] |
+| 8 | Miner | 300/+3 | 4.75 | 25 | 20 | 6% | 4% | 10/+1 | after taking 50 damage, explodes for 5 in radius 50 → `onDamageTaken` accumulator plus blast VFX | +2.5 damage and +2.5 radius | [ ] |
+| 9 | Cybernetic Cube | 150/+5 | 2 | 25 | 30 | 10% | 10% | 0/+0.1 | each level: a random stat +1..5, and damage the same way → seeded roll on `onLevelUp` | roll min/max +0.25..2.5 per level | [ ] |
+| 10 | Masochist | 190/+4 | 0.5 | 20 | 35 | 1% | 1% | 13.5/+2.15 | lower HP gives more regen, move speed, attack speed and damage → stats computed from missing HP | conversion +0.15% per level | [ ] |
 
 ### Tier C3: new world mechanics (S6, S8, S9, death override)
 
-| # | Character | HP | Move speed | Attack speed | Armor | Magic resist | Damage | Passive → implementation | Growth | Status |
-|---|---|---|---|---|---|---|---|---|---|---|
-| 11 | Skater | 200/+3 | 25 | 25 | 5% | 5% | 20/+1 | +25% move speed; leaves a fire trail (5 dps, lasts 3 s) → S8 trail hazard | +1% move speed, +3 trail dps | [ ] |
-| 12 | Diver | 200/+5.5 | 10 | 15 | 7% | 7% | 25/+1 | low base move speed that cannot be increased; armor grows with distance travelled; reflection grows per level → move-speed lock, odometer stat, S9 reflect | 0.25% | [ ] |
-| 13 | Pig | 200/+4 | 30 | 20 | 7.5% | 8% | 5/+8.25 | becomes a ghost for 5 s after death → death-override state (Q7) | +0.25 s | [ ] |
+| # | Character | HP | Regen (HP/s) | Move speed | Attack speed | Armor | Magic resist | Damage | Passive → implementation | Growth | Status |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 11 | Skater | 200/+3 | 2 | 25 | 25 | 5% | 5% | 20/+1 | +25% move speed; leaves a fire trail (5 dps, lasts 3 s) → S8 trail hazard | +1% move speed, +3 trail dps | [ ] |
+| 12 | Diver | 200/+5.5 | 7 | 10 | 15 | 7% | 7% | 25/+1 | low base move speed that cannot be increased; armor grows with distance travelled; reflection grows per level → move-speed lock, odometer stat, S9 reflect | 0.25% | [ ] |
+| 13 | Pig | 200/+4 | 1.75 | 30 | 20 | 7.5% | 8% | 5/+8.25 | becomes a ghost for 5 s after death → death-override state (Q7) | +0.25 s | [ ] |
 
 ### Tier C4: allies and summons (S11, S12; co-op for full value)
 
-| # | Character | HP | Move speed | Attack speed | Armor | Magic resist | Damage | Passive → implementation | Growth | Status |
-|---|---|---|---|---|---|---|---|---|---|---|
-| 14 | Nekotyan | 175/+3.5 | 45 | 35 | 2.5% | 2.5% | 15/+1.5 | allies take −12% damage and heal 2.5 HP within radius 200; the bonuses apply to herself ×1.75 → ally aura (S12), works in solo through the self ×1.75 rule | −0.25% damage taken, +1.25 radius, +0.25 regen per level | [ ] |
-| 15 | Puppeteer | 200/+3 | 30 | 20 | 5% | 5% | 20/+1 | +10% damage and attack speed for allies and allied creatures → ally buff (S12); needs summons from items to matter in solo | 1% | [ ] |
-| 16 | Necromancer | 200/+5 | 30 | 25 | 0% | 15% | 15/+1 | killed enemies leave souls; every 30 s spends them: 1–20 souls → healing ghost, 21–50 → warrior ghost (HP and damage = souls), 51+ → big area ghost (HP and damage = souls); during the cooldown each soul adds +0.5% damage → soul counter (`onKill`), three summon AIs (S11), ally heal (S12) | +0.1% damage per soul per level | [ ] |
-| 17 | Иллюзионист | 175/+3 | 30 | 30 | 5% | 15% | 15/+1.5 | every 15 s creates a copy with 30% of the hero's max HP; it lasts 8 s, draws enemies, and repeats the hero's attacks at 25% damage; at most one copy → timed summon with decoy aggro and mirrored attacks (S5, S11) | +0.25 percentage points of illusion damage per level | [ ] |
+| # | Character | HP | Regen (HP/s) | Move speed | Attack speed | Armor | Magic resist | Damage | Passive → implementation | Growth | Status |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 14 | Nekotyan | 175/+3.5 | 0.15 | 45 | 35 | 2.5% | 2.5% | 15/+1.5 | allies take −8% damage and heal 1.75 HP within radius 200; self bonuses ×1.75 → ally aura (S12) | −0.3 percentage points damage taken, +1.25 radius, +0.25 regen per level | [ ] |
+| 15 | Puppeteer | 200/+3 | 1 | 30 | 20 | 5% | 5% | 20/+1 | +10% damage and attack speed for allies and allied creatures → ally buff (S12); needs summons from items to matter in solo | 1% | [ ] |
+| 16 | Necromancer | 200/+5 | 1 | 30 | 25 | 0% | 15% | 15/+1 | killed enemies leave souls; every 30 s spends them: 1–20 souls → healing ghost, 21–50 → warrior ghost (HP and damage = souls), 51+ → big area ghost (HP and damage = souls); during the cooldown each soul adds +0.5% damage → soul counter (`onKill`), three summon AIs (S11), ally heal (S12) | +0.1% damage per soul per level | [ ] |
+| 17 | Иллюзионист | 175/+3 | 2 | 30 | 30 | 5% | 15% | 15/+1.5 | every 15 s creates a copy with 30% of the hero's max HP; it lasts 8 s, draws enemies, and repeats the hero's attacks at 25% damage; at most one copy → timed summon with decoy aggro and mirrored attacks (S5, S11) | +0.25 percentage points of illusion damage per level | [ ] |
 
 ## 5. Items ordered by ease
 
-There are 60 planned items: 55 in the chest rarity pool and five cursed boss drops. The sheet sets chest rarity chances at 40% common, 25% rare, 17% epic, 12% mythic, and 6% legendary. The current build uses weights of 55/25/12/6/2 in `rules.json`; matching the sheet is pending under S13. A damage type of «—» means the item deals no damage.
+There are 62 planned items: 57 in the chest rarity pool and five cursed boss drops. The sheet sets chest rarity chances at 40% common, 25% rare, 17% epic, 12% mythic, and 6% legendary. The current build uses weights of 55/25/12/6/2 in `rules.json`; matching the sheet is pending under S13. A damage type of «—» means the item deals no damage. Four playable I1 items still use older values: Sneakers +10% speed, Tin of Sprats +25 HP, Expander +15% area, and Heavy Shackles −50% speed/+30% damage.
 
 ### Tier I1: stat items (S0, S10 for dash cooldown)
 
 | Item | Rarity | Effect | Implementation | Status |
 |---|---|---|---|---|
-| Sneakers | Common | +10% move speed | `moveSpeed` pct (exists) | [x] |
-| Tin of Sprats | Common | +25 max HP | `maxHp` add (exists) | [x] |
+| Sneakers | Common | +4% move speed | `moveSpeed` pct (exists) | [~] |
+| Tin of Sprats | Common | +23 max HP | `maxHp` add (exists) | [~] |
 | Chocolate | Common | +3% magical damage | `magicDamage` pct | [x] |
 | Snack Bar | Common | −10% dash cooldown | `dashCooldown` pct | [x] |
-| Expander | Epic | +15% radius of all items and weapons | `area` pct (exists) | [x] |
-| Heavy Shackles | Legendary | −50% move speed, +30% all outgoing damage | `moveSpeed` and `might` pct | [x] |
+| Expander | Epic | +20% radius of all items and weapons | `area` pct (exists) | [~] |
+| Heavy Shackles | Legendary | −40% move speed, +25% all outgoing hero damage | `moveSpeed` and `might` pct | [~] |
 
-### Tier I2: crit, sustain, economy, dash (S3, S4, S5, S10, S13)
+### Tier I2: crit, sustain, progression, and dash (S3, S4, S5, S10, S13)
 
 | Item | Rarity | Effect | Implementation | Status |
 |---|---|---|---|---|
 | Fork | Mythic | +33% physical crit chance | S3 | [ ] |
-| Needle | Rare | +30% crit damage | S3 | [ ] |
-| Bloodstone | Mythic | +25% magical crit chance, +15% lifesteal from magical damage | S3 and S4 | [ ] |
-| Sentient Grass | Rare | while standing still, regenerate 2.5% of max HP per second | `whileStill` plus regen (S5) | [ ] |
-| Grandma's Compote | Rare | regenerating shield equal to 1/4 of max HP | shield (S4) | [ ] |
-| Star of David | Epic | refunds 10% of every gold purchase | `onGoldSpent` (S5, S13) | [ ] |
+| Needle | Rare | +10% crit damage | S3 | [ ] |
+| Bloodstone | Mythic | +33% magical crit chance and +25% magical lifesteal | S3 and S4 | [ ] |
+| Sentient Grass | Rare | while standing still, regenerates 2.25% of max HP per second | `whileStill` plus regen (S5) | [ ] |
+| Grandma's Compote | Rare | shield equal to 15% of max HP, replenished after 8 s without taking damage | shield (S4) | [ ] |
+| Star of David | Epic | refunds 15% of every gold purchase | `onGoldSpent` (S5, S13) | [ ] |
 | Jar of Wind | Rare | +1 dash charge | S10 | [ ] |
 | Whoopee Cushion | Common | every dash gives +5% move speed for 3 s | `onDash` buff (S5, S10) | [ ] |
 | Jetpack | Epic | longer dash | S10 | [ ] |
 | Accelerator | Mythic | every 27.18 s: +speed for 3.14 s; touching enemies deals 16.1 physical damage | `everySeconds` buff plus contact damage (S5) | [ ] |
+| Hyena Tooth | Epic | on pickup grants 100 × run minute / 3 XP | item-acquired hook and run clock (S5, S13) | [ ] |
 
-### Tier I3: weapons and attack procs (S1, S2, S6)
+### Tier I3: weapons and conditional damage (S1, S2, S6; E0 for target roles)
 
 | Item | Rarity | Effect | Implementation | Damage type | Status |
 |---|---|---|---|---|---|
-| Sword | Common | strikes in the facing direction every 2 s for 15 | `melee` plus slash VFX | Physical | [ ] |
+| Sword | Common | strikes in a 120° forward cone every 1.5 s for 10 damage | `melee` plus slash VFX | Physical | [ ] |
 | Soda | Common | every 3 s drops a soda bomb behind; it explodes after 2 s for 15 in radius 50 | `dropped` plus explosion VFX | Magical | [ ] |
-| Flamethrower | Epic | sets enemies on fire in a 45° cone forward, 35 dps | `cone` (CombatArea.Cone); fire VFX port needed (0.12) | Magical | [ ] |
-| Trident | Epic | every 3 s throws a trident to range 200 at speed 75; it returns; 30 damage to everything it passes | `boomerang` | Physical | [ ] |
+| Flamethrower | Epic | burns enemies in a 120° forward cone for 25 dps; runs for 5 s and cools down for 3 s | timed `cone` (CombatArea.Cone) with the fire VFX from 0.12 | Magical | [ ] |
+| Trident | Epic | every 7 s throws a returning trident to range 200 at speed 75; deals 30 damage to enemies it pierces | `boomerang` | Physical | [ ] |
 | Magic Projectile | Rare | shot at a random enemy, 25 damage; on a kill it bounces to an enemy within 500 | `bounce` | Magical | [ ] |
-| Electric Gloves | Epic | 20% chance on the hero's attack: lightning bouncing up to 5 times, 10 damage | `onAttack` proc plus `chain` (exists) | Magical | [ ] |
-| Rocket | Mythic | 25% chance on attack: a rocket with 50% of the attack's damage | `onAttack` proc plus projectile | Physical | [ ] |
-| Laser | Legendary | instantly kills one enemy every 10 s, excluding bosses | `execute` | Pure | [ ] |
-| Galactic Rifle | Epic | every 25 s targets the enemy with the most HP, aims 5 s, deals 20% of its current HP (5% against bosses) | `snipe` | Physical | [ ] |
-| Cane | Common | 0.1% chance on a 30 s cooldown to kill the enemy with the most HP | `execute` with a proc chance | Pure | [ ] |
-| Finisher | Legendary | 50% chance to finish an enemy below 10% HP (not bosses) | `onHit` execute | Pure | [ ] |
+| Electric Gloves | Epic | 20% chance on the hero’s attack: lightning dealing 15 damage and bouncing up to 5 times | `onAttack` proc plus `chain` (exists) | Magical | [ ] |
+| Rocket | Mythic | 25% chance on attack to fire a rocket for 33% of the attack’s damage | `onAttack` proc plus projectile | Physical | [ ] |
+| Laser | Legendary | instantly kills one enemy every 9 s, excluding bosses | `execute` | Pure | [ ] |
+| Galactic Rifle | Epic | every 22 s hits the highest-HP enemy for 20% of current HP (5% against bosses) | `snipe` targeting without a wind-up | Physical | [ ] |
+| Cane | Common | 0.5% chance on a 30 s cooldown to kill the highest-HP enemy; deals 165 damage to bosses | `execute` with a proc chance | Pure | [ ] |
+| Finisher | Legendary | 50% chance to finish an enemy below 12% HP (excluding bosses) | `onHit` execute | Pure | [ ] |
+| Клинок палача | Epic | +14% damage against elites and bosses | target-role damage multiplier (S2, E0) | — | [ ] |
+| Прицел | Rare | +11% damage against the highest-HP enemy | target-based damage multiplier (S2) | — | [ ] |
 
 ### Tier I4: status effects and defensive procs (S7, S8, S9)
 
 | Item | Rarity | Effect | Implementation | Damage type | Status |
 |---|---|---|---|---|---|
-| Witch Doctor | Mythic | each hit adds delayed poison damage | poison (S7) | Magical | [ ] |
-| Aura | Mythic | a wild aura around the hero slows enemies and deals 20 dps | slow plus damage zone (S7, S8) | Magical | [ ] |
-| Wooden Stick | Legendary | slows and damages enemies within 700 for 30–70; closer means stronger | proximity-scaled slow and damage (S7) | Pure | [ ] |
-| Icicle | Mythic | a killed enemy freezes and explodes for 30 nearby; creates an icicle that heals 30% of current HP | `onKill` freeze, explosion, heal pickup (S5, S7) | Magical | [ ] |
+| Сыр с плесенью | Mythic | 33% chance on damage dealt to inflict delayed poison damage equal to 6.5% of the original damage | poison (S7) | Magical | [ ] |
+| Aura | Mythic | slows enemies by 25% within 150 and deals 20 dps | slow plus damage zone (S7, S8) | Magical | [ ] |
+| Wooden Stick | Legendary | slows and deals 30–55 damage within 550; both effects are stronger closer to the hero | proximity-scaled slow and damage (S7) | Pure | [ ] |
+| Icicle | Mythic | 13% chance on kill: the enemy freezes and explodes for 30 nearby, leaving an icicle that heals 30% of current HP | `onKill` freeze, explosion, heal pickup (S5, S7) | Magical | [ ] |
 | Dice | Mythic | 33% chance to change an attack's or item's damage type to a different type at random | damage-type remap in S2 | — | [ ] |
-| Shield | Rare | blocks one physical attack, 10 s cooldown | S9 | — | [ ] |
-| Welding Mask | Legendary | 15% chance to block any damage; reduces vision radius | S9 block plus vision | — | [ ] |
-| Nettle | Epic | reflects 30% of damage dealt by enemies | S9 reflect | Pure | [ ] |
-| Garlic | Epic | reduces any enemy lifesteal to 25% | enemy lifesteal cap (Q10) | — | [ ] |
+| Shield | Common | blocks one physical attack, 10 s cooldown | S9 | — | [ ] |
+| Welding Mask | Legendary | 15% chance to block any damage, 0.25 s cooldown; restricts vision to a 45° cone | S9 block plus vision | — | [ ] |
+| Nettle | Epic | reflects 15% of damage dealt by enemies | S9 reflect | Pure | [ ] |
+| Garlic | Epic | caps enemy lifesteal at 20% | enemy lifesteal cap (20%) | — | [ ] |
+| Fan | Epic | slows enemies behind the hero by 20% and adds 15 move speed | rear-facing slow (S7) and `moveSpeed` bonus | — | [ ] |
 
 ### Tier I5: companions and summons (S11)
 
 | Item | Rarity | Effect | Implementation | Damage type | Status |
 |---|---|---|---|---|---|
-| Garden Gnome | Rare | every 5 s summons a gnome: 150 HP, 10 damage | summon, attack nearest | Physical | [ ] |
-| FPV DRONE | Rare | a drone flies into an enemy and explodes for 50, respawns after 10 s | summon, kamikaze | Physical | [ ] |
-| Sausages | Epic | a friendly dog fetches XP orbs | summon, fetch XP | — | [ ] |
-| Fan | Epic | a fan on the hero's back pushes away enemies approaching from behind | attached summon, knockback cone | — | [ ] |
-| Bait | Epic | every 10 s a boar decoy: spits poison, slows by 25%, 25 damage, 400 HP | summon, decoy aggro, poison (S7) | Magical | [ ] |
-| Death Eagle | Mythic | an eagle circles the hero; every 10 s dives at a random enemy for 50 and stuns it for 0.3 s | summon, orbit, stun (S7) | Physical | [ ] |
+| Garden Gnome | Rare | every 7 s summons a gnome with 150 HP and 10 damage | summon, attack nearest | Physical | [ ] |
+| FPV DRONE | Rare | a drone flies into an enemy and explodes for 35 in radius 100, then respawns after 10 s | summon, kamikaze | Physical | [ ] |
+| Sausages | Epic | a friendly dog fetches XP orbs within 1000 | summon, fetch XP | — | [ ] |
+| Bait | Epic | every 10 s summons a 150 HP boar that spits poison, slows by 25%, and deals 20 damage in radius 120 | summon, area poison and slow (S7) | Magical | [ ] |
+| Death Eagle | Mythic | every 10 s the circling eagle dives on a random target, dealing 50 damage and stunning for 0.3 s in radius 150 | summon, orbit, stun (S7) | Physical | [ ] |
 | Leech | Common | every 60 s summons a creature with 200 HP that transfers its HP to the player at 20 per second | summon, HP drain to owner (S4) | — | [ ] |
-| Satanic Bible | Legendary | 21% chance to turn hit enemies into allied demons (20 damage, 2 hits/s, live 15 s) | enemy conversion into summons (S11) | Pure | [ ] |
+| Satanic Bible | Legendary | 16% chance to turn hit enemies into allied demons (22 damage, 2 hits/s, live 11 s) | enemy conversion into summons (S11) | Pure | [ ] |
 
 ### Tier I6: ally auras (S12; most value in co-op)
 
 | Item | Rarity | Effect | Implementation | Status |
 |---|---|---|---|---|
 | F.B. Ring | Common | +15 HP to allies within 300 | aura | [ ] |
-| Leader's Heart | Common | +20 attack speed to nearby allies | aura | [ ] |
+| Leader's Heart | Common | +8 attack speed to nearby allies | aura | [ ] |
 | Totem | Common | heals all allied creatures within 500 at 1 HP/s | heal aura | [ ] |
-| Vampire Hood | Rare | 15% lifesteal to all allies within 350 | lifesteal aura (S4) | [ ] |
-| Poor Man's Shield | Rare | 100 shield to the ally with the lowest HP | targeted shield (S4) | [ ] |
-| Motivation Mask | Epic | +20% physical damage to allies within 300 | aura | [ ] |
-| Shared Heart | Epic | the hero receives 20% (summons: 5%) of healing done to allies | heal share | [ ] |
-| Hyena Tooth | Epic | +1 skill level to allies, owner included | level bonus aura | [ ] |
-| Dumbbell | Mythic | +150 HP to allies, +50 to summons | aura | [ ] |
-| New Rocks (spiked boots) | Mythic | +55 attack speed to allies within 500; 7% chance to reflect a physical hit above 35 at its source | aura plus reflect (S9) | [ ] |
-| Dominator Helm | Legendary | +15% physical resistance to allies within 700/800/900 (wider with more enemies near the hero); 5% chance to block a physical attack on the owner | aura plus block (S9) | [ ] |
+| Vampire Hood | Rare | 15% lifesteal to all allies within 185 | lifesteal aura (S4) | [ ] |
+| Poor Man's Shield | Rare | 50 shield to the ally with the lowest HP | targeted shield (S4) | [ ] |
+| Motivation Mask | Epic | +15% physical damage to allies within 300 | aura | [ ] |
+| Shared Heart | Epic | the hero receives 10% of healing done to allies and 5% of healing done to summons | heal share | [ ] |
+| Dumbbell | Epic | +125 HP to allies and +50 HP to summons within 250 | aura | [ ] |
+| Шипастые ботинки | Mythic | +30 attack speed to allies within 325; 7% chance to redirect a physical hit above 35 to its source | aura plus reflect (S9) | [ ] |
+| Dominator Helm | Legendary | +13% armor to allies within 765 and 7% chance to block a physical hit on an ally; applies to all allies | aura plus block (S9) | [ ] |
 
 ### Tier I7: cursed boss drops (E6, S13)
 
 | Item | Boss | Effect | Implementation | Status |
 |---|---|---|---|---|
-| Перевёрнутый крест | Древний культист | Once, prevents death, restores full HP, gives 2 s of invulnerability, and is consumed | death override and item consumption (S4, S5) | [ ] |
-| Сердце золотой жилы | Старатель | Every third chest offers a third reward option | per-player chest counter and reward choices (S13) | [ ] |
-| Маска Фантома | Фантом | 5% chance on kill to create a 4 s illusion that repeats attacks at 25% damage; at most one illusion | on-kill mirrored summon (S5, S11) | [ ] |
-| Разбитые часы | Хранитель времени | Every 15 s resets one item that is already on cooldown | periodic cooldown reset (S5) | [ ] |
-| Сердце Пожирателя | Пожиратель | Below 25% HP, devours a random non-boss enemy and restores 15% HP; 60 s cooldown | HP threshold trigger, filtered execute, and heal (S4–S6) | [ ] |
+| Перевёрнутый крест | Древний культист | once prevents death, restores full HP, grants 3.5 s of invulnerability, and is consumed | death override and item consumption (S4, S5) | [ ] |
+| Сердце золотой жилы | Старатель | every second chest offers a third reward option | per-player chest counter and reward choices (S13) | [ ] |
+| Маска Фантома | Фантом | 10% chance on kill to create a 4 s illusion that repeats attacks at 25% damage; at most one illusion | on-kill mirrored summon (S5, S11) | [ ] |
+| Разбитые часы | Хранитель времени | every 13 s resets one item that is on cooldown | periodic cooldown reset (S5) | [ ] |
+| Сердце Пожирателя | Пожиратель | below 15% HP, devours a random non-boss enemy and restores 20% of max HP; 35 s cooldown | HP threshold trigger, filtered execute, and heal (S4–S6) | [ ] |
 
-**Coverage:** 6 + 10 + 11 + 9 + 8 + 11 + 5 = 60 items.
+**Coverage:** 6 + 11 + 13 + 10 + 7 + 10 + 5 = 62 items.
 
 ## 6. Enemies ordered by ease
 
@@ -207,7 +212,7 @@ The owner's roster has 23 enemies: 10 normal, 8 elite, 5 bosses. They replace th
 **Rules applied to every enemy:**
 - **Speed.** Enemy Move speed uses the same scale as heroes: px/s = Move speed × 3.
 - **Attacks.** An enemy with Attack speed attacks in melee contact at that rate (attacks/s = Attack speed / 25). Enemies without Attack speed keep contact damage gated by the player's invulnerability window.
-- **Lifesteal («Lifesteal»).** It heals the enemy by that share of the damage it deals to a player. The Garlic item caps it at 25%, which answers the earlier Garlic question.
+- **Lifesteal («Lifesteal»).** It heals the enemy by that share of the damage it deals to a player. The Garlic item caps it at 20%, which answers the earlier Garlic question.
 
 ### Enemy systems
 
@@ -228,13 +233,13 @@ The owner's roster has 23 enemies: 10 normal, 8 elite, 5 bosses. They replace th
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Slime | normal | 50 | 5 | physical | 15 | — | 10% | 0% | 10 | 0% | plain chaser | [ ] |
 | Skeleton Swordsman | normal | 20 | 10 | physical | 15 | 30 | 0% | 85% | 8 | 0% | plain chaser, very high armor | [ ] |
-| Butcher | elite | 300 | 40 | physical | 15 | — | 15% | 15% | 25 | 25% | slow melee chaser with a cleaver | [ ] |
+| Butcher | elite | 300 | 40 | physical | 15 | 15 | 15% | 15% | 25 | 25% | slow melee chaser with a cleaver | [ ] |
 
 ### Tier E2: death effects and simple specials (E2, E4, E5)
 
 | Enemy | Role | HP | Damage | Type | Move speed | Attack speed | Magic resist | Armor | XP | Lifesteal | Behaviour | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Rot | normal | 80 | 8 | physical | 10 | — | 0% | 0% | 10 | 5% | slow melee chaser; on death leaves a rot cloud (radius 200, 15 magical dps) | [ ] |
+| Rot | normal | 80 | 8 | physical | 10 | 15 | 0% | 0% | 10 | 5% | slow melee chaser; on death leaves a rot cloud (radius 200, 15 magical dps) | [ ] |
 | Kamikaze | normal | 50 | 50 | magical | 25 | — | 0% | 0% | 7 | 0% | runs at the player and blows itself up nearby; its death explosion damages the player and enemies | [ ] |
 | Screamer | normal | 75 | — | — | 25 | — | 0% | 0% | 10 | 0% | screams from behind the horde; if alive after 10 s, buffs all existing enemies by +50 HP and +5 Move speed | [ ] |
 | Siphoner | normal | 100 | 5 | magical | 20 | drains 15 HP/s | 5% | 5% | 20 | 0% | drains the player's HP from range and turns it into its own max HP | [ ] |
@@ -244,9 +249,9 @@ The owner's roster has 23 enemies: 10 normal, 8 elite, 5 bosses. They replace th
 | Enemy | Role | HP | Damage | Type | Move speed | Attack speed | Magic resist | Armor | XP | Lifesteal | Behaviour | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Spark | normal | 50 | 10 | magical | 25 | 25 | 10% | 5% | 10 | 0% | a spark that shoots small sparks at the hero from range | [ ] |
-| Witch | elite | 125 | 12 | magical | 20 | — | 15% | 10% | 30 | 10% | lightning that can hit several targets (reuses the chain arc) | [ ] |
+| Witch | elite | 125 | 12 | magical | 20 | 25 | 15% | 10% | 30 | 10% | lightning that can hit several targets (reuses the chain arc) | [ ] |
 | Jumper | normal | 100 | 15 | physical | 0 | — | 20% | 20% | 20 | 0% | moves only by jumps every 2 s up to 250; each landing makes an earthquake (radius 150, 15 damage) | [ ] |
-| Dark Mage | elite | 100 | 25 | magical | 0 | — | 40% | 15% | 40 | 15% | dark-magic caster that moves only by teleport | [ ] |
+| Dark Mage | elite | 100 | 25 | magical | 0 | 20 | 40% | 15% | 40 | 15% | dark-magic caster that moves only by teleport | [ ] |
 | Thief | elite | 215 | 25 | physical | 25 | 25 | 0% | 15% | 50 | 15% | throws daggers and avoids melee; every 15 s disables a random player item for 10 s; on its death all items work again | [ ] |
 
 ### Tier E4: complex elites (E3, E4, E5, enemy crit)
@@ -276,7 +281,7 @@ The owner's roster has 23 enemies: 10 normal, 8 elite, 5 bosses. They replace th
 | Древний культист | 2500 | 50 | magical | 15 | 25 | 50% | 15% | 350 | 35% | attacks with blood daggers from different sides; every 15 s summons one Старший культист and three Младший культист. Below 50% HP can sacrifice a senior cultist at an altar; if the sacrifice survives 3 s, the boss heals 500 HP and gains +15% lifesteal and +20 Attack speed | [ ] |
 
 **Coverage:** 3 + 4 + 5 + 3 + 5 + 3 = 23 enemies.
-- Normal (10): Rot, Slime, Jumper, Spark, Leech, Skeleton Swordsman, Screamer, Kamikaze, Младший культист, Шаман-культист.
+- Normal (10): Rot, Slime, Jumper, Spark, Siphoner, Skeleton Swordsman, Screamer, Kamikaze, Младший культист, Шаман-культист.
 - Elite (8): Witch, Guardian, Butcher, Dark Mage, Ninja, She-Wolf, Thief, Старший культист.
 - Bosses (5): Devourer, Timekeeper, Phantom, Старатель, Древний культист.
 
@@ -288,10 +293,10 @@ Each milestone is playable content.
 
 | Milestone | Systems | Content | Acceptance |
 |---|---|---|---|
-| [x] M1 "Stat roster" | S0, S1, S2 (types and defences), S13 (gold, loot tables) | Characters 1–6; items I1; chest rarity weights | Character pick screen. Each character's stats verified by tests against the table. Capture of every character. |
+| [~] M1 "Stat roster" | S0, S1, S2 (types and defences), S13 (gold, loot tables) | Characters 1–6; items I1; chest rarity weights | Character pick screen. Each character's stats verified by tests against the table. Capture of every character. |
 | M1e "First horde" | E0, E7 | Enemies E1 (Slime, Skeleton Swordsman, Butcher) with new waves | Waves use only owner enemies. Enemy lifesteal and defences tested. |
-| M2 "Crit and triggers" | S3, S4, S5, S10 | Characters 7–10; items I2 | Hook tests. HUD shows shield and dash charges. |
-| M3 "Arsenal" | S6, S8, E2 | Items I3; Skater; enemies E2 | Every new weapon kind captured. Simulation budget kept with 2,000 enemies. |
+| M2 "Crit and triggers" | S3, S4, S5, S10 | Characters 7–10; items I2; Watchman crit growth | Hook tests. HUD shows shield and dash charges. |
+| M3 "Arsenal" | S6, S8, E2 | Items I3 (target-role effects need E0); Skater; enemies E2 | Every new weapon kind captured. Simulation budget kept with 2,000 enemies. |
 | M4 "Afflictions and guards" | S7, S9, E1, E3, E4, E5 | Items I4; Diver, Pig; enemies E3 and E4 | Status stacking rules documented and tested. |
 | M4b "Bosses" | E6, E4b | All five bosses and the cultist roster | Boss schedule in waves.json. Each boss beaten in a scripted test. |
 | Boss rewards | E6, S13, relevant I7 effect systems | Five cursed items | Each boss drops its assigned reward. Старатель's reward requires chest reward choices. |
@@ -311,18 +316,18 @@ Art for every character, enemy and summon goes through recipes (`art-recipe` ski
 | Items | Standard items come from chests on the map; cursed items drop from their listed bosses. Copies of standard items stack, and mods apply once per copy. Level-ups give automatic stat growth; there are no level-up cards. |
 | Ally auras | Work on the owner too, including solo play. |
 | Pig | After death becomes an invulnerable ghost re-skin for 5 s (+0.25 s per level), like Wraith King's reincarnation, then dies. |
-| Watchman | Counts minutes on the game run clock, statues included. Formula used: damage bonus = (0.75 + 0.25 × (level − 1)) × run minutes. |
-| Garlic | Several enemies have lifesteal (§6), so the item caps enemy healing at 25%. |
+| Watchman | Counts minutes on the game run clock, statues included. Target damage bonus is 0.75 × run minutes; the sheet now gives +1 percentage point crit chance per level. The current build uses (0.75 + 0.25 × (level − 1)) × run minutes and has no crit growth. |
+| Garlic | Caps enemy lifesteal at 20%. |
 | Octarine | Developer's choice: the cooldown reduction also applies to the dash. |
 
 ## 9. Open questions for the owner
 
-1. **Executes.** Laser and Finisher exclude bosses, and Galactic Rifle deals 5% current HP to bosses. Can Cane execute bosses, and do any of these effects treat elites differently?
+1. **Executes.** Laser and Finisher exclude bosses, and Galactic Rifle deals 5% current HP to bosses. Cane deals 165 damage to bosses. Do any of these effects treat elites differently?
 2. **Accelerator.** The speed bonus amount is not specified.
 3. **Timekeeper.** Does "doubles the flow of time" double the run clock (difficulty) while it is alive, or speed up the whole game?
 4. **Guardian.** What share of the protected enemies' damage does it take, and within what radius?
 5. **Boss schedule.** At which run-clock minutes do the bosses appear, and in what order? May the developer propose the waves?
 6. **XP target.** What level should a typical 15-minute run reach? Enemy XP is now 7–500 per kill.
 7. **Gold.** The enemy table has no gold column. Which enemies drop gold, and how much?
-8. **Leech.** What is the range of its drain?
-9. **Сердце золотой жилы.** The sheet calls for a third option every third chest. The current game auto-awards one item, so the baseline chest choices and their selection flow need to be specified.
+8. **Siphoner.** What is the range of its drain?
+9. **Сердце золотой жилы.** The sheet calls for a third option every second chest. The current game auto-awards one item, so the baseline chest choices and their selection flow need to be specified.
