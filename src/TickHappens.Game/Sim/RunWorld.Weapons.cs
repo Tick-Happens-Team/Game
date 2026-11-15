@@ -8,6 +8,10 @@ public sealed partial class RunWorld
     public const int ProjectileCapacity = 1024;
     private const int HitMemory = 4;
 
+    /// <summary>Bolts splash onto enemies near the impact point, with linear falloff from the centre.</summary>
+    public const float SplashRadius = 30f;
+    private const float SplashEdgeDamage = 0.5f;
+
     // ---- projectiles ----
     public readonly float[] PX = new float[ProjectileCapacity], PY = new float[ProjectileCapacity];
     public readonly float[] PVx = new float[ProjectileCapacity], PVy = new float[ProjectileCapacity];
@@ -135,6 +139,19 @@ public sealed partial class RunWorld
         }
     }
 
+    private readonly struct ProjectileSplash(RunWorld w, int proj, CombatArea area, float damage, DamageKind kind, DamageSourceRef src) : Engine.Spatial.IGridVisitor
+    {
+        public void Visit(int j)
+        {
+            if (!w.EAlive[j]) return;
+            var hits = w._pHits.AsSpan(proj * HitMemory, HitMemory);
+            foreach (int uid in hits) if (uid == w.EUid[j]) return;
+            float weight = area.WeightAt(new Vector2(w.EX[j], w.EY[j] - 6));
+            if (weight <= 0) return;
+            w.DamageEnemy(j, damage * (SplashEdgeDamage + (1 - SplashEdgeDamage) * weight), kind, src, w.PX[proj], w.PY[proj], 30);
+        }
+    }
+
     private void StepProjectiles()
     {
         for (int i = 0; i < ProjectileCapacity; i++)
@@ -151,7 +168,10 @@ public sealed partial class RunWorld
             for (int k = HitMemory - 1; k > 0; k--) hits[k] = hits[k - 1];
             hits[0] = EUid[t];
             _pPierce[i]--;
-            DamageEnemy(t, _pDamage[i], _pKind[i], new DamageSourceRef(_pOwner[i], _pItem[i]), PX[i] - PVx[i], PY[i] - PVy[i], 60);
+            var src = new DamageSourceRef(_pOwner[i], _pItem[i]);
+            DamageEnemy(t, _pDamage[i], _pKind[i], src, PX[i] - PVx[i], PY[i] - PVy[i], 60);
+            var splash = new ProjectileSplash(this, i, CombatArea.Circle(new Vector2(PX[i], PY[i]), SplashRadius), _pDamage[i], _pKind[i], src);
+            _grid.Query(PX[i], PY[i] + 6, SplashRadius, ref splash);
             if (_pPierce[i] <= 0) PAlive[i] = false;
         }
     }

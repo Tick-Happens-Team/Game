@@ -182,6 +182,32 @@ public sealed class CombatTests
     }
 
     [Fact]
+    public void BoltSplashDamagesNearbyEnemiesWithFalloff()
+    {
+        var (world, enemy, _) = PrepareWeapon(new ItemWeapon
+        {
+            Kind = "bolt", Damage = 20, Range = 150, Speed = 240, Pierce = 1,
+        });
+        int primary = world.SpawnEnemy(enemy, world.Player.Pos + new Vector2(60, 0));
+        int near = world.SpawnEnemy(enemy, world.Player.Pos + new Vector2(60, 10));
+        int far = world.SpawnEnemy(enemy, world.Player.Pos + new Vector2(60, 26));
+        int outside = world.SpawnEnemy(enemy, world.Player.Pos + new Vector2(60, 45));
+
+        world.Step(default);
+        for (int i = 0; i < 12; i++) world.Step(default);
+
+        // the primary target takes the direct hit only: splash must not double-dip it
+        TestWorld.Close(world.EMaxHp[primary] - 20, world.EHp[primary]);
+        // both enemies inside the splash radius are hit
+        Assert.True(world.EHp[near] < world.EMaxHp[near]);
+        Assert.True(world.EHp[far] < world.EMaxHp[far]);
+        // falloff: the closer enemy loses strictly more hp than the farther one
+        Assert.True(world.EMaxHp[near] - world.EHp[near] > world.EMaxHp[far] - world.EHp[far]);
+        // the enemy outside the splash radius is untouched
+        Assert.Equal(world.EMaxHp[outside], world.EHp[outside]);
+    }
+
+    [Fact]
     public void ChainCopiesAddHopsWithoutHittingTheSameEnemyTwice()
     {
         var (world, enemy, item) = PrepareWeapon(new ItemWeapon
