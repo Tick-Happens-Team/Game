@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using Silk.NET.OpenGL;
 using TickHappens.Engine.Assets;
 
@@ -85,6 +85,13 @@ public sealed unsafe class SpriteBatch : IDisposable
             X = MathF.Floor(x - s.Origin[0]), Y = MathF.Floor(y - s.Origin[1]), W = s.W, H = s.H,
             U = f[0], V = f[1], Uw = s.W, Vh = s.H, Tint = tint, Flags = (flipX ? 1u : 0u) | ((uint)emissionBoost << 8),
         };
+    }
+
+    /// <summary>Queues a bare rectangle (no atlas texels) for shaders that draw procedurally, such as contact shadows.</summary>
+    public void DrawRect(float x, float y, float w, float h, uint tint = 0xFFFFFFFF)
+    {
+        if (_count == MaxInstances) throw new InvalidOperationException("sprite batch overflow; call Flush");
+        _items[_count++] = new SpriteInstance { X = MathF.Floor(x), Y = MathF.Floor(y), W = w, H = h, Uw = w, Vh = h, Tint = tint };
     }
 
     /// <summary>Draws the accumulated sprites into the currently bound G-buffer.</summary>

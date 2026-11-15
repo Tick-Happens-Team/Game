@@ -8,6 +8,8 @@ From `D:\tickhappens\Game`:
 - Game autopilot (deterministic, fixed 60 FPS frame time, seeded):
   `dotnet run -c Release --project src/TickHappens.Game -- --demo --frames N --screenshot ../.tmp/screenshots/NAME.png [--seed S]`
   - 60 frames = 1 s of play. 900 ≈ 15 s, 7200 ≈ 2 min, 14400 ≈ 4 min. The last line prints tick, run clock, level, HP, kills, enemies, gold, loadout.
+  - `--dash-every T` makes the autopilot also dash every T ticks (30 ticks/s): a dash at tick 360 is on screen around frames 722-760 for VFX captures.
+  - `--record-audio PATH.wav` mixes the run's sound into a WAV (one frame of audio per frame); measure it with Python `wave`. Captures with `--frames` are otherwise silent.
   - `--character ID` picks the hero (octarine, swordsman, smith, goflin, celestial_mage, watchman, nekochan); `--menu --character ID --frames 30` captures the character select screen.
 - Visual bench: `dotnet run --project src/TickHappens.VisualBench -- --demo --frames N --screenshot ../.tmp/screenshots/NAME.png [--art recipe|pxs]`.
 - Magnify a region: `dotnet run --project tools/TickHappens.AssetTool -- crop IN.png X Y W H ZOOM OUT.png`.

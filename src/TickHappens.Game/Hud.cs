@@ -97,7 +97,7 @@ internal sealed class Hud
     public void Draw(PixelRenderer renderer, RunWorld world, Vector2 hero, float dt, bool paused, bool online, string? interruption, bool canReconnect)
     {
         var ui = PixelCanvas.ColorOf(renderer.UiFrame);
-        int w = renderer.ViewW, h = renderer.ViewH;
+        int w = renderer.UiW, h = renderer.UiH;
         var p = world.Player;
 
         // Floating damage numbers (world anchored), colored by damage type.
@@ -167,12 +167,7 @@ internal sealed class Hud
 
         if (world.Phase == RunPhase.Dead || interruption is not null)
             DrawResults(ui, world, w, h, online, interruption, canReconnect);
-        else if (paused)
-        {
-            Dim(ui, w, h, 0.5f);
-            PixelFont.DrawCentered(ui, Localizer.Get("hud.paused"), w / 2, h / 2 - 8, White, Ink, 2);
-            PixelFont.DrawCentered(ui, Localizer.Get("hud.pauseHelp"), w / 2, h / 2 + 12, Grey, Ink);
-        }
+        else if (paused) Dim(ui, w, h, 0.5f);
     }
 
     private static void DrawChestOffer(PixelCanvas ui, RunWorld world, int width)
@@ -219,7 +214,7 @@ internal sealed class Hud
     public void DrawMenu(PixelRenderer renderer, ContentSet content, int selected)
     {
         var ui = PixelCanvas.ColorOf(renderer.UiFrame);
-        int w = renderer.ViewW, h = renderer.ViewH;
+        int w = renderer.UiW, h = renderer.UiH;
         for (int y = 0; y < h; y++)
             for (int x = 0; x < w; x++)
                 if (x < w / 2 - 40 || x > w / 2 + 40 || y < h / 2 - 50 || y > h / 2 + 20) ui.Blend(x, y, 0xFF140A10u, 0.55f);

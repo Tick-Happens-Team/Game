@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using TickHappens.Engine.Assets;
 using TickHappens.Engine.Platform;
 using TickHappens.Game;
@@ -47,10 +47,12 @@ if (args is ["--eos-probe"]) return EosProbe.Run();
 //   --menu              with --frames: stay on the character select screen (for screenshots)
 //   --frames N          exit after N frames      --screenshot PATH   save the last frame (needs --frames)
 //   --seed S            run seed                 --no-vsync          uncapped frame rate
-bool demo = false, noVsync = false, stayInMenu = false;
-int frames = 0;
+//   --dash-every T      demo: also dash every T ticks (VFX captures)
+//   --no-audio          stay silent              --record-audio PATH mix the run's sound into a WAV instead of a device
+bool demo = false, noVsync = false, stayInMenu = false, noAudio = false;
+int frames = 0, dashEvery = 0;
 uint seed = 1;
-string? screenshot = null, characterId = null;
+string? screenshot = null, characterId = null, recordAudio = null;
 for (int i = 0; i < args.Length; i++)
 {
     switch (args[i])
@@ -58,12 +60,15 @@ for (int i = 0; i < args.Length; i++)
         case "--demo": demo = true; break;
         case "--no-vsync": noVsync = true; break;
         case "--menu": stayInMenu = true; break;
+        case "--no-audio": noAudio = true; break;
+        case "--dash-every" when i + 1 < args.Length && int.TryParse(args[i + 1], out dashEvery) && dashEvery > 0: i++; break;
+        case "--record-audio" when i + 1 < args.Length: recordAudio = args[++i]; break;
         case "--character" when i + 1 < args.Length: characterId = args[++i]; break;
         case "--frames" when i + 1 < args.Length && int.TryParse(args[i + 1], out frames) && frames > 0: i++; break;
         case "--screenshot" when i + 1 < args.Length: screenshot = args[++i]; break;
         case "--seed" when i + 1 < args.Length && uint.TryParse(args[i + 1], out seed): i++; break;
         default:
-            Console.Error.WriteLine("Usage: TickHappens.Game [--demo] [--character ID] [--menu] [--seed S] [--no-vsync] [--frames N [--screenshot PATH]] | --sim-bench CSV | --net-bench CSV");
+            Console.Error.WriteLine("Usage: TickHappens.Game [--demo] [--character ID] [--menu] [--seed S] [--no-vsync] [--no-audio] [--record-audio PATH] [--frames N [--screenshot PATH]] | --sim-bench CSV | --net-bench CSV");
             return 2;
     }
 }
@@ -96,6 +101,8 @@ if (characterId != null)
 var atlas = AtlasData.Load(AssetPaths.Get("atlas", "main.json"));
 using var window = new GameWindow(Localizer.Get("app.title"), 1280, 720, vsync: !demo && !noVsync);
 using var view = new RunView(window.Gl, atlas, content);
+// Automated captures (--frames) stay off the speakers unless they record the mix.
+using var audio = new GameAudio(!noAudio && frames == 0, noAudio ? null : recordAudio);
 // The menu shows the selected hero standing in a quiet arena; the run starts from a fresh world.
 bool inMenu = stayInMenu || (!demo && characterId == null);
 var world = new RunWorld(content, seed, content.Characters[selected].Id);
@@ -106,7 +113,11 @@ int fpsFrames = 0;
 using var online = new OnlineGame(content);
 var onlineMenu = new OnlineMenu(online);
 var coopHud = new CoopHud(online);
+var pauseMenu = new PauseMenu();
+Action<TickHappens.Engine.Graphics.PixelRenderer> drawPauseMenu = renderer => pauseMenu.Draw(renderer);
 bool wasOnlinePlaying = false;
+if (inMenu) audio.MenuMusic(); else audio.RunMusic();
+bool audioInRun = !inMenu;
 
 for (int frame = 1; !window.QuitRequested; frame++)
 {
@@ -116,7 +127,6 @@ for (int frame = 1; !window.QuitRequested; frame++)
     float frameDt = demo ? 1f / 60 : (float)Math.Min(0.1, now - last);
     last = now;
 
-    bool escapeHandled = inMenu && (onlineMenu.IsOpen || online.Playing);
     bool onlineMenuWasOpen = onlineMenu.IsOpen;
     if (inMenu && online.Playing && online.Interrupted && window.WasPressed(Key.Escape)) online.Leave();
     else if (inMenu && online.Playing && !(online.CanReconnect && window.WasPressed(Key.F7)))
@@ -139,6 +149,7 @@ for (int frame = 1; !window.QuitRequested; frame++)
     {
         var onlineWorld = online.World!;
         view.Consume(onlineWorld);
+        audio.Consume(onlineWorld, onlineWorld.Player.Pos, online.Paused);
         onlineWorld.ClearEvents();
         view.Draw(window.Width, window.Height, onlineWorld, online.Alpha, online.Paused, frameDt, online: true,
             interruption: online.Interrupted ? online.Status : null, canReconnect: online.CanReconnect,
@@ -148,7 +159,6 @@ for (int frame = 1; !window.QuitRequested; frame++)
     {
         view.Draw(window.Width, window.Height, world, 1, true, frameDt, selected, onlineMenu.Draw);
     }
-    else if (window.WasPressed(Key.Escape) && !escapeHandled) break;
     else if (inMenu)
     {
         if (window.WasPressed(Key.F4))
@@ -160,6 +170,7 @@ for (int frame = 1; !window.QuitRequested; frame++)
                   - (window.WasPressed(Key.A) || window.WasPressed(Key.Left) || window.WasPressed(Key.Up) ? 1 : 0);
         if (delta != 0)
         {
+            audio.Play("ui_move", 0.5f, 0, 0, 2);
             selected = (selected + delta + content.Characters.Count) % content.Characters.Count;
             world = new RunWorld(content, seed, content.Characters[selected].Id);
             loop = new RunLoop(world);
@@ -170,28 +181,52 @@ for (int frame = 1; !window.QuitRequested; frame++)
             loop = new RunLoop(world);
             view.Reset();
             inMenu = false;
+            audio.Play("ui_confirm", 0.6f, 0, 0, 1);
         }
         view.Draw(window.Width, window.Height, world, 1, paused: true, frameDt, menuSelection: selected,
             overlay: stayInMenu ? null : onlineMenu.Draw);
     }
     else
     {
-        if (window.WasPressed(Key.R) && (world.Phase == RunPhase.Dead || loop.Paused))
+        bool ended = world.Phase == RunPhase.Dead;
+        bool toHeroSelect = ended
+            ? window.WasPressed(Key.R) || window.WasPressed(Key.Escape)
+            : pauseMenu.Read(window, view.Renderer);
+        if (toHeroSelect)
         {
             seed++;
-            if (demo) { world = new RunWorld(content, seed, content.Characters[selected].Id); loop = new RunLoop(world); view.Reset(); }
-            else { inMenu = true; world = new RunWorld(content, seed, content.Characters[selected].Id); loop = new RunLoop(world); }
+            world = new RunWorld(content, seed, content.Characters[selected].Id);
+            loop = new RunLoop(world);
+            pauseMenu.Reset();
+            view.Reset();
+            inMenu = !demo;
+            if (demo) audio.RunMusic();
         }
-        if (window.WasPressed(Key.P) && world.Phase == RunPhase.Playing) loop.TogglePause();
 
-        var input = demo ? DemoPilot.Decide(world)
-            : new RunInput(Axis(Key.D, Key.Right, Key.A, Key.Left), Axis(Key.S, Key.Down, Key.W, Key.Up), window.IsDown(Key.Space), chestChoice);
-        loop.Advance(frameDt, input);
-        view.Consume(world);
-        world.ClearEvents();
-        view.Draw(window.Width, window.Height, world, world.Phase == RunPhase.Playing ? loop.Interpolation : 1,
-            loop.Paused || world.Phase != RunPhase.Playing, frameDt);
+        if (inMenu)
+            view.Draw(window.Width, window.Height, world, 1, paused: true, frameDt, menuSelection: selected, overlay: onlineMenu.Draw);
+        else
+        {
+            if (loop.Paused != pauseMenu.IsOpen) loop.TogglePause();
+            var input = demo ? DemoPilot.Decide(world) with { Dash = DemoPilot.Decide(world).Dash || (dashEvery > 0 && world.Tick % dashEvery == 0) }
+                : netInput;
+            loop.Advance(frameDt, input);
+            view.Consume(world);
+            audio.Consume(world, world.Player.Pos, loop.Paused);
+            world.ClearEvents();
+            view.Draw(window.Width, window.Height, world, world.Phase == RunPhase.Playing ? loop.Interpolation : 1,
+                loop.Paused || world.Phase != RunPhase.Playing, frameDt, overlay: drawPauseMenu);
+        }
     }
+
+    // Music follows the screen: hero select (and online lobby) or a run, local or online.
+    bool runNow = !inMenu || online.Playing;
+    if (runNow != audioInRun)
+    {
+        audioInRun = runNow;
+        if (runNow) audio.RunMusic(); else audio.MenuMusic();
+    }
+    audio.Update(frameDt);
 
     fpsFrames++;
     if (now - fpsTimer > 0.5)

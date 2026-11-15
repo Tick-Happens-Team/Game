@@ -1,4 +1,5 @@
 ﻿using TickHappens.AssetTool;
+using TickHappens.AssetTool.Audio;
 using TickHappens.AssetTool.ProcGen;
 using TickHappens.Engine.Assets;
 
@@ -8,6 +9,7 @@ using TickHappens.Engine.Assets;
 //   dotnet run --project tools/TickHappens.AssetTool -- import <raw.png> <name> <frameW> <frameH> [--tool NAME] [--normal raw_n.png]
 //   dotnet run --project tools/TickHappens.AssetTool -- lint <file.png> [frameW frameH]
 //   dotnet run --project tools/TickHappens.AssetTool -- snap <in.png> <out.png>
+//   dotnet run --project tools/TickHappens.AssetTool -- audio [NAME]   (sound and music recipes -> assets/audio WAV)
 
 string assetsRoot = AssetPaths.SourceRoot(Directory.GetCurrentDirectory());
 string palettePath = Path.Combine(assetsRoot, "art/palette/tickhappens-v1.hex");
@@ -51,6 +53,7 @@ switch (cmd)
         Preview.Write(sheets, PreviewDir);
         Console.WriteLine($"atlas {atlas.Size[0]}x{atlas.Size[1]}: {sheets.Count} sprites, {sheets.Sum(s => s.Frames.Count)} frames, {issues.Count} warnings -> {atlasOut}.png/_e.png/_n.png/.json");
         Console.WriteLine($"previews -> {PreviewDir}/");
+        AudioBuilder.Build(assetsRoot, PreviewDir);
         return 0;
     }
     case "gen":
@@ -114,6 +117,9 @@ switch (cmd)
         img.Save(args[2]);
         return 0;
     }
+    case "audio":
+        AudioBuilder.Build(assetsRoot, PreviewDir, args.Length > 1 ? args[1] : null);
+        return 0;
     case "crop":
     {
         // crop <in.png> <x> <y> <w> <h> <zoom> <out.png> - nearest-neighbour enlargement for visual QA
@@ -127,6 +133,6 @@ switch (cmd)
         return 0;
     }
     default:
-        Console.Error.WriteLine($"unknown command '{cmd}' (build | gen | import | lint | snap | crop)");
+        Console.Error.WriteLine($"unknown command '{cmd}' (build | gen | import | lint | snap | audio | crop)");
         return 2;
 }

@@ -33,6 +33,15 @@ Examples are `hero_clockwarden.json` (idle 3, walk 4, cast 3), `enemy_gloombat.j
 
 The November 2026 comparison favored recipes for the hero and found the slime and revised bat comparable to their hand-authored references. Revisions covered sprite-wide lighting, shadows between materials, eliminating spikes, lighter bat ramps, a cast windup and flash, and removal of the magenta hero variant. Roadmap 0.16 covers angled bones, secondary motion, rim light and nighttime hue shifts, `.pxs` frame patches, and four directions.
 
+## Sound and music recipes
+
+`dotnet run --project tools/TickHappens.AssetTool -- audio [NAME]` (also part of `build`) renders text recipes from Assets into runtime WAV files, 16-bit PCM at 32 kHz, with waveform previews in `.tmp/preview/audio/`. Output is deterministic per recipe and seed. Runtime media stays WAV because no allowed dependency encodes Ogg Vorbis; the mod format's OGG support remains a future decoder task.
+
+- `art/audio/sfx/NAME.sound.json` → `assets/audio/sfx/NAME.V.wav`, one mono file per variant. The layer model and keys (`variants`, `seed`, `vary`, `peak`, `layers` of `noise` / `tone` with `start`, `attack`, `hold`, `decay` in ms, `gain`, `lowpass`, `highpass`, `freq: [from, to]`, `wave`, `drive`, plus `echo`, `lofi` and `length`) follow the owner's Nelomoria.NET SoundSynth. Inaudible tails below -60 dB are trimmed.
+- `art/audio/music/NAME.music.json` → `assets/audio/music/NAME.wav`, a stereo loop. Keys: `bpm`, `root` (MIDI note), `scale` (semitones), `swing`, `sections` (`bars` and per-bar `chords` as scale degrees), `form`, `tracks`, `echo` (ping-pong, `beats`, `feedback`, `mix`, `damp`), `reverb` (`mix`, `size`, `damp`) and `peak`. Track roles: `lead` (generated melody: a seeded one-bar motif, the motif sequenced onto the next chord, a contrasting bar and a cadence on the chord root; eight-bar sections answer with a new second half), `bass` (pattern `x` root, `o` octave, `3`, `5`, `7`, `-` hold, `.` rest), `arp` (digits pick chord tones, 3 = octave), `pad` (sustained triads) and `drum` (sound layers triggered by `x`, `X` accent, `g` ghost; `fill` replaces the last bar of each section). Tone tracks take `wave` (sine, saw, square, triangle as a 32-step wavetable, pulse with `duty`), ADSR in ms, `octave`, `gain`, `pan`, `lowpass`, `vibrato: [Hz, semitones]`, `detune` in cents, `echo` and `reverb` sends, `range` and `density` for leads, `pattern`, per-section `patterns` and a `sections` filter. The reverb and echo tail is folded onto the start, so the file loops without a seam.
+
+Listen to a rendered file or record the game mix with `--record-audio` before choosing a seed; the waveform previews only show level and envelope.
+
 ## Indexed source format
 
 ```text
