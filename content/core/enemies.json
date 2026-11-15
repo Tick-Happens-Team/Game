@@ -84,7 +84,7 @@
     "damage": 50,
     "damageType": "magical",
     "detonateRange": 22,
-    "blastRadius": 55,
+    "blastRadius": 36.666668,
     "radius": 8,
     "xp": 7,
     "gold": 1,

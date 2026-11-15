@@ -214,7 +214,7 @@ public sealed partial class RunWorld
             Vector2 position = ReadPoint(ref r);
             int def = r.Short(), status = r.Byte(), windup = r.Byte();
             Require(slot < EnemyCapacity && slot > prev && def < Content.Enemies.Count &&
-                status is >= 1 and <= 127 && (status & 63) > 0 && windup <= EnemyWindupTicks);
+                status is >= 1 and <= 127 && (status & 63) > 0 && windup <= EnemyWindupDuration(Content.Enemies[def]));
             prev = slot;
             if (!apply) continue;
             _enemySnapshotSlots[j] = (ushort)slot;

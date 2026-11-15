@@ -61,17 +61,32 @@ public sealed class EnemyAttacksTests
         int kamikaze = world.Content.EnemyIndex("kamikaze");
         var pos = world.Player.Pos;
         int bomber = world.SpawnEnemy(kamikaze, pos + new Vector2(20, 0));
-        int nearby = world.SpawnEnemy(world.Content.EnemyIndex("rot"), pos + new Vector2(55, 0));
-        int distant = world.SpawnEnemy(world.Content.EnemyIndex("rot"), pos + new Vector2(150, 0));
-        if (killedByPlayer) Kill(world, bomber);
-
-        Advance(world, RunWorld.EnemyWindupTicks + 1);
+        int nearby = world.SpawnEnemy(world.Content.EnemyIndex("rot"), pos + new Vector2(43, 0));
+        int distant = world.SpawnEnemy(world.Content.EnemyIndex("rot"), pos + new Vector2(74, 0));
+        if (killedByPlayer)
+        {
+            Kill(world, bomber);
+        }
+        else
+        {
+            world.Step(default);
+            int fuse = RunWorld.TicksPerSecond;
+            Assert.Equal(fuse, world.EnemyWindup(bomber));
+            var replica = IsolatedWorld();
+            byte[] snapshot = new byte[RunWorld.SnapshotCapacity];
+            Assert.True(replica.TryApplySnapshot(snapshot.AsSpan(0, world.WriteSnapshot(snapshot))));
+            Assert.Equal(fuse, replica.EnemyWindup(bomber));
+            Advance(world, fuse - 1);
+            Assert.True(world.EAlive[bomber]);
+        }
+        world.Step(default);
         Assert.False(world.EAlive[bomber]);
         Assert.True(world.EHp[nearby] <= 30);
         Assert.Equal(80f, world.EHp[distant]);
         var hurt = Assert.Single(world.Events, e => e.Kind == EventKind.PlayerHurt);
         TestWorld.Close(50 * (1 - world.Player.Stats[Stat.MagicResist]), hurt.Value);
-        Assert.Contains(world.Events, e => e.Kind == EventKind.EnemyBlast);
+        var blast = Assert.Single(world.Events, e => e.Kind == EventKind.EnemyBlast);
+        TestWorld.Close(55f / 1.5f, blast.Value);
     }
 
     [Fact]
