@@ -87,7 +87,7 @@
   "online.readyStatus": "ГОТОВ",
   "online.notReadyStatus": "НЕ ГОТОВ",
   "online.heroTaken": "ЗАНЯТ",
-  "online.waitingForThree": "НУЖНО МИНИМУМ 3 ИГРОКА",
+  "online.waitingForTwo": "НУЖНО МИНИМУМ 2 ИГРОКА",
   "online.waitingReady": "ОЖИДАНИЕ ГОТОВНОСТИ ВСЕХ ИГРОКОВ",
   "online.start": "НАЧАТЬ ЗАБЕГ  ENTER",
   "online.code": "КОД: {0}",

@@ -101,7 +101,7 @@ internal sealed partial class OnlineMenu
         PixelFont.DrawCentered(ui, title, layout.Center, layout.Y + 10, Teal, Ink, 2);
         if (game.LocalSlot is not null)
         {
-            string readiness = Localizer.Get(game.PlayerCount < OnlineGame.MinPlayers ? "online.waitingForThree" :
+            string readiness = Localizer.Get(game.PlayerCount < OnlineGame.MinPlayers ? "online.waitingForTwo" :
                 game.EveryoneReady ? "online.waitingStart" : "online.waitingReady");
             status = game.RoomCode is not null || game.LanPort is not null ? $"{status}  /  {readiness}" : readiness;
         }
