@@ -26,7 +26,22 @@ public class VfxTests
         Assert.Equal(0.12585f, VfxMath.Hash(77 * 31 + 5), 5);
     }
 
-    public static TheoryData<string> Effects => ["explosion", "impact", "slash", "lightning-arc", "lightning-strike", "sparkle", "pickup"];
+    public static TheoryData<string> Effects => ["explosion", "impact", "slash", "lightning-arc", "lightning-strike", "sparkle", "pickup", "charge", "beam", "orb", "projectile", "fire", "power-up", "embers", "crackle"];
+
+    private static readonly ActorSilhouette Sprite = new(192, 142, 16, 16,
+        Enumerable.Repeat(0xffffffffu, 256).ToArray(), 16, 0);
+
+    [Fact]
+    public void Silhouette_reads_flipped_atlas_subregion_and_rejects_transparent_pixels()
+    {
+        uint[] atlas = [0, 0, 0, 0, 0, 0x80000000, 0x7f000000, 0];
+        var sprite = new ActorSilhouette(20, 30, 2, 1, atlas, 4, 5, FlipX: true);
+
+        Assert.False(sprite.IsOpaque(0, 0, 128));
+        Assert.True(sprite.IsOpaque(1, 0, 128));
+        Assert.False(sprite.IsOpaque(-1, 0));
+        Assert.False(sprite.IsOpaque(0, 1));
+    }
 
     private static IPixelEffect Make(string name, uint seed) => name switch
     {
@@ -37,6 +52,14 @@ public class VfxTests
         "lightning-strike" => new LightningEffect(new LightningOptions { Kind = LightningKind.Strike, X = 400, Y = 300, Seed = seed }),
         "sparkle" => new SparkleEffect(new SparkleOptions { X = 400, Y = 300, Seed = seed }),
         "pickup" => new PickupEffect(new PickupOptions { X = 400, Y = 300, Wait = 0.3f, Seed = seed, Target = () => (300, 280) }),
+        "charge" => new EnergyEffect(EnergyKind.Charge, 400, 300, seed: seed),
+        "beam" => new EnergyEffect(EnergyKind.Beam, 400, 300, seed: seed),
+        "orb" => new EnergyEffect(EnergyKind.Orb, 400, 300, seed: seed),
+        "projectile" => new EnergyEffect(EnergyKind.Projectile, 400, 300, seed: seed),
+        "fire" => new FireEffect(() => Sprite, seed),
+        "power-up" => new PowerUpEffect(() => Sprite, seed),
+        "embers" => new EmbersEffect(340, 400, 120, seed),
+        "crackle" => new LightningEffect(new LightningOptions { Kind = LightningKind.Crackle, Silhouette = () => Sprite, Seed = seed }),
         _ => throw new ArgumentException(name),
     };
 
@@ -45,17 +68,21 @@ public class VfxTests
         var fx = Make(name, seed);
         var frame = new PixelFrame(400, 300) { Ox = 0, Oy = -50 };
         int painted = 0, frames = 0;
+        int sampleFrame = name is "beam" or "orb" or "projectile" or "power-up" ? 35 : 10;
         uint[]? snapshotC = null, snapshotL = null;
         for (; frames < 60 * 8 && !fx.Done; frames++)
         {
+            if (frames == 30 && fx is EmbersEffect embers) embers.Stop();
             fx.Update(1f / 60f);
             frame.Clear();
             fx.Draw(frame, VfxLayer.All);
             painted += frame.Color.Count(c => c != 0);
-            if (frames == 10) { snapshotC = (uint[])frame.Color.Clone(); snapshotL = (uint[])frame.Light.Clone(); }
+            if (frames == sampleFrame) { snapshotC = (uint[])frame.Color.Clone(); snapshotL = (uint[])frame.Light.Clone(); }
         }
         Assert.True(painted > 0, $"{name} never drew a pixel");
-        return (snapshotC!, snapshotL!, frames);
+        Assert.NotNull(snapshotC);
+        Assert.NotNull(snapshotL);
+        return (snapshotC, snapshotL, frames);
     }
 
     [Theory]

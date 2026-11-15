@@ -74,7 +74,12 @@ Import removes a solid background from the corners, reverses integer upscaling, 
 
 `build` writes Assets `assets/atlas/main.json` plus aligned albedo (`main.png`), emission (`main_e.png`), and OpenGL Y-up normals (`main_n.png`). The JSON stores frame dimensions, origins, frame coordinates and names, and animations with fps, frames, and loop. NormalMapGenerator derives normals for `.pxs` and imports from the silhouette and brightness. Enlarged previews go under Game's `.tmp/preview/`.
 
-Sprite Fusion VFX ports in Engine cover explosion, impact, slash, lightning, sparkle, and pickup. Preserve their MIT notice and source headers. New C# effects use PixelFrame, PixelCanvas, and VfxMath.
+Sprite Fusion VFX ports in Engine cover explosion, impact, slash, lightning, sparkle, pickup, energy, fire, power-up, and embers. Preserve their MIT notice and source headers. New C# effects use PixelFrame, PixelCanvas, and VfxMath.
+
+In VisualBench, press 7 to cycle the four energy variants, 8 for fire, 9 for power-up,
+0 to toggle embers, and F5 for crackle. For a repeatable capture, use
+`--demo --effect beam --frames 39 --screenshot PATH`. The effect names are
+`charge`, `beam`, `orb`, `projectile`, `fire`, `power-up`, `embers`, and `crackle`.
 
 ## Generator evaluation
 
