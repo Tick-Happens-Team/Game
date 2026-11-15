@@ -110,7 +110,7 @@ public sealed partial class RunWorld
         float closest = float.PositiveInfinity;
         for (int i = 0; i < PickupCapacity; i++)
         {
-            if (!GAlive[i] || GKind[i] != PickupKind.Xp || _gPulled[i]) continue;
+            if (!GAlive[i] || GKind[i] != PickupKind.Xp || GOwner[i] >= 0 || _gPulled[i]) continue;
             var pos = new Vector2(GX[i], GY[i]);
             if (Vector2.DistanceSquared(pos, owner.Pos) > range * range) continue;
             float d = Vector2.DistanceSquared(ally.Pos, pos);

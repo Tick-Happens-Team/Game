@@ -97,19 +97,19 @@ public sealed class BossAndChestTests
     }
 
     [Fact]
-    public void SuccessfulGoldDropsGainOneCoinPerWholeMinute()
+    public void ImmediateGoldAwardsGainOneCoinPerWholeMinute()
     {
         var content = QuietContent();
         content.Enemies[0].GoldChance = 1;
         var world = new RunWorld(content);
         int enemy = world.SpawnEnemy(0, new Vector2(1200, 1100));
         world.DamageEnemy(enemy, 100_000, DamageKind.Pure, new DamageSourceRef(0), 0, 0);
+        int firstAward = world.Player.Wallet.Gold;
+        Assert.Equal(content.Enemies[0].Gold, firstAward);
         for (int i = 0; i < 2 * 60 * RunWorld.TicksPerSecond; i++) world.Step(default);
         enemy = world.SpawnEnemy(0, new Vector2(1200, 1100));
         world.DamageEnemy(enemy, 100_000, DamageKind.Pure, new DamageSourceRef(0), 0, 0);
-        var coins = Enumerable.Range(0, RunWorld.PickupCapacity)
-            .Where(i => world.GAlive[i] && world.GKind[i] == PickupKind.Gold).Select(i => world.GValue[i]);
-        Assert.Equal([content.Enemies[0].Gold, content.Enemies[0].Gold + 2], coins);
+        Assert.Equal(content.Enemies[0].Gold + 2, world.Player.Wallet.Gold - firstAward);
     }
 
     [Fact]

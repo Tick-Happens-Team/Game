@@ -93,6 +93,7 @@ public sealed class CoopWorldTests
         host.GX[0] = guest.Pos.X;
         host.GY[0] = guest.Pos.Y - 8;
         host.GKind[0] = PickupKind.Xp;
+        host.GOwner[0] = guest.Id;
         host.GValue[0] = (int)guest.XpNext;
         host.GAlive[0] = true;
         host.StepCoop([default, default]);
@@ -151,6 +152,9 @@ public sealed class CoopWorldTests
         world.DamageEnemy(enemy, 10_000, DamageKind.Pure, new DamageSourceRef(1), remote.Pos.X, remote.Pos.Y);
         Assert.Equal(0, world.Player.Kills);
         Assert.Equal(1, remote.Kills);
+        Assert.Equal(25, remote.Wallet.Gold);
+        Assert.Equal(0, world.Player.Wallet.Gold);
+        Assert.DoesNotContain(PickupKind.Gold, world.GKind);
 
         world.StepCoop([default, new RunInput(0, 0, OpenChest: true), default, default]);
         Assert.True(world.ChestOpen[0]);
@@ -162,6 +166,40 @@ public sealed class CoopWorldTests
         Assert.Equal(25 - content.Rules.Chests.StartPrice, remote.Wallet.Gold);
         Assert.Equal(0, world.Player.Wallet.Gold);
         Assert.True(remote.Wallet.NextPrice > world.Player.Wallet.NextPrice);
+    }
+
+    [Fact]
+    public void KillXpImmediatelyFliesPastTheCloserPlayerToTheKiller()
+    {
+        var content = TestContent.LoadCore();
+        foreach (var wave in content.Waves.Waves) wave.PerSecond = 0;
+        content.Enemies[0].Xp = 1;
+        var host = new RunWorld(content, playerCount: 2);
+        host.SetPlayerActive(1, true);
+        var killer = host.Players[1];
+        killer.Pos = host.Player.Pos + new Vector2(300, 0);
+        var drop = host.Player.Pos + new Vector2(10, -8);
+        int enemy = host.SpawnEnemy(0, drop);
+        host.DamageEnemy(enemy, 10_000, DamageKind.Pure, new DamageSourceRef(1), killer.Pos.X, killer.Pos.Y);
+        Assert.Equal(0, killer.Xp);
+
+        host.StepCoop([default, default]);
+        Assert.True(host.GX[0] > drop.X);
+        var replica = new RunWorld(content, playerCount: 2);
+        byte[] snapshot = new byte[RunWorld.SnapshotCapacity];
+        Assert.True(replica.TryApplySnapshot(snapshot.AsSpan(0, host.WriteSnapshot(snapshot))));
+        Assert.Equal(1, replica.GOwner[0]);
+
+        host.SetPlayerActive(1, false);
+        float beforeDisconnect = host.GX[0];
+        host.StepCoop([default, default]);
+        Assert.True(host.GAlive[0]);
+        Assert.Equal(beforeDisconnect, host.GX[0]);
+        host.RestoreCoopPlayer(1);
+        for (int i = 0; i < 2 * RunWorld.TicksPerSecond; i++) host.StepCoop([default, default]);
+        Assert.False(host.GAlive[0]);
+        Assert.Equal(1, killer.Xp);
+        Assert.Equal(0, host.Player.Xp);
     }
 
     [Fact]
@@ -221,7 +259,7 @@ public sealed class CoopWorldTests
     }
 
     [Fact]
-    public void KillEventCarriesTheSeedUsedForTheAuthoritativeDrop()
+    public void KillAndGoldAwardEffectsReplicate()
     {
         var content = TestContent.LoadCore();
         content.Enemies[0].Gold = 25;
@@ -237,11 +275,10 @@ public sealed class CoopWorldTests
         var death = Assert.Single(client.Events, e => e.Kind == EventKind.Kill);
         var rng = new SimRng(death.Seed);
         Assert.InRange(rng.Next(), 0, 1);
-        int gold = Array.FindIndex(host.GKind, kind => kind == PickupKind.Gold);
-        Assert.True(gold >= 0);
-        Assert.Equal(host.GOwner[gold], death.B);
-        Assert.Equal(host.GX[gold], death.X + rng.Range(-3, 3));
-        Assert.Equal(host.GY[gold], death.Y + rng.Range(-3, 3));
+        var gold = Assert.Single(client.Events, e => e.Kind == EventKind.Pickup && e.A == (int)PickupKind.Gold);
+        Assert.Equal(25, gold.Value);
+        Assert.Equal(gold.X, death.X + rng.Range(-3, 3));
+        Assert.Equal(gold.Y, death.Y + rng.Range(-3, 3));
     }
 
     [Fact]

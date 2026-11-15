@@ -12,7 +12,9 @@ public sealed class EnemyAttacksTests
     {
         var world = IsolatedWorld();
         var center = world.Player.Pos + new Vector2(46, 0);
-        int rot = world.SpawnEnemy(world.Content.EnemyIndex("rot"), center);
+        int rotDef = world.Content.EnemyIndex("rot");
+        world.Content.Enemies[rotDef].Xp = 0;
+        int rot = world.SpawnEnemy(rotDef, center);
         Kill(world, rot);
         Assert.Equal(50f, world.EnemyClouds[0].Radius);
         var replica = IsolatedWorld();
@@ -123,7 +125,7 @@ public sealed class EnemyAttacksTests
     }
 
     [Fact]
-    public void DashStopsAtEnemiesAndTheCrowdKeepsItsDistance()
+    public void DashPassesThroughEnemiesAndEnemiesCanOverlap()
     {
         var world = IsolatedWorld();
         var player = world.Player;
@@ -133,14 +135,13 @@ public sealed class EnemyAttacksTests
         world.Content.Enemies[def].Speed = 0;
         var start = player.Pos;
         int front = world.SpawnEnemy(def, start + new Vector2(22, 0));
-        int rear = world.SpawnEnemy(def, start + new Vector2(35, 0));
-        world.EKx[rear] = -1000;
+        int rear = world.SpawnEnemy(def, start + new Vector2(22 + enemyRadius, 0));
 
         world.Step(new RunInput(1, 0, Dash: true));
         Advance(world, 8);
 
-        Assert.InRange(player.Pos.X, start.X, world.EX[front] - RunWorld.PlayerRadius - enemyRadius + 0.01f);
-        Assert.True(world.EX[rear] - world.EX[front] >= 2 * enemyRadius - 0.01f);
+        Assert.True(player.Pos.X > world.EX[rear] + RunWorld.PlayerRadius + enemyRadius);
+        TestWorld.Close(enemyRadius, world.EX[rear] - world.EX[front]);
     }
 
     [Fact]
@@ -187,6 +188,7 @@ public sealed class EnemyAttacksTests
         var world = IsolatedWorld();
         int kamikaze = world.Content.EnemyIndex("kamikaze");
         int rot = world.Content.EnemyIndex("rot");
+        world.Content.Enemies[kamikaze].Speed = 0;
         world.Content.Enemies[rot].Speed = 0;
         var pos = world.Player.Pos;
         int bomber = world.SpawnEnemy(kamikaze, pos + new Vector2(20, 0));
