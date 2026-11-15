@@ -88,7 +88,7 @@ public sealed class PlayerState
     public Vector2 IllusionPosition;
     public int GhostUntilTick, HeroAttackTick = -1;
     internal int NextHeroPassiveTick, Souls, IllusionHurtTick;
-    internal float IllusionHealth, PendingBlastDamage, HeroDistance, PuppeteerDamageBonus;
+    internal float IllusionHealth, IllusionMaxHealth, PendingBlastDamage, HeroDistance, PuppeteerDamageBonus;
     internal readonly float[] CubeBonuses = new float[RunWorld.CubeStatCount];
     public int ConversionItem = -1;
     public float AcceleratorSpeedBonus;

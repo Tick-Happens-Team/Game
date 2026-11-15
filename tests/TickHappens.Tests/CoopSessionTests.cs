@@ -288,7 +288,6 @@ public sealed class CoopSessionTests
         guest.SetProfile(2, "Ёж-2");
         guest.Join();
         wire.Flush();
-        Assert.True(host.ProfilesReady);
         Assert.Equal(new CoopSession.PlayerProfile(2, "Ёж-2"), host.Profile(1));
         Assert.Equal(host.Profile(1), guest.Profile(1));
         Assert.Equal(host.Profile(0), guest.Profile(0));
@@ -308,6 +307,26 @@ public sealed class CoopSessionTests
         host.SetPaused(false);
         wire.Flush();
         Assert.False(guest.Paused);
+    }
+
+    [Fact]
+    public void HostRejectsAConcurrentSelectionOfTheSameHero()
+    {
+        var wire = new Loopback();
+        using var host = new CoopSession(wire.Connect("host"), Digest, characterCount: 3);
+        using var guest = new CoopSession(wire.Connect("guest"), Digest, "host", characterCount: 3);
+        host.SetProfile(0, "Host");
+        guest.SetProfile(1, "Guest");
+        guest.Join();
+        wire.Flush();
+
+        host.SetProfile(2, "Host");
+        guest.SetProfile(2, "Guest"); // The guest hasn't received the host's new choice yet.
+        wire.Flush();
+
+        Assert.Equal(2, host.Profile(0)?.Hero);
+        Assert.Equal(1, host.Profile(1)?.Hero);
+        Assert.Equal(host.Profile(1), guest.Profile(1));
     }
 
     [Fact]

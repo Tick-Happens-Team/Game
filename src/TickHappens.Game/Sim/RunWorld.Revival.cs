@@ -6,7 +6,7 @@ public sealed partial class RunWorld
 {
     public const float RevivalRadius = 100;
     public const int RevivalHoldTicks = 2 * TicksPerSecond;
-    private const float RevivalHealthFraction = 0.15f;
+    private const float RevivalHealthFraction = 0.4f;
 
     private void StepRevival()
     {
@@ -41,7 +41,7 @@ public sealed partial class RunWorld
             fallen.Walking = false;
             fallen.DashTicks = fallen.DashSpeedTicks = fallen.AcceleratorTicks = 0;
             fallen.Hp = 1;
-            fallen.InvulnTicks = TicksPerSecond;
+            fallen.InvulnTicks = 2 * TicksPerSecond;
         }
 
         // Reapply current health auras now that the revived players are alive.

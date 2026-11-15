@@ -150,7 +150,7 @@ public sealed partial class RunWorld
             ApplyLevelStats(p);
             UpdateAllPlayerStats();
             if (p.GhostUntilTick == 0) p.Hp += MathF.Max(0, MaxHealthFor(p) - before);
-            Emit(EventKind.LevelUp, p.Pos.X, p.Pos.Y, p.Level);
+            Emit(EventKind.LevelUp, p.Pos.X, p.Pos.Y, p.Level, a: p.Id);
         }
     }
 

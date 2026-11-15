@@ -17,7 +17,7 @@ public sealed partial class CoopSession : IDisposable
     // Fits LiteNetLib's initial 1024-byte MTU including its reliable header.
     public const int MaxPacketBytes = 1000;
     public const int MaxSnapshotBytes = 256 * 1024;
-    public const byte ProtocolVersion = 9;
+    public const byte ProtocolVersion = 10;
     private const int HeaderBytes = 2;
     private const int RunHeaderBytes = HeaderBytes + sizeof(uint);
     public const int MaxEventBytes = MaxPacketBytes - RunHeaderBytes;
@@ -29,7 +29,7 @@ public sealed partial class CoopSession : IDisposable
     private const int ResumeKeyBytes = 16;
     private const int ResumeSeconds = 60;
 
-    private enum Message : byte { Hello = 1, Welcome, Rejected, Inputs, Snapshot, Heartbeat, Events, Keyframe, Profile, Roster, Ping, Pong, Latency, Pause, RunState }
+    private enum Message : byte { Hello = 1, Welcome, Rejected, Inputs, Snapshot, Heartbeat, Events, Keyframe, Profile, Roster, Ping, Pong, Latency, Pause, RunState, Ready }
     private enum Rejection : byte { Incompatible = 1, Full, Started, ResumeExpired }
 
     private readonly ICoopTransport _transport;
@@ -212,6 +212,7 @@ public sealed partial class CoopSession : IDisposable
             {
                 if (message == Message.Inputs && MatchesRun(packet)) ReceiveInputs(slot, packet);
                 if (message == Message.Profile) ReceiveProfile(slot, packet);
+                if (message == Message.Ready) ReceiveReady(slot, packet);
                 ReceivePing(peer, slot, message, packet);
                 if (message == Message.Heartbeat && packet.Length == HeaderBytes)
                     _lastPeerActivity[slot] = _clock.GetTimestamp();
@@ -228,7 +229,7 @@ public sealed partial class CoopSession : IDisposable
                 PlayerCount = 1;
                 _lastHostActivity = _clock.GetTimestamp();
                 _joining = false;
-                if (_localProfile is { } profile && !_resume) SendProfile(profile);
+                if (_initialProfile is { } profile && !_resume) SendProfile(profile);
                 break;
             case Message.Rejected when _joining && packet.Length == 3:
                 JoinError = (Rejection)packet[2] switch
@@ -363,12 +364,14 @@ public sealed partial class CoopSession : IDisposable
         Span<byte> packet = stackalloc byte[RunHeaderBytes];
         WriteRunHeader(packet, Message.RunState);
         BroadcastControl(packet);
+        if (!active) BroadcastRoster();
     }
 
     private void ApplyRunState(uint state)
     {
         _runState = state;
         AcceptNewPlayers = (state & 1) == 0;
+        _readyMask = 0;
         Paused = false;
         _inputSequence = 0;
         Array.Clear(_lastInput);
@@ -438,6 +441,7 @@ public sealed partial class CoopSession : IDisposable
             if (slot < 0) return;
             _peerSlots[slot] = null;
             _present[slot] = false;
+            _readyMask &= unchecked((byte)~(1 << slot));
             _pingId[slot] = 0;
             _latency[slot] = 0;
             _jitter[slot] = 0;

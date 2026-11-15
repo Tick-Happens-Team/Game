@@ -1,4 +1,4 @@
-# Online co-op for 2–4 players
+# Online co-op for 3–4 players
 
 Players install the game through the launcher from GitHub Releases. Hosting and joining happen in the game, including when launched directly. LAN play uses LiteNetLib. Internet play uses EOS with a guest device identity.
 
@@ -13,7 +13,7 @@ Players install the game through the launcher from GitHub Releases. Hosting and 
 
 ### LAN and direct IPv4
 
-Open **Co-op** with **F1** in the character menu. On the host, choose **Create lobby** with **F2**. Clients on the same subnet can choose **Find LAN room** with **F3**. If discovery finds multiple rooms or broadcasts are blocked, use **Direct IP** with **F5** and enter the host's IPv4 address. An optional `:port` overrides the default UDP port 39230. The period key enters a dot and the semicolon key enters a colon. The host can start with **Enter** once two or more players are in the room.
+Open **Co-op** with **F1** in the character menu. On the host, choose **Create lobby** with **F2**. Clients on the same subnet can choose **Find LAN room** with **F3**. If discovery finds multiple rooms or broadcasts are blocked, use **Direct IP** with **F5** and enter the host's IPv4 address. An optional `:port` overrides the default UDP port 39230. The period key enters a dot and the semicolon key enters a colon. The host can start with **Enter** after at least three players have joined and everyone is ready.
 
 For a two-computer smoke test, allow inbound UDP 39230 on the host's private network. Try discovery and direct IPv4 in separate runs, move and dash on both peers, and verify that closing the host shows the guest's results. Both users need matching game builds and enabled gameplay content.
 
@@ -32,7 +32,7 @@ dotnet run --project src/TickHappens.Game "-p:TickHappensEosSdk=$sdk"
 
 The probe signs in, creates and publishes a room code, and destroys the lobby. In the character menu open **Co-op** with **F1**, switch to EOS with **F6**, then choose **Create lobby** or **Join by code**. Use **F5** in the EOS menu to enable relay-only mode before joining or hosting. The `TICKHAPPENS_EOS_FORCE_RELAY=1` environment variable sets its initial value. By default EOS tries a direct connection first, with relay fallback.
 
-In a LAN or EOS lobby, use **Left/Right** to choose your hero and **F4** to edit your nickname. The host starts with **Enter** once at least two players have joined. During a run, hold **Tab** to inspect the team's items and use **Up/Down** to scroll. **Esc** opens the match menu for both roles. The host pauses the run while its menu is open and can explicitly end the match. Guests can open settings while the match continues.
+In a LAN or EOS lobby, use **Left/Right** to choose your hero and **F4** to edit your nickname. Each player chooses a unique hero and uses **Space** or **Ready** to confirm. Unready to change your hero. Everyone must confirm again after returning from a run. An ally revived by a teammate returns with 40% of maximum HP and two seconds of invulnerability. During a run, hold **Tab** to inspect the team's items and use **Up/Down** to scroll. **Esc** opens the match menu for both roles. The host pauses the run while its menu is open and can explicitly end the match. Guests can open settings while the match continues.
 
 The lobby and match HUD show round-trip ping in milliseconds. Network samples are written to `%LOCALAPPDATA%/TickHappens/coop-network.log`, with one rotated file retained. Guest samples also include snapshot intervals, their variation, and the largest local position correction since the previous sample.
 

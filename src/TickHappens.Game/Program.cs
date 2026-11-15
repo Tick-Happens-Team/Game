@@ -169,7 +169,7 @@ for (int frame = 1; !window.QuitRequested; frame++)
         var onlineWorld = online.World!;
         itemPanel.Read(window, !coopHud.CapturesInput && !online.Paused && !online.Interrupted);
         view.Consume(onlineWorld);
-        audio.Consume(onlineWorld, onlineWorld.Player.Pos, online.Paused);
+        audio.Consume(onlineWorld, onlineWorld.Player.Pos);
         onlineWorld.ClearEvents();
         view.Draw(window.Width, window.Height, onlineWorld, online.Alpha, online.Paused, frameDt, online: true,
             interruption: online.Interrupted ? online.Status : null, canReconnect: online.CanReconnect,
@@ -246,7 +246,7 @@ for (int frame = 1; !window.QuitRequested; frame++)
             loop.Advance(frameDt, input);
             itemPanel.Read(window, !loop.Paused && world.Phase == RunPhase.Playing);
             view.Consume(world);
-            audio.Consume(world, world.Player.Pos, loop.Paused);
+            audio.Consume(world, world.Player.Pos);
             world.ClearEvents();
             view.Draw(window.Width, window.Height, world, world.Phase == RunPhase.Playing ? loop.Interpolation : 1,
                 loop.Paused || world.Phase != RunPhase.Playing, frameDt, overlay: drawPauseMenu, itemPanel: itemPanel);
@@ -260,6 +260,10 @@ for (int frame = 1; !window.QuitRequested; frame++)
         audioInRun = runNow;
         if (runNow) audio.RunMusic(); else audio.MenuMusic();
     }
+    bool pauseMusic = online.Playing
+        ? !online.Interrupted && online.World!.Phase == RunPhase.Playing && (online.Paused || coopHud.CapturesInput)
+        : !inMenu && world.Phase == RunPhase.Playing && loop.Paused;
+    audio.SetPauseMusic(pauseMusic);
     audio.Update(frameDt);
 
     fpsFrames++;

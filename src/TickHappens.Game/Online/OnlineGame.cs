@@ -67,12 +67,23 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
     internal long SentLanBytes => _lan?.SentBytes ?? 0;
     internal int LastSubmittedInput => _lastSubmittedInput;
     public int PlayerCount => _session?.PlayerCount ?? 0;
-    public bool CanStart => IsHost && !_started && PlayerCount >= 2 && _session!.ProfilesReady;
+    internal const int MinPlayers = 3;
+    public bool CanStart => IsHost && !_started && PlayerCount >= MinPlayers && _session!.EveryoneReady;
+    public bool CanReady => !_started && LocalSlot is int slot && PlayerHero(slot) is not null;
+    public bool EveryoneReady => _session?.EveryoneReady == true;
+    public bool LocalReady => LocalSlot is int slot && PlayerReady(slot);
     public bool Paused => _session?.Paused == true;
     public int? LocalSlot => _session?.LocalPlayerSlot;
     public int HeroCount => content.Characters.Count;
     public string Nickname { get; private set; } = "";
-    public int SelectedHero { get; private set; }
+    private int _preferredHero;
+    public int SelectedHero => LocalSlot is int slot ? PlayerHero(slot) ?? _preferredHero : _preferredHero;
+    public bool PlayerReady(int slot) => _session?.IsReady(slot) == true;
+    public bool HeroTaken(int hero) => _session?.HeroTaken(hero, LocalSlot ?? -1) == true;
+    public void ToggleReady()
+    {
+        if (CanReady) _session!.SetReady(!LocalReady);
+    }
     public CharacterDef Hero(int index) => content.Characters[index];
     public string HeroName(int hero) => Hud.CharacterName(Hero(hero));
     public bool PlayerPresent(int slot) => _session?.IsPresent(slot) == true;
@@ -97,8 +108,7 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
 
     public void EditProfile(int hero, string nickname)
     {
-        if (_started || LocalSlot is null || (uint)hero >= (uint)HeroCount) return;
-        SelectedHero = hero;
+        if (_started || LocalReady || LocalSlot is null || (uint)hero >= (uint)HeroCount || HeroTaken(hero)) return;
         Nickname = nickname;
         _session!.SetProfile(hero, nickname);
     }
@@ -259,8 +269,8 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
         var session = new CoopSession(transport, hash, hostPeer, resumeKey: key, resume: _resuming,
             characterCount: content.Characters.Count);
         _session = session;
-        if (!_resuming) SelectedHero = content.CharacterIndex(_character!);
-        session.SetProfile(SelectedHero, Nickname);
+        if (!_resuming) _preferredHero = content.CharacterIndex(_character!);
+        session.SetProfile(_preferredHero, Nickname);
         session.LatencySample += LogLatency;
         if (session.IsHost)
         {

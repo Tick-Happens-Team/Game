@@ -1,6 +1,6 @@
 # TickHappens Game
 
-TickHappens is a free, open-source, top-down bullet heaven with 16-bit pixel art, dynamic lighting, and planned online co-op for 2–4 players. Difficulty follows the run clock. Time statues advance it.
+TickHappens is a free, open-source, top-down bullet heaven with 16-bit pixel art, dynamic lighting, and planned online co-op for 3–4 players. Difficulty follows the run clock. Time statues advance it.
 
 ## Play the prototype
 
@@ -31,7 +31,7 @@ dotnet run -c Release --project src/TickHappens.Game -- --sim-bench ../.tmp/benc
 
 The benchmark keeps 2,000 moving enemies alive around a stationary hero using auto-attacks. It warms up for 300 ticks, writes the next 600 tick timings to CSV, and prints min, average, p99, max, and managed allocations.
 
-## Co-op for 2–4 players
+## Co-op for 3–4 players
 
 Choose English or Russian from the launcher language selector or press **F4** on the game's character selection screen. Both applications use the same saved language. On first launch they use the system UI language when supported, with English as the fallback.
 

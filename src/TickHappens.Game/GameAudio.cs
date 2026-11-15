@@ -82,15 +82,17 @@ internal sealed class GameAudio : IDisposable
         _wasDead = false;
     }
 
+    public void SetPauseMusic(bool paused)
+    {
+        if (!Enabled || paused == _paused) return;
+        _paused = paused;
+        _mixer.SetExclusiveMusic(paused ? _menuMusic : null, 0.7f);
+    }
+
     /// <summary>Plays this frame's events; <paramref name="listener"/> is the local hero's position.</summary>
-    public void Consume(RunWorld world, Vector2 listener, bool paused)
+    public void Consume(RunWorld world, Vector2 listener)
     {
         if (!Enabled) return;
-        if (paused != _paused)
-        {
-            _paused = paused;
-            if (world.Phase == RunPhase.Playing) _mixer.SetMusicLevel(paused ? 0.35f : 1f, 0.3f);
-        }
         bool dead = world.Phase == RunPhase.Dead;
         if (dead && !_wasDead)
         {
@@ -139,7 +141,7 @@ internal sealed class GameAudio : IDisposable
                 case EventKind.EnemyBlast:
                     Play("blast", 0.65f * near, pan, 0.08f, 3);
                     break;
-                case EventKind.LevelUp:
+                case EventKind.LevelUp when e.A == world.Player.Id:
                     Play("levelup", 0.55f, pan, 0, 1);
                     break;
                 case EventKind.Statue:
