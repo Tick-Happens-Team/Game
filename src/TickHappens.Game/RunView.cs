@@ -296,8 +296,11 @@ internal sealed partial class RunView : IDisposable
                         _effects.Add(new SparkleEffect(new SparkleOptions { X = e.X * 2, Y = (e.Y - 26) * 2, Size = 12, Seed = e.Seed }));
                     RingBurst(e.X, e.Y - 10, 26, 0xFFDEF08Fu, 0xFFC0C43Fu);
                     AddFlash(e.X, e.Y - 16, 110, 1.4f, 1.2f, 0.5f, 0.6f);
-                    ScreenFlash(0.12f, 0xFF8FF0DEu);
-                    _hud.Notice(Localizer.Format("notice.level", e.Value), 0xFFDEF08Fu);
+                    if (e.A == world.Player.Id)
+                    {
+                        ScreenFlash(0.12f, 0xFF8FF0DEu);
+                        _hud.Notice(Localizer.Format("notice.level", e.Value), 0xFFDEF08Fu);
+                    }
                     break;
                 case EventKind.Statue:
                     _effects.Add(new SparkleEffect(new SparkleOptions { X = e.X * 2, Y = (e.Y - 24) * 2, Seed = e.Seed }));
@@ -608,8 +611,10 @@ internal sealed partial class RunView : IDisposable
                 var owner = world.Players[IllusionBase - id];
                 var sprite = _heroSprites[world.Content.CharacterIndex(owner.Character.Id)];
                 int frame = HeroFrame(sprite, owner, world.Tick, alpha, walking: false);
-                _batch.Draw(sprite, frame, owner.IllusionPosition.X - ox, owner.IllusionPosition.Y - oy,
+                var position = owner.IllusionPosition;
+                _batch.Draw(sprite, frame, position.X - ox, position.Y - oy,
                     owner.FacingLeft, tint: 0xFFC69999u, emissionBoost: 40);
+                DrawSummonHealth(sprite, position, owner.IllusionHealth, owner.IllusionMaxHealth);
             }
             else if (id <= CompanionBase)
             {
@@ -622,6 +627,7 @@ internal sealed partial class RunView : IDisposable
                     var anim = sprite.Anims["move"];
                     int frame = anim.Frames[(int)((_time + ally.Id * 0.13f) * anim.Fps) % anim.Frames.Count];
                     _batch.Draw(sprite, frame, pos.X - ox, pos.Y - oy, ally.FacingLeft);
+                    DrawSummonHealth(sprite, pos, ally.Health, ally.AuraCapacity);
                 }
                 else _batch.Draw(_gem, 0, pos.X - ox, pos.Y - oy);
             }
@@ -793,6 +799,14 @@ internal sealed partial class RunView : IDisposable
         coopHud?.Draw(_renderer, world, frameDt);
         overlay?.Invoke(_renderer);
         _renderer.Finish();
+    }
+
+    private void DrawSummonHealth(AtlasSprite sprite, Vector2 position, float health, float maxHealth)
+    {
+        if (maxHealth <= 0) return;
+        var (x, y) = _renderer.WorldToUi(position.X, position.Y - sprite.Origin[1]);
+        Hud.Bar(PixelCanvas.ColorOf(_renderer.UiFrame), x - 6, y - 4, 12, 2,
+            health / maxHealth, 0xFF91DDB0u, 0xFF52404Eu);
     }
 
     private void SetVisionMask(RunWorld world, Vector2 hero)

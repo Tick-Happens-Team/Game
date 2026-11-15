@@ -82,7 +82,7 @@ Stats are copied from the owner's table. Growth means the per-level value of the
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 7 | Vampire | 175/+5 | 2 | 35 | 30 | 5% | 0% | 15/+1.5 | 10% lifesteal from damage dealt → S4 | 1.05% | [x] |
 | 8 | Miner | 300/+3 | 4.75 | 25 | 20 | 6% | 4% | 10/+1 | after taking 50 damage, explodes for 5 in radius 50 → `onDamageTaken` accumulator plus blast VFX | +2.5 damage and +2.5 radius | [x] |
-| 9 | Cybernetic Cube | 100/+5 | 2 | 25 | 30 | 10% | 10% | 0/+0.1 | each level increases one random stat by 1–5% → seeded roll on `onLevelUp` | fixed roll range | [x] |
+| 9 | Cybernetic Cube | 100/+5 | 2 | 25 | 30 | 10% | 10% | 8/+0.5 | each level increases one random stat by 1–5% → seeded roll on `onLevelUp` | fixed roll range | [x] |
 | 10 | Masochist | 100/+4 | 1 | 20 | 35 | 1% | 1% | 13.5/+2.15 | lower HP gives more regen and move speed → stats computed from missing HP | conversion +0.15% per level | [x] |
 
 ### Tier C3: new world mechanics (S6, S8, S9, death override)
@@ -102,7 +102,7 @@ Stats are copied from the owner's table. Growth means the per-level value of the
 | 16 | Necromancer | 200/+5 | 1 | 30 | 25 | 0% | 15% | 15/+1 | killed enemies leave souls; every 30 s spends them: 1–20 souls → healing ghost, 21–50 → warrior ghost (HP and damage = souls), 51+ → big area ghost (HP and damage = souls); during the cooldown each soul adds +0.5% damage → soul counter (`onKill`), three summon AIs (S11), ally heal (S12) | +0.1% damage per soul per level | [x] |
 | 17 | Иллюзионист | 175/+3 | 2 | 30 | 30 | 5% | 15% | 15/+1.5 | every 15 s creates a copy with 30% of the hero's max HP; it lasts 8 s, draws enemies, and repeats the hero's attacks at 25% damage; at most one copy → timed summon with decoy aggro and mirrored attacks (S5, S11) | +0.25 percentage points of illusion damage per level | [x] |
 
-The new heroes use these defaults where the sheet leaves values open. Cube starts at 0 damage and earns its first upgrade after 15 seconds if it has not levelled through XP. Diver gains one percentage point of armor per 100 pixels travelled and can still dash. Masochist converts the missing-health fraction into a proportional bonus to regeneration and movement speed, up to +100% at level 1. Skater fire patches share a damage tick, so overlapping patches from the same owner do not multiply damage. Necromancer summons use the shared companion cap. Pig keeps moving and attacking during the ghost interval with damage immunity.
+The new heroes use these defaults where the sheet leaves values open. Diver gains one percentage point of armor per 100 pixels travelled and can still dash. Masochist converts the missing-health fraction into a proportional bonus to regeneration and movement speed, up to +100% at level 1. Skater fire patches share a damage tick, so overlapping patches from the same owner do not multiply damage. Necromancer summons use the shared companion cap. Pig keeps moving and attacking during the ghost interval with damage immunity.
 
 ## 5. Items ordered by ease
 

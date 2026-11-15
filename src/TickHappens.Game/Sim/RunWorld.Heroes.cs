@@ -98,11 +98,6 @@ public sealed partial class RunWorld
                     }
                 }
                 break;
-            case "cybernetic_cube":
-                // The sheet starts Cube at zero damage. Survival supplies its first upgrade in a solo run.
-                if (player.Level == 1 && Tick >= player.NextHeroPassiveTick)
-                    GainXp(player, player.XpNext - player.Xp);
-                break;
             case "illusionist":
                 if (Tick >= player.NextHeroPassiveTick)
                 {
@@ -110,7 +105,7 @@ public sealed partial class RunWorld
                     player.IllusionPosition = Vector2.Clamp(player.Pos - player.Facing * 22,
                         new Vector2(12), new Vector2(Rules.ArenaSize - 12));
                     player.IllusionUntilTick = Tick + 8 * TicksPerSecond;
-                    player.IllusionHealth = 0.3f * MaxHealthFor(player);
+                    player.IllusionHealth = player.IllusionMaxHealth = 0.3f * MaxHealthFor(player);
                     Emit(EventKind.Pulse, player.IllusionPosition.X, player.IllusionPosition.Y, 20);
                 }
                 break;

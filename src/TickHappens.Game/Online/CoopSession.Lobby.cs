@@ -11,7 +11,8 @@ public sealed partial class CoopSession
     private readonly int _characterCount;
     private readonly PlayerProfile?[] _profiles = new PlayerProfile?[MaxPlayers];
     private readonly bool[] _present = [true, false, false, false];
-    private PlayerProfile? _localProfile;
+    private PlayerProfile? _initialProfile;
+    private byte _readyMask;
     private readonly long[] _pingSent = new long[MaxPlayers], _lastPong = new long[MaxPlayers];
     private readonly uint[] _pingId = new uint[MaxPlayers];
     private readonly ushort[] _latency = new ushort[MaxPlayers];
@@ -22,7 +23,15 @@ public sealed partial class CoopSession
     internal bool IsPresent(int slot) => _present[slot];
     internal PlayerProfile? Profile(int slot) => _profiles[slot];
     internal int? Ping(int slot) => _latency[slot] == 0 ? null : _latency[slot] - 1;
-    internal bool ProfilesReady => Enumerable.Range(0, MaxPlayers).All(slot => !_present[slot] || _profiles[slot] is not null);
+    internal bool IsReady(int slot) => (_readyMask & (1 << slot)) != 0;
+    internal bool EveryoneReady => Enumerable.Range(0, MaxPlayers).All(slot => !_present[slot] || IsReady(slot));
+
+    internal bool HeroTaken(int hero, int exceptSlot)
+    {
+        for (int slot = 0; slot < MaxPlayers; slot++)
+            if (slot != exceptSlot && _present[slot] && _profiles[slot]?.Hero == hero) return true;
+        return false;
+    }
 
     internal static bool NicknameCharacter(char c) =>
         c is >= 'A' and <= 'Z' or >= 'a' and <= 'z' or >= 'А' and <= 'я' or 'Ё' or 'ё' or >= '0' and <= '9' or ' ' or '-' or '_';
@@ -31,15 +40,13 @@ public sealed partial class CoopSession
     {
         if (!AcceptNewPlayers || hero < 0 || hero >= Math.Min(_characterCount, ushort.MaxValue)) return;
         var profile = new PlayerProfile(hero, nickname.Trim());
-        if (profile == _localProfile || profile.Nickname.Length > NicknameLimit ||
-            !profile.Nickname.All(NicknameCharacter)) return;
-        _localProfile = profile;
-        if (IsHost)
+        if (profile.Nickname.Length > NicknameLimit || !profile.Nickname.All(NicknameCharacter)) return;
+        if (LocalPlayerSlot is not int slot) _initialProfile = profile;
+        else if (!IsReady(slot) && profile != _profiles[slot] && !HeroTaken(hero, slot))
         {
-            _profiles[0] = profile;
-            BroadcastRoster();
+            if (IsHost) ApplyProfile(slot, profile);
+            else SendProfile(profile);
         }
-        else if (LocalPlayerSlot.HasValue) SendProfile(profile);
     }
 
     private static void WriteProfile(Span<byte> bytes, PlayerProfile? profile)
@@ -74,31 +81,78 @@ public sealed partial class CoopSession
     private void ReceiveProfile(int slot, ReadOnlySpan<byte> packet)
     {
         if (!AcceptNewPlayers || packet.Length != HeaderBytes + ProfileBytes ||
-            !ReadProfile(packet[HeaderBytes..], out var profile) || profile is null || profile == _profiles[slot]) return;
+            !ReadProfile(packet[HeaderBytes..], out var profile) || profile is null) return;
+        ApplyProfile(slot, profile);
+    }
+
+    private void ApplyProfile(int slot, PlayerProfile profile)
+    {
+        if (IsReady(slot) || profile == _profiles[slot]) return;
+        if (HeroTaken(profile.Hero, slot))
+        {
+            // A joining player may have selected a hero already in use.
+            if (_profiles[slot] is not null) return;
+            int available = 0;
+            while (available < Math.Min(_characterCount, ushort.MaxValue) && HeroTaken(available, slot))
+                available++;
+            if (available >= Math.Min(_characterCount, ushort.MaxValue)) return;
+            profile = profile with { Hero = available };
+        }
         _profiles[slot] = profile;
+        BroadcastRoster();
+    }
+
+    internal void SetReady(bool ready)
+    {
+        if (!AcceptNewPlayers || LocalPlayerSlot is not int slot || _profiles[slot] is not { } profile) return;
+        if (IsHost) ApplyReady(slot, ready, profile.Hero);
+        else
+        {
+            Span<byte> packet = stackalloc byte[RunHeaderBytes + 3];
+            WriteRunHeader(packet, Message.Ready);
+            packet[RunHeaderBytes] = ready ? (byte)1 : (byte)0;
+            BinaryPrimitives.WriteUInt16LittleEndian(packet[(RunHeaderBytes + 1)..], (ushort)profile.Hero);
+            _transport.Send(_hostPeerId!, packet, reliable: true);
+        }
+    }
+
+    private void ReceiveReady(int slot, ReadOnlySpan<byte> packet)
+    {
+        if (!AcceptNewPlayers || packet.Length != RunHeaderBytes + 3 || !MatchesRun(packet) || packet[RunHeaderBytes] > 1)
+            return;
+        ApplyReady(slot, packet[RunHeaderBytes] != 0, BinaryPrimitives.ReadUInt16LittleEndian(packet[(RunHeaderBytes + 1)..]));
+    }
+
+    private void ApplyReady(int slot, bool ready, int hero)
+    {
+        if (IsReady(slot) == ready || _profiles[slot]?.Hero != hero) return;
+        if (ready) _readyMask |= (byte)(1 << slot);
+        else _readyMask &= unchecked((byte)~(1 << slot));
         BroadcastRoster();
     }
 
     private void BroadcastRoster()
     {
-        Span<byte> packet = stackalloc byte[HeaderBytes + 1 + MaxPlayers * ProfileBytes];
+        Span<byte> packet = stackalloc byte[HeaderBytes + 2 + MaxPlayers * ProfileBytes];
         Header(packet, Message.Roster);
         packet[HeaderBytes] = 0;
+        packet[HeaderBytes + 1] = _readyMask;
         for (int slot = 0; slot < MaxPlayers; slot++)
         {
             if (_present[slot]) packet[HeaderBytes] |= (byte)(1 << slot);
-            WriteProfile(packet.Slice(HeaderBytes + 1 + slot * ProfileBytes, ProfileBytes), _profiles[slot]);
+            WriteProfile(packet.Slice(HeaderBytes + 2 + slot * ProfileBytes, ProfileBytes), _profiles[slot]);
         }
         BroadcastControl(packet);
     }
 
     private void ReceiveRoster(ReadOnlySpan<byte> packet)
     {
-        if (packet.Length != HeaderBytes + 1 + MaxPlayers * ProfileBytes) return;
+        if (packet.Length != HeaderBytes + 2 + MaxPlayers * ProfileBytes) return;
         var profiles = new PlayerProfile?[MaxPlayers];
         for (int slot = 0; slot < MaxPlayers; slot++)
-            if (!ReadProfile(packet.Slice(HeaderBytes + 1 + slot * ProfileBytes, ProfileBytes), out profiles[slot])) return;
+            if (!ReadProfile(packet.Slice(HeaderBytes + 2 + slot * ProfileBytes, ProfileBytes), out profiles[slot])) return;
         profiles.CopyTo(_profiles, 0);
+        _readyMask = (byte)(packet[HeaderBytes + 1] & packet[HeaderBytes]);
         PlayerCount = 0;
         for (int slot = 0; slot < MaxPlayers; slot++)
         {

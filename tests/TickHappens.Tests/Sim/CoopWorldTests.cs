@@ -44,12 +44,13 @@ public sealed class CoopWorldTests
         Assert.Equal(fallen.RevivalTicks, client.Player.RevivalTicks);
 
         host.StepCoop([new RunInput(1, 0), default]);
-        TestWorld.Close(0.15f * (fallen.Character.Stats.MaxHp + 125), fallen.Hp);
+        TestWorld.Close(0.4f * (fallen.Character.Stats.MaxHp + 125), fallen.Hp);
         Assert.Equal(0, fallen.RevivalTicks);
         Assert.Equal(corpse, fallen.Pos);
-        Assert.Equal(RunWorld.TicksPerSecond, fallen.InvulnTicks);
+        Assert.Equal(2 * RunWorld.TicksPerSecond, fallen.InvulnTicks);
         Assert.True(client.TryApplySnapshot(snapshot.AsSpan(0, host.WriteSnapshot(snapshot))));
         Assert.Equal(fallen.Hp, client.Player.Hp);
+        Assert.Equal(fallen.InvulnTicks, client.Player.InvulnTicks);
         Assert.Equal(0, client.Player.RevivalTicks);
 
         Span<byte> events = stackalloc byte[CoopSession.MaxEventBytes];
@@ -57,6 +58,35 @@ public sealed class CoopWorldTests
         Assert.True(client.TryApplyEvents(events[..host.WriteEvents(events, ref next)]));
         var revival = Assert.Single(client.Events, e => e.Kind == EventKind.Revival);
         Assert.Equal(corpse, new Vector2(revival.X, revival.Y));
+    }
+
+    [Fact]
+    public void GuestLevelUpReplicatesThePlayerSlotAndLevel()
+    {
+        var content = TestContent.LoadCore();
+        var host = new RunWorld(content, playerCount: 2);
+        host.SetPlayerActive(1, true);
+        var guest = host.Players[1];
+
+        host.GX[0] = guest.Pos.X;
+        host.GY[0] = guest.Pos.Y - 8;
+        host.GKind[0] = PickupKind.Xp;
+        host.GValue[0] = (int)guest.XpNext;
+        host.GAlive[0] = true;
+        host.StepCoop([default, default]);
+
+        var client = new RunWorld(content, playerCount: 2, localPlayerId: 1);
+        byte[] snapshot = new byte[RunWorld.SnapshotCapacity];
+        Assert.True(client.TryApplySnapshot(snapshot.AsSpan(0, host.WriteSnapshot(snapshot))));
+        Span<byte> events = stackalloc byte[CoopSession.MaxEventBytes];
+        int next = 0;
+        Assert.True(client.TryApplyEvents(events[..host.WriteEvents(events, ref next)]));
+
+        var levelUp = Assert.Single(client.Events, e => e.Kind == EventKind.LevelUp);
+        Assert.Equal(1, host.Player.Level);
+        Assert.Equal(2, client.Player.Level);
+        Assert.Equal(client.Player.Id, levelUp.A);
+        Assert.Equal(client.Player.Level, levelUp.Value);
     }
 
     [Fact]

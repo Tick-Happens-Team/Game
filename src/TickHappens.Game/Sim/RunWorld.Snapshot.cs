@@ -52,6 +52,10 @@ public sealed partial class RunWorld
                 {
                     case "diver": w.Float(p.HeroDistance); break;
                     case "necromancer": w.Int(p.Souls); break;
+                    case "illusionist":
+                        w.Float(MathF.Max(0, p.IllusionHealth));
+                        w.Float(p.IllusionMaxHealth);
+                        break;
                     case "cybernetic_cube":
                         foreach (float bonus in p.CubeBonuses) w.Float(bonus);
                         break;
@@ -115,6 +119,8 @@ public sealed partial class RunWorld
                 w.Short(ally.Item & ushort.MaxValue);
                 w.Byte((byte)(ally.Owner | (ally.FacingLeft ? 4 : 0)));
                 WritePoint(ref w, ally.Pos.X, ally.Pos.Y);
+                w.Float(ally.Health);
+                w.Float(ally.AuraCapacity);
             }
             w.Short(CountActive(GAlive));
             for (int i = 0; i < PickupCapacity; i++)
@@ -252,8 +258,9 @@ public sealed partial class RunWorld
         {
             int slot = r.Byte(), id = r.Int(), item = r.Short(), flags = r.Byte();
             var pos = ReadPoint(ref r);
+            float health = r.Float(), capacity = r.Float();
             if (item > ushort.MaxValue - SoulCompanions.Length) item -= ushort.MaxValue + 1;
-            Require(slot > lastCompanion && slot < CompanionCapacity && id > 0 && flags <= 7 &&
+            Require(slot > lastCompanion && slot < CompanionCapacity && id > 0 && flags <= 7 && health >= 0 && capacity >= health &&
                 (flags & 3) < playerCount && (item < 0 || item < Content.Items.Count && Content.Items[item].Companion != null));
             lastCompanion = slot;
             if (!apply) continue;
@@ -263,6 +270,7 @@ public sealed partial class RunWorld
             ally = new Companion
             {
                 Active = true, Id = id, Item = item, Owner = flags & 3, FacingLeft = (flags & 4) != 0, Pos = pos, Prev = prevPos,
+                Health = health, AuraCapacity = capacity,
             };
         }
         if (apply)
@@ -361,6 +369,13 @@ public sealed partial class RunWorld
                 Require(cube[i] >= 0);
             }
         }
+        float illusionHealth = 0, illusionMaxHealth = 0;
+        if (hero == "illusionist")
+        {
+            illusionHealth = r.Float();
+            illusionMaxHealth = r.Float();
+            Require(illusionHealth >= 0 && illusionMaxHealth >= illusionHealth);
+        }
         int illusionUntil = r.Int();
         var illusionPos = ReadPoint(ref r);
         int chest = r.Int(), item = r.Int();
@@ -422,6 +437,8 @@ public sealed partial class RunWorld
             p.Souls = souls;
             if (hero == "cybernetic_cube") cube.CopyTo(p.CubeBonuses);
             p.IllusionUntilTick = illusionUntil;
+            p.IllusionHealth = illusionHealth;
+            p.IllusionMaxHealth = illusionMaxHealth;
             p.IllusionPosition = illusionPos;
             p.NearbyChest = chest;
             p.LastChestItem = item;

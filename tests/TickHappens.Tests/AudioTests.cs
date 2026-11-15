@@ -80,6 +80,36 @@ public class AudioTests
     }
 
     [Fact]
+    public void Exclusive_pause_music_replaces_a_crossfade_and_run_music_resumes_in_place()
+    {
+        var mixer = new AudioMixer { MusicVolume = 1 };
+        var reference = new AudioMixer { MusicVolume = 1 };
+        var menu = new AudioClip("menu", [-0.1f, -0.2f], 1, AudioMixer.Rate);
+        var run = new AudioClip("run", [0.1f, 0.2f, 0.3f], 1, AudioMixer.Rate);
+        var pause = new AudioClip("pause", [0.5f, 0.5f], 1, AudioMixer.Rate);
+        var block = new float[2048];
+        var referenceBlock = new float[2048];
+
+        mixer.PlayMusic(menu, 1, 0.01f);
+        mixer.Mix(block);
+        mixer.PlayMusic(run, 1, 0.05f);
+        reference.PlayMusic(run, 1, 0.05f);
+        mixer.Mix(block);
+        reference.Mix(referenceBlock);
+
+        mixer.SetExclusiveMusic(pause);
+        mixer.Mix(block);
+        Assert.Same(pause, mixer.CurrentMusic);
+        Assert.All(block[1600..], sample => Assert.Equal(0.5f, sample));
+
+        mixer.SetExclusiveMusic(null);
+        mixer.Mix(block);
+        reference.Mix(referenceBlock);
+        Assert.Same(run, mixer.CurrentMusic);
+        Assert.Equal(referenceBlock, block);
+    }
+
+    [Fact]
     public void Sound_and_music_recipes_render_deterministically()
     {
         string dir = Path.GetDirectoryName(Temp("x"))!;

@@ -69,7 +69,10 @@ public sealed class HeroPassiveTests
 
         CopySnapshot(world, replica);
         Assert.Equal(0, replica.Player.Souls);
-        Assert.Equal(type, Assert.Single(replica.Companions.ToArray(), ally => ally.Active).Item);
+        var replicaCompanion = Assert.Single(replica.Companions.ToArray(), ally => ally.Active);
+        Assert.Equal(type, replicaCompanion.Item);
+        Assert.Equal(companion.Health, replicaCompanion.Health);
+        Assert.Equal(companion.AuraCapacity, replicaCompanion.AuraCapacity);
     }
 
     [Fact]
@@ -84,6 +87,11 @@ public sealed class HeroPassiveTests
         world.Step(default);
         Assert.Equal(world.Tick + 8 * RunWorld.TicksPerSecond, world.Player.IllusionUntilTick);
         TestWorld.Close(world.MaxHealth * 0.3f, world.Player.IllusionHealth);
+        world.Player.IllusionHealth *= 0.5f;
+        var replica = new RunWorld(world.Content, character: "illusionist");
+        CopySnapshot(world, replica);
+        Assert.Equal(world.Player.IllusionHealth, replica.Player.IllusionHealth);
+        Assert.Equal(world.Player.IllusionMaxHealth, replica.Player.IllusionMaxHealth);
         Assert.Contains(RunWorld.ProjectileStyle.Phantom, world.PStyle);
         Step(world, 8 * RunWorld.TicksPerSecond);
         Assert.Equal(world.Tick, world.Player.IllusionUntilTick);
@@ -106,16 +114,15 @@ public sealed class HeroPassiveTests
     }
 
     [Fact]
-    public void CubeCanEarnItsFirstUpgradeWithoutCombatXp()
+    public void CubeStartsWithEightDamageAndGainsHalfADamagePerLevelEarnedThroughXp()
     {
         var world = new RunWorld(QuietContent(), character: "cybernetic_cube");
-        Step(world, 15 * RunWorld.TicksPerSecond - 1);
+        Step(world, 15 * RunWorld.TicksPerSecond);
         Assert.Equal(1, world.Player.Level);
-        Assert.Equal(0, world.Player.Stats[Stat.Damage]);
+        Assert.Equal(8, world.Player.Stats.Base(Stat.Damage));
 
-        world.Step(default);
-        Assert.Equal(2, world.Player.Level);
-        Assert.True(world.Player.Stats[Stat.Damage] > 0);
+        TestWorld.LevelTo(world, 3);
+        Assert.Equal(9, world.Player.Stats.Base(Stat.Damage));
     }
 
     [Fact]

@@ -28,6 +28,7 @@ public sealed class AudioMixer
 
     private readonly Voice[] _voices = new Voice[MaxVoices];
     private readonly MusicSlot[] _music = new MusicSlot[2];
+    private MusicSlot _exclusiveMusic;
     private long _serial;
     private float _limit = 1;
 
@@ -36,7 +37,7 @@ public sealed class AudioMixer
     public float SfxVolume { get; set; } = 0.9f;
     /// <summary>Peak absolute sample written by the last <see cref="Mix"/> call (for tests and meters).</summary>
     public float LastPeak { get; private set; }
-    public AudioClip? CurrentMusic => _music[0].Target > 0 ? _music[0].Clip : null;
+    public AudioClip? CurrentMusic => _exclusiveMusic.Clip ?? (_music[0].Target > 0 ? _music[0].Clip : null);
 
     public int ActiveVoices
     {
@@ -98,12 +99,24 @@ public sealed class AudioMixer
         _music[0].Rate = MathF.Max(0.0001f, MathF.Abs(volume - _music[0].Gain)) / MathF.Max(0.01f, fadeSeconds) / Rate;
     }
 
+    /// <summary>Temporarily replaces the crossfading tracks with one loop and holds the current track's position.</summary>
+    public void SetExclusiveMusic(AudioClip? clip, float volume = 1)
+    {
+        if (ReferenceEquals(_exclusiveMusic.Clip, clip)) return;
+        if (clip is not null) _music[1] = default;
+        _exclusiveMusic = new MusicSlot
+        {
+            Clip = clip, Target = volume, Rate = volume / (Rate * 0.02f),
+        };
+    }
+
     public void StopMusic(float fadeSeconds = 1f) => SetMusicLevel(0, fadeSeconds);
 
     public void StopAll()
     {
         Array.Clear(_voices);
         Array.Clear(_music);
+        _exclusiveMusic = default;
     }
 
     /// <summary>Mixes interleaved stereo frames into <paramref name="stereo"/> (overwrites it).</summary>
@@ -136,25 +149,12 @@ public sealed class AudioMixer
                 v.Pos += v.Step;
             }
         }
-        for (int m = 0; m < _music.Length; m++)
+        if (_exclusiveMusic.Clip is not null) MixMusic(ref _exclusiveMusic, stereo, mus, frames);
+        else
         {
-            ref var slot = ref _music[m];
-            if (slot.Clip == null) continue;
-            var s = slot.Clip.Samples;
-            int ch = slot.Clip.Channels, n = slot.Clip.Frames;
-            double step = (double)slot.Clip.Rate / Rate;
-            for (int f = 0; f < frames; f++)
-            {
-                if (slot.Gain < slot.Target) slot.Gain = MathF.Min(slot.Target, slot.Gain + slot.Rate);
-                else if (slot.Gain > slot.Target) slot.Gain = MathF.Max(slot.Target, slot.Gain - slot.Rate);
-                int k = (int)slot.Pos;
-                float g = slot.Gain * mus;
-                stereo[f * 2] += s[k * ch] * g;
-                stereo[f * 2 + 1] += s[k * ch + ch - 1] * g;
-                slot.Pos += step;
-                if (slot.Pos >= n) slot.Pos -= n;  // loop: music files are rendered loop-seamless
-            }
-            if (slot.Gain <= 0 && slot.Target <= 0 && m == 1) slot.Clip = null;
+            MixMusic(ref _music[0], stereo, mus, frames);
+            MixMusic(ref _music[1], stereo, mus, frames);
+            if (_music[1].Gain <= 0 && _music[1].Target <= 0) _music[1] = default;
         }
         // Limiter: instant attack, ~150 ms release, then a soft knee as a last guard.
         float release = 1f / (0.15f * Rate), peak = 0;
@@ -171,5 +171,24 @@ public sealed class AudioMixer
             }
         }
         LastPeak = peak;
+    }
+
+    private static void MixMusic(ref MusicSlot slot, Span<float> stereo, float mus, int frames)
+    {
+        if (slot.Clip == null) return;
+        var s = slot.Clip.Samples;
+        int ch = slot.Clip.Channels, n = slot.Clip.Frames;
+        double step = (double)slot.Clip.Rate / Rate;
+        for (int f = 0; f < frames; f++)
+        {
+            if (slot.Gain < slot.Target) slot.Gain = MathF.Min(slot.Target, slot.Gain + slot.Rate);
+            else if (slot.Gain > slot.Target) slot.Gain = MathF.Max(slot.Target, slot.Gain - slot.Rate);
+            int k = (int)slot.Pos;
+            float g = slot.Gain * mus;
+            stereo[f * 2] += s[k * ch] * g;
+            stereo[f * 2 + 1] += s[k * ch + ch - 1] * g;
+            slot.Pos += step;
+            if (slot.Pos >= n) slot.Pos -= n;  // loop: music files are rendered loop-seamless
+        }
     }
 }
