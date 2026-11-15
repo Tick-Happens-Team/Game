@@ -118,10 +118,13 @@ public sealed partial class RunWorld
         }
         if (slot < 0)
         {
-            // Full: merge XP into an existing crystal instead of losing it.
             if (kind == PickupKind.Xp)
+            {
+                // Merge only with a crystal belonging to the same player.
                 for (int i = 0; i < PickupCapacity; i++)
-                    if (GKind[i] == PickupKind.Xp) { GValue[i] += value; return; }
+                    if (GKind[i] == PickupKind.Xp && GOwner[i] == owner) { GValue[i] += value; return; }
+                if (owner >= 0) GainXp(_players[owner], value);
+            }
             if (kind == PickupKind.Cursed) AwardItem(_players[owner], value, fromChest: false);
             return;
         }
@@ -136,8 +139,13 @@ public sealed partial class RunWorld
         for (int i = 0; i < PickupCapacity; i++)
         {
             if (!GAlive[i]) continue;
-            int collector = _gPullTarget[i];
-            if (!_gPulled[i] || !_players[collector].Active || _players[collector].Hp <= 0)
+            bool ownedXp = GKind[i] == PickupKind.Xp && GOwner[i] >= 0;
+            int collector = ownedXp ? GOwner[i] : _gPullTarget[i];
+            if (ownedXp)
+            {
+                if (!_players[collector].Active || _players[collector].Hp <= 0) continue;
+            }
+            else if (!_gPulled[i] || !_players[collector].Active || _players[collector].Hp <= 0)
             {
                 _gPulled[i] = false;
                 float closest = float.PositiveInfinity;
@@ -171,9 +179,12 @@ public sealed partial class RunWorld
                 Emit(EventKind.Pickup, GX[i], GY[i], GValue[i], a: (int)GKind[i]);
                 continue;
             }
-            float speed = GKind[i] is PickupKind.Xp or PickupKind.Gold
-                ? 15 * Rules.Units.MoveSpeedScale
-                : 140 + 260 * MathF.Max(0, 1 - d / MathF.Max(magnet, 1));
+            float speed = GKind[i] switch
+            {
+                PickupKind.Xp when ownedXp => 80 * Rules.Units.MoveSpeedScale,
+                PickupKind.Xp or PickupKind.Gold => 15 * Rules.Units.MoveSpeedScale,
+                _ => 140 + 260 * MathF.Max(0, 1 - d / MathF.Max(magnet, 1)),
+            };
             float step = MathF.Min(d, speed * Dt);
             GX[i] += dx / d * step;
             GY[i] += dy / d * step;

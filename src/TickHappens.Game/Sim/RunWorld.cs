@@ -104,7 +104,6 @@ public sealed partial class RunWorld
         Array.Fill(EX, -1e6f);
         Array.Fill(EY, -1e6f);
         _grid = new SpatialGrid(0, 0, arena, arena, 24);
-        _maxEnemyRadius = content.Enemies.Select(enemy => enemy.Radius).DefaultIfEmpty(0).Max();
         _enemyKind = [.. content.Enemies.Select(en => ContentLoader.TryParseDamage(en.DamageType, out var k) ? k : DamageKind.Physical)];
         InitPickups();
         PlaceStatuesAndChests();
@@ -156,13 +155,15 @@ public sealed partial class RunWorld
                     new Vector2(12), new Vector2(Rules.ArenaSize - 12));
                 next.Prev = next.Pos;
             }
+            for (int i = 0; i < PickupCapacity; i++)
+                if (GAlive[i] && GKind[i] == PickupKind.Xp && GOwner[i] == id) GAlive[i] = false;
             _players[id] = next;
             return;
         }
         _players[id].Active = false;
         for (int i = 0; i < TrailCapacity; i++) _heroTrail[id, i] = default;
         for (int i = 0; i < PickupCapacity; i++)
-            if (GAlive[i] && GOwner[i] == id) GAlive[i] = false;
+            if (GAlive[i] && GKind[i] != PickupKind.Xp && GOwner[i] == id) GAlive[i] = false;
         for (int i = 0; i < ProjectileCapacity; i++)
             if (PAlive[i] && _pOwner[i] == id) PAlive[i] = false;
     }
@@ -371,7 +372,7 @@ public sealed partial class RunWorld
         float a = Rules.ArenaSize;
         var min = new Vector2(12);
         var max = new Vector2(a - 12);
-        p.Pos = Vector2.Clamp(MoveBody(p.Pos, Vector2.Clamp(p.Pos + move, min, max), PlayerRadius, player: p.Id), min, max);
+        p.Pos = Vector2.Clamp(MoveWithTeammateCollision(p, Vector2.Clamp(p.Pos + move, min, max)), min, max);
         p.Walking = p.Pos != p.Prev;
         if (!predict)
         {
@@ -545,31 +546,10 @@ public sealed partial class RunWorld
         return slot;
     }
 
-    private struct Separation(RunWorld w, int self, float radius) : IGridVisitor
-    {
-        public float Px, Py;
-        public void Visit(int j)
-        {
-            if (j == self || !w.EAlive[j]) return;
-            float dx = w.EX[self] - w.EX[j], dy = w.EY[self] - w.EY[j], d2 = dx * dx + dy * dy;
-            float min = radius + w.Content.Enemies[w.EDef[j]].Radius;
-            if (d2 >= min * min) return;
-            if (d2 < 0.0001f) { dx = (self - j) * 0.01f; dy = 0.01f; d2 = dx * dx + dy * dy; }
-            float d = MathF.Sqrt(d2), push = (min - d) / d;
-            Px += dx * push;
-            Py += dy * push;
-        }
-    }
-
-    private void BuildEnemyGrid()
-    {
-        _grid.Build(EX.AsSpan(0, _enemyHigh), EY.AsSpan(0, _enemyHigh));
-        _enemyGridShift = 0;
-    }
+    private void BuildEnemyGrid() => _grid.Build(EX.AsSpan(0, _enemyHigh), EY.AsSpan(0, _enemyHigh));
 
     private void StepEnemies()
     {
-        BuildEnemyGrid();
         float arena = Rules.ArenaSize;
         float moveSpeedScale = Rules.Units.MoveSpeedScale * (1 + 0.01f * Minutes);
         bool hasCompanions = false;
@@ -613,17 +593,11 @@ public sealed partial class RunWorld
             var direction = goal - new Vector2(EX[i], EY[i]);
             float distanceToGoal = direction.Length();
             if (distanceToGoal > 0.01f) { vx = direction.X / distanceToGoal * speed; vy = direction.Y / distanceToGoal * speed; }
-            var sep = new Separation(this, i, d.Radius);
-            _grid.Query(EX[i], EY[i], d.Radius + _maxEnemyRadius + _enemyGridShift, ref sep);
             if (d.Behavior == "vein") continue;
-            var start = SeparateFromPlayers(new Vector2(EX[i], EY[i]), d.Radius, i);
-            var move = new Vector2(vx + EKx[i], vy + EKy[i]) * Dt + new Vector2(sep.Px, sep.Py) * 0.5f;
-            var min = new Vector2(4);
-            var max = new Vector2(arena - 4);
-            var end = Vector2.Clamp(MoveBody(start, Vector2.Clamp(start + move, min, max), d.Radius, enemy: i), min, max);
+            var start = new Vector2(EX[i], EY[i]);
+            var move = new Vector2(vx + EKx[i], vy + EKy[i]) * Dt;
+            var end = Vector2.Clamp(start + move, new Vector2(4), new Vector2(arena - 4));
             (EX[i], EY[i]) = (end.X, end.Y);
-            _enemyGridShift = Math.Max(_enemyGridShift, Vector2.Distance(pos, end));
-            if (_enemyGridShift > 24) BuildEnemyGrid();
             dist = Vector2.Distance(p, end);
             if (!stunned && d.Behavior == "jumper" && Tick == _enemyAbilities[i].Expires)
                 EnemyAreaAttack(end, 50, EDamage[i], DamageKind.Physical, effect: EventKind.EnemyQuake);
@@ -789,9 +763,10 @@ public sealed partial class RunWorld
         var d = Content.Enemies[EDef[i]];
         OnEnemyAbilityDeath(i, d);
         if (deathEffects) QueueEnemyDeathEffect(i, d, credit);
-        if (d.Xp > 0 && (deathEffects || (uint)credit < (uint)_players.Length))
-            DropPickup(PickupKind.Xp, EX[i], EY[i], d.Xp, -1);
-        if ((uint)credit < (uint)_players.Length)
+        bool hasKiller = (uint)credit < (uint)_players.Length;
+        if (d.Xp > 0 && (deathEffects || hasKiller))
+            DropPickup(PickupKind.Xp, EX[i], EY[i], d.Xp, hasKiller ? credit : -1);
+        if (hasKiller)
         {
             var killer = _players[credit];
             bool countsAsKill = d.Behavior is not ("illusion" or "vein");
@@ -804,7 +779,9 @@ public sealed partial class RunWorld
             if (countsAsKill && d.Gold > 0 && _rng.Next() < d.GoldChance)
             {
                 int gold = d.Gold + (int)Minutes * Content.Waves.GoldPerMinute;
-                DropPickup(PickupKind.Gold, EX[i] + _rng.Range(-3, 3), EY[i] + _rng.Range(-3, 3), gold, credit);
+                CollectGold(killer, gold, credit);
+                Emit(EventKind.Pickup, EX[i] + _rng.Range(-3, 3), EY[i] + _rng.Range(-3, 3),
+                    gold, a: (int)PickupKind.Gold);
             }
             Emit(EventKind.Kill, EX[i], EY[i], a: EDef[i], b: killer.Id, seed: dropSeed);
             if (countsAsKill && triggerItems) OnEnemyKilledWithItemEffects(_players[credit], new Vector2(EX[i], EY[i]));

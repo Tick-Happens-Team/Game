@@ -35,8 +35,12 @@ public sealed class ItemSheetTests
         var world = new RunWorld(content);
         int dog = content.ItemIndex("sausages");
         world.GiveItem(dog);
-        int enemy = world.SpawnEnemy(0, world.Player.Pos + new Vector2(100, 0));
-        world.DamageEnemy(enemy, 1000, DamageKind.Pure, new DamageSourceRef(0), 0, 0);
+        world.GX[0] = world.Player.Pos.X + 100;
+        world.GY[0] = world.Player.Pos.Y - 8;
+        world.GKind[0] = PickupKind.Xp;
+        world.GOwner[0] = -1;
+        world.GValue[0] = 1;
+        world.GAlive[0] = true;
         world.Step(default);
 
         byte[] snapshot = new byte[RunWorld.SnapshotCapacity];
@@ -58,6 +62,7 @@ public sealed class ItemSheetTests
         world.GX[0] = start;
         world.GY[0] = world.Player.Pos.Y - 8;
         world.GKind[0] = kind;
+        world.GOwner[0] = kind == PickupKind.Xp ? -1 : world.Player.Id;
         world.GAlive[0] = true;
 
         float step = 15 * world.Rules.Units.MoveSpeedScale * RunWorld.Dt;

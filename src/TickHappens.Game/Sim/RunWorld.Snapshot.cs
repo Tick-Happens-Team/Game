@@ -7,7 +7,8 @@ namespace TickHappens.Game.Sim;
 public sealed partial class RunWorld
 {
     public const int SnapshotCapacity = 64 * 1024;
-    private const byte SnapshotVersion = 7;
+    private const byte SnapshotVersion = 8;
+    private const int OwnedXpPickupBase = 13;
     private int _replicaTick = -1;
     private readonly ushort[] _enemySnapshotSlots = new ushort[ushort.MaxValue / 8];
 
@@ -132,7 +133,10 @@ public sealed partial class RunWorld
             {
                 if (!GAlive[i]) continue;
                 WritePoint(ref w, GX[i], GY[i]);
-                w.Byte(GKind[i] == PickupKind.Xp ? (byte)0 : (byte)(1 + ((int)GKind[i] - 1) * 4 + GOwner[i]));
+                int packed = GKind[i] == PickupKind.Xp
+                    ? GOwner[i] < 0 ? 0 : OwnedXpPickupBase + GOwner[i]
+                    : 1 + ((int)GKind[i] - 1) * 4 + GOwner[i];
+                w.Byte((byte)packed);
                 w.Short(Math.Min(ushort.MaxValue, GValue[i]));
             }
             w.Short(CountActive(PAlive));
@@ -298,9 +302,10 @@ public sealed partial class RunWorld
         {
             var position = ReadPoint(ref r);
             int packed = r.Byte(), value = r.Short();
-            int owner = packed == 0 ? -1 : (packed - 1) & 3;
-            var kind = packed == 0 ? PickupKind.Xp : (PickupKind)(1 + (packed - 1) / 4);
-            Require(kind <= PickupKind.Cursed && owner < playerCount &&
+            bool ownedXp = packed >= OwnedXpPickupBase;
+            int owner = ownedXp ? packed - OwnedXpPickupBase : packed == 0 ? -1 : (packed - 1) & 3;
+            var kind = packed == 0 || ownedXp ? PickupKind.Xp : (PickupKind)(1 + (packed - 1) / 4);
+            Require(owner < playerCount &&
                 (kind != PickupKind.Cursed || value < Content.Items.Count && Content.Items[value].Rarity == ContentSet.CursedRarity));
             if (!apply) continue;
             GAlive[i] = true;
