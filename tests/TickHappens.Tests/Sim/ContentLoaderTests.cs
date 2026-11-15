@@ -15,7 +15,8 @@ public sealed class ContentLoaderTests
 
         Assert.Equal(CharacterIds.Length, content.Characters.Count);
         Assert.Equal(62, content.Items.Count);
-        Assert.Equal(3, content.Enemies.Count);
+        Assert.Equal(new[] { "gloombat", "amberslime", "duskslime", "rot", "spark", "kamikaze" },
+            content.Enemies.Select(enemy => enemy.Id));
         Assert.NotEmpty(content.Waves.Waves);
         Assert.Equal(1.5m, content.Rules.Chests.PriceGrowth);
         Assert.Equal(0.9f, content.Rules.Units.ResistCap);

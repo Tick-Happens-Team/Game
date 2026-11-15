@@ -85,7 +85,7 @@ public sealed class CharacterStats
     [JsonPropertyName("damage")] public float Damage { get; set; } = 10;
     [JsonPropertyName("damagePerLevel")] public float DamagePerLevel { get; set; }
     [JsonPropertyName("regen")] public float Regen { get; set; }
-    [JsonPropertyName("magnet")] public float Magnet { get; set; } = 30;
+    [JsonPropertyName("magnet")] public float Magnet { get; set; } = 34;
 }
 
 /// <summary>Basic attack: auto-aimed projectiles, visually the same for every hero.</summary>
@@ -222,6 +222,14 @@ public sealed class EnemyDef
     /// <summary>Bosses are excluded from execute effects.</summary>
     [JsonPropertyName("boss")] public bool Boss { get; set; }
     [JsonPropertyName("elite")] public bool Elite { get; set; }
+    [JsonPropertyName("attackSpeed")] public float AttackSpeed { get; set; }
+    [JsonPropertyName("shotRange")] public float ShotRange { get; set; }
+    [JsonPropertyName("shotSpeed")] public float ShotSpeed { get; set; }
+    [JsonPropertyName("detonateRange")] public float DetonateRange { get; set; }
+    [JsonPropertyName("blastRadius")] public float BlastRadius { get; set; }
+    [JsonPropertyName("cloudRadius")] public float CloudRadius { get; set; }
+    [JsonPropertyName("cloudSeconds")] public float CloudSeconds { get; set; }
+    [JsonPropertyName("cloudDps")] public float CloudDps { get; set; }
 }
 
 public sealed class WaveDef

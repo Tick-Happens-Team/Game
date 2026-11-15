@@ -10,7 +10,7 @@ using TickHappens.Game.Sim;
 namespace TickHappens.Game;
 
 /// <summary>Screen-space HUD, character select and overlays drawn into the renderer's UI layer, plus short-lived world rings.</summary>
-internal sealed class Hud(GameSettings settings)
+internal sealed partial class Hud(GameSettings settings)
 {
     private const uint Ink = 0xFF22141Au, White = 0xFFEAECF4u, Teal = 0xFFDEF08Fu, TealDark = 0xFF6A8A1Fu, Gold = 0xFF3DC2FFu,
         Red = 0xFF2028C9u, RedDark = 0xFF17128Au, Grey = 0xFF857A6Cu, Panel = 0xFF331B2Bu,
@@ -95,7 +95,8 @@ internal sealed class Hud(GameSettings settings)
     public static string ItemName(ItemDef item) =>
         Localizer.Content("items", item.Id, "name", string.IsNullOrEmpty(item.Name) ? item.Id : item.Name);
 
-    public void Draw(PixelRenderer renderer, RunWorld world, Vector2 hero, float dt, bool paused, bool online, string? interruption, bool canReconnect)
+    public void Draw(PixelRenderer renderer, RunWorld world, Vector2 hero, float dt, bool paused, bool online, string? interruption, bool canReconnect,
+        bool itemsOpen)
     {
         var ui = PixelCanvas.ColorOf(renderer.UiFrame);
         int w = renderer.UiW, h = renderer.UiH;
@@ -128,32 +129,9 @@ internal sealed class Hud(GameSettings settings)
             for (int i = 0; i < dashCapacity; i++)
                 ui.Set(hx - dashCapacity + i * 2, hy + 8, i < dashCapacity - p.DashChargesUsed ? Teal : Grey);
 
-        // Top: XP bar, hero and level, run clock (with statue bonus), gold and chest price, kills.
-        Bar(ui, 2, 2, w - 4, 5, p.Xp / p.XpNext, Teal, TealDark);
-        PixelFont.Draw(ui, Localizer.Format("hud.level", CharacterName(p.Character), p.Level), 4, 10, White, Ink);
-        PixelFont.Draw(ui, Localizer.Format("hud.hp", (int)MathF.Ceiling(p.Hp), (int)MathF.Ceiling(world.MaxHealth)), 4, 20, 0xFF7070FFu, Ink);
-        if (p.Character.Id == "necromancer")
-            PixelFont.Draw(ui, Localizer.Format("hud.souls", p.Souls), 4, 30, Teal, Ink);
-        int secs = (int)world.RunSeconds;
-        PixelFont.DrawCentered(ui, Localizer.Format("hud.time", secs / 60, secs % 60), w / 2, 10, White, Ink, 2);
-        if (world.BonusSeconds > 0)
-            PixelFont.DrawCentered(ui, Localizer.Format("hud.statues", (int)world.BonusSeconds / 60, (int)world.BonusSeconds % 60), w / 2, 27, Teal, Ink);
-        string right = Localizer.Format("hud.gold", p.Wallet.Gold, p.Wallet.NextPrice);
-        PixelFont.Draw(ui, right, w - 4 - PixelFont.Measure(right), 10, Gold, Ink);
-        string kills = Localizer.Format("hud.kills", p.Kills);
-        PixelFont.Draw(ui, kills, w - 4 - PixelFont.Measure(kills), 20, Grey, Ink);
+        DrawRunHeader(ui, world, w);
 
-        // Bottom-left: items with stacks, colored by rarity.
-        int lines = 0;
-        for (int i = 0; i < p.ItemStacks.Length; i++) if (p.ItemStacks[i] > 0) lines++;
-        int ly = h - 4 - PixelFont.LineHeight * lines;
-        for (int i = 0; i < p.ItemStacks.Length; i++)
-        {
-            if (p.ItemStacks[i] == 0) continue;
-            var it = world.Content.Items[i];
-            PixelFont.Draw(ui, p.ItemStacks[i] > 1 ? Localizer.Format("hud.stack", ItemName(it), p.ItemStacks[i]) : ItemName(it), 4, ly, RarityColor(it.Rarity), Ink);
-            ly += PixelFont.LineHeight;
-        }
+        if (!itemsOpen) DrawItemSummary(ui, world, h);
 
         // Chest hint and notices.
         if (world.NearbyChest >= 0)
@@ -165,12 +143,29 @@ internal sealed class Hud(GameSettings settings)
         else if (_noticeAge < 2.6f)
         {
             if (!paused) _noticeAge += dt;
-            PixelFont.DrawCentered(ui, _notice, w / 2, 40, _noticeColor, Ink);
+            PixelFont.DrawCentered(ui, _notice, w / 2, RunHeaderBottom + 5, _noticeColor, Ink);
         }
 
         if (world.Phase == RunPhase.Dead || interruption is not null)
             DrawResults(ui, world, w, h, online, interruption, canReconnect);
         else if (paused) Dim(ui, w, h, 0.5f);
+    }
+
+    private static void DrawItemSummary(PixelCanvas ui, RunWorld world, int h)
+    {
+        var p = world.Player;
+        int lines = 0;
+        for (int i = 0; i < p.ItemStacks.Length; i++) if (p.ItemStacks[i] > 0) lines++;
+        int ly = h - 4 - PixelFont.LineHeight * lines;
+        for (int i = 0; i < p.ItemStacks.Length; i++)
+        {
+            if (p.ItemStacks[i] == 0) continue;
+            var it = world.Content.Items[i];
+            uint rarity = RarityColor(it.Rarity);
+            DrawIcon(ui, 5, ly - 1, LootIcon, rarity, White);
+            PixelFont.Draw(ui, p.ItemStacks[i] > 1 ? Localizer.Format("hud.stack", ItemName(it), p.ItemStacks[i]) : ItemName(it), 16, ly, rarity, Ink);
+            ly += PixelFont.LineHeight;
+        }
     }
 
     private void DrawChestOffer(PixelCanvas ui, RunWorld world, int width)
@@ -182,8 +177,8 @@ internal sealed class Hud(GameSettings settings)
         int cardWidth = Math.Min(220, (width - 20) / count);
         int totalWidth = cardWidth * count + (count - 1) * 4;
         int x = (width - totalWidth) / 2;
-        PixelFont.DrawCentered(ui, Localizer.Format("hud.chestChoice", seconds), width / 2, 43, Gold, Ink);
-        Bar(ui, x + 1, 53, totalWidth - 2, 2, (float)left / RunWorld.ChestChoiceTicks, Gold, Panel);
+        PixelFont.DrawCentered(ui, Localizer.Format("hud.chestChoice", seconds), width / 2, RunHeaderBottom + 7, Gold, Ink);
+        Bar(ui, x + 1, RunHeaderBottom + 17, totalWidth - 2, 2, (float)left / RunWorld.ChestChoiceTicks, Gold, Panel);
         DrawChestCard(ui, world.Content.Items[p.ChestOfferFirst], RunAction.Chest1, x, cardWidth);
         DrawChestCard(ui, world.Content.Items[p.ChestOfferSecond], RunAction.Chest2, x + cardWidth + 4, cardWidth);
         if (count == 3)
@@ -192,7 +187,7 @@ internal sealed class Hud(GameSettings settings)
 
     private void DrawChestCard(PixelCanvas ui, ItemDef item, RunAction choice, int x, int width)
     {
-        const int top = 58;
+        const int top = RunHeaderBottom + 22;
         int columns = Math.Max(1, (width - 12) / PixelFont.Advance);
         string title = $"[{GameSettings.KeyLabel(settings.Keys[(int)choice])}] {ItemName(item)}";
         string description = Localizer.Content("items", item.Id, "description", item.Description);

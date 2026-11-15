@@ -243,8 +243,8 @@ The owner's roster has 23 enemies: 10 normal, 8 elite, 5 bosses. They replace th
 
 | Enemy | Role | HP | Damage | Type | Move speed | Attack speed | Magic resist | Armor | XP | Lifesteal | Behaviour | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Rot | normal | 80 | 8 | physical | 10 | 15 | 0% | 0% | 10 | 5% | slow melee chaser; on death leaves a rot cloud (radius 200, 15 magical dps) | [ ] |
-| Kamikaze | normal | 50 | 50 | magical | 25 | — | 0% | 0% | 7 | 0% | runs at the player and blows itself up nearby; its death explosion damages the player and enemies | [ ] |
+| Rot | normal | 80 | 8 | physical | 10 | 15 | 0% | 0% | 10 | 5% | slow melee chaser; on death leaves a rot cloud for 4 s (radius 50 px, 15 magical dps) | [x] |
+| Kamikaze | normal | 50 | 50 | magical | 25 | — | 0% | 0% | 7 | 0% | winds up within 22 px of the player and self-destructs; its death explosion damages players and enemies within 55 px | [x] |
 | Screamer | normal | 75 | — | — | 25 | — | 0% | 0% | 10 | 0% | screams from behind the horde; if alive after 10 s, buffs all existing enemies by +50 HP and +5 Move speed | [ ] |
 | Siphoner | normal | 100 | 5 | magical | 20 | drains 15 HP/s | 5% | 5% | 20 | 0% | drains the player's HP from range and turns it into its own max HP | [ ] |
 
@@ -252,7 +252,7 @@ The owner's roster has 23 enemies: 10 normal, 8 elite, 5 bosses. They replace th
 
 | Enemy | Role | HP | Damage | Type | Move speed | Attack speed | Magic resist | Armor | XP | Lifesteal | Behaviour | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Spark | normal | 50 | 10 | magical | 25 | 25 | 10% | 5% | 10 | 0% | a spark that shoots small sparks at the hero from range | [ ] |
+| Spark | normal | 50 | 10 | magical | 25 | 25 | 10% | 5% | 10 | 0% | keeps its distance and fires small sparks from up to 160 px | [x] |
 | Witch | elite | 125 | 12 | magical | 20 | 25 | 15% | 10% | 30 | 10% | lightning that can hit several targets (reuses the chain arc) | [ ] |
 | Jumper | normal | 100 | 15 | physical | 0 | — | 20% | 20% | 20 | 0% | moves only by jumps every 2 s up to 250; each landing makes an earthquake (radius 150, 15 damage) | [ ] |
 | Dark Mage | elite | 100 | 25 | magical | 0 | 20 | 40% | 15% | 40 | 15% | dark-magic caster that moves only by teleport | [ ] |

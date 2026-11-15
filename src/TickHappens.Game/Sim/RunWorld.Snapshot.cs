@@ -100,6 +100,7 @@ public sealed partial class RunWorld
                 w.Short(EDef[i]);
                 int hp = Math.Clamp((int)MathF.Ceiling(EHp[i] / EMaxHp[i] * 63), 1, 63);
                 w.Byte((byte)(hp | (EFlash[i] > 0 ? 64 : 0)));
+                w.Byte(_enemyAttackTicks[i]);
             }
             int companions = 0;
             foreach (ref readonly var ally in Companions) if (ally.Active) companions++;
@@ -130,6 +131,20 @@ public sealed partial class RunWorld
                 w.Byte((byte)PStyle[i]);
                 w.Short((int)Math.Clamp(MathF.Round(PVx[i] * 4), short.MinValue, short.MaxValue) & ushort.MaxValue);
                 w.Short((int)Math.Clamp(MathF.Round(PVy[i] * 4), short.MinValue, short.MaxValue) & ushort.MaxValue);
+            }
+            w.Short(_enemyShotCount);
+            foreach (ref readonly var shot in EnemyShots)
+            {
+                WritePoint(ref w, shot.Pos.X, shot.Pos.Y);
+                w.Float(shot.Velocity.X);
+                w.Float(shot.Velocity.Y);
+            }
+            w.Byte((byte)_enemyCloudCount);
+            foreach (ref readonly var cloud in EnemyClouds)
+            {
+                WritePoint(ref w, cloud.Pos.X, cloud.Pos.Y);
+                w.Float(cloud.Radius);
+                w.Int(cloud.Life);
             }
             return w.Length;
         }
@@ -196,9 +211,9 @@ public sealed partial class RunWorld
         {
             int slot = r.Short(), uid = r.Short();
             Vector2 position = ReadPoint(ref r);
-            int def = r.Short(), status = r.Byte();
+            int def = r.Short(), status = r.Byte(), windup = r.Byte();
             Require(slot < EnemyCapacity && slot > prev && def < Content.Enemies.Count &&
-                status is >= 1 and <= 127 && (status & 63) > 0);
+                status is >= 1 and <= 127 && (status & 63) > 0 && windup <= EnemyWindupTicks);
             prev = slot;
             if (!apply) continue;
             _enemySnapshotSlots[j] = (ushort)slot;
@@ -211,6 +226,7 @@ public sealed partial class RunWorld
             EDef[slot] = (short)def;
             EUid[slot] = uid;
             EFlash[slot] = (status & 64) == 0 ? (byte)0 : (byte)3;
+            _enemyAttackTicks[slot] = (byte)windup;
             EMaxHp[slot] = Content.Enemies[def].Hp * HpScale;
             EHp[slot] = EMaxHp[slot] * (status & 63) / 63;
         }
@@ -288,6 +304,25 @@ public sealed partial class RunWorld
             PVx[i] = vx;
             PVy[i] = vy;
         }
+        int shots = r.Short();
+        Require(shots <= _enemyShots.Length);
+        for (int i = 0; i < shots; i++)
+        {
+            var pos = ReadPoint(ref r);
+            var velocity = new Vector2(r.Float(), r.Float());
+            if (apply) _enemyShots[i] = new EnemyShot(pos, velocity, 0, 0, DamageKind.Magical);
+        }
+        int clouds = r.Byte();
+        Require(clouds <= _enemyClouds.Length);
+        for (int i = 0; i < clouds; i++)
+        {
+            var pos = ReadPoint(ref r);
+            float radius = r.Float();
+            int life = r.Int();
+            Require(radius > 0 && life > 0);
+            if (apply) _enemyClouds[i] = new EnemyCloud(pos, radius, life, 0);
+        }
+        if (apply) (_enemyShotCount, _enemyCloudCount) = (shots, clouds);
         Require(r.Remaining == 0);
         if (apply) _replicaTick = tick;
     }

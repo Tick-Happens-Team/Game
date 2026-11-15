@@ -1,4 +1,4 @@
-﻿using TickHappens.Localization;
+using TickHappens.Localization;
 using System.Numerics;
 using Silk.NET.OpenGL;
 using TickHappens.Engine.Assets;
@@ -28,6 +28,7 @@ internal sealed class RunView : IDisposable
     private readonly AtlasSprite[] _enemySprites;
     private readonly AtlasSprite?[] _companionSprites;
     private readonly SpriteAnim[] _enemyAnims;
+    private readonly SpriteAnim?[] _enemyAttackAnims;
     private readonly uint[] _enemyTint;
     private readonly int _chestOpenFrame;
     private readonly List<IPixelEffect> _effects = [];
@@ -82,6 +83,7 @@ internal sealed class RunView : IDisposable
             atlas.Sprites.TryGetValue(c.Sprite, out var sprite) && sprite.Anims.ContainsKey("move") ? sprite : null)];
         _enemyAnims = [.. content.Enemies.Select((e, i) => _enemySprites[i].Anims.TryGetValue(e.Anim, out var a) ? a
             : throw new InvalidDataException($"sprite '{e.Sprite}' has no animation '{e.Anim}'"))];
+        _enemyAttackAnims = [.. _enemySprites.Select(s => s.Anims.GetValueOrDefault("attack"))];
         _enemyTint = [.. content.Enemies.Select(e => e.Tint is { } t ? TintFromHex(t) : 0xFFFFFFFFu)];
 
         var shaders = AssetPaths.Get("shaders");
@@ -197,6 +199,15 @@ internal sealed class RunView : IDisposable
                     if (_effects.Count < MaxCpuEffects)
                         _effects.Add(new ExplosionEffect(new ExplosionOptions { X = e.X * 2, Y = e.Y * 2, Size = 0.85f, Seed = e.Seed }));
                     Burst(e.X, e.Y, 22, 90, 0xFFFFE4ACu, 0xFF2855D5u, 1.2f);
+                    break;
+                case EventKind.EnemyBlast:
+                    if (_effects.Count < MaxCpuEffects)
+                        _effects.Add(new ExplosionEffect(new ExplosionOptions
+                        {
+                            X = e.X * 2, Y = e.Y * 2, Size = e.Value / 65, Seed = e.Seed,
+                        }));
+                    Burst(e.X, e.Y, 34, 135, 0xFF62DDFFu, 0xFF2048F2u, 1.6f);
+                    AddFlash(e.X, e.Y, e.Value * 1.4f, 1.25f, 0.55f, 0.22f, 0.24f);
                     break;
                 case EventKind.Chain:
                 {
@@ -394,7 +405,7 @@ internal sealed class RunView : IDisposable
     /// <summary>Draws a frame; with <paramref name="menuSelection"/> ≥ 0 the character select screen is drawn over the scene.</summary>
     public void Draw(int width, int height, RunWorld world, float alpha, bool paused, float frameDt,
         int menuSelection = -1, Action<PixelRenderer>? overlay = null, (float X, float Y)? menuMouse = null, bool online = false, string? interruption = null, bool canReconnect = false,
-        float? localAlpha = null, Vector2 localCorrection = default, CoopHud? coopHud = null)
+        float? localAlpha = null, Vector2 localCorrection = default, CoopHud? coopHud = null, ItemPanel? itemPanel = null)
     {
         _time += paused ? 0 : frameDt;
         var p = world.Player;
@@ -535,6 +546,9 @@ internal sealed class RunView : IDisposable
                 int def = world.EDef[id];
                 var anim = _enemyAnims[def];
                 int frame = anim.Frames[(int)((_time + id * 0.37f) * anim.Fps) % anim.Frames.Count];
+                int windup = world.EnemyWindup(id);
+                if (windup > 0 && _enemyAttackAnims[def] is { } attack)
+                    frame = attack.Frames[(RunWorld.EnemyWindupTicks - windup) * attack.Frames.Count / RunWorld.EnemyWindupTicks];
                 uint tint = world.EFlash[id] > 0 ? 0x00FFFFFFu : _enemyTint[def];
                 _batch.Draw(_enemySprites[def], frame, pos.X - ox, pos.Y - oy, flipX: pos.X > hero.X, tint: tint);
             }
@@ -600,6 +614,7 @@ internal sealed class RunView : IDisposable
         foreach (var e in _effects) e.Draw(vfx, VfxLayer.All);
         var color = PixelCanvas.ColorOf(vfx);
         var light = PixelCanvas.LightOf(vfx);
+        DrawEnemyEffects(world, color, light, alpha, ox, oy, tw, th);
         for (int i = 0; i < RunWorld.ProjectileCapacity; i++)
         {
             if (!world.PAlive[i]) continue;
@@ -729,7 +744,8 @@ internal sealed class RunView : IDisposable
         else
         {
             DrawVisionMask(world, hero);
-            _hud.Draw(_renderer, world, hero, frameDt, paused, online, interruption, canReconnect);
+            if (!paused && interruption is null) itemPanel?.Draw(_renderer, world, online);
+            _hud.Draw(_renderer, world, hero, frameDt, paused, online, interruption, canReconnect, itemPanel?.IsOpen == true);
         }
         coopHud?.Draw(_renderer, world, _displayPlayers);
         overlay?.Invoke(_renderer);
@@ -760,6 +776,67 @@ internal sealed class RunView : IDisposable
     private readonly bool[] _displayActive = new bool[4];
     private RunWorld? _displayWorld;
     private readonly float[] _depth = new float[4096];
+
+    private void DrawEnemyEffects(RunWorld world, PixelCanvas color, PixelCanvas light, float alpha, int ox, int oy, int width, int height)
+    {
+        bool VisibleArea(Vector2 center, float radius) =>
+            center.X + radius >= ox && center.X - radius <= ox + width &&
+            center.Y + radius >= oy && center.Y - radius <= oy + height;
+
+        foreach (ref readonly var cloud in world.EnemyClouds)
+        {
+            if (!VisibleArea(cloud.Pos, cloud.Radius)) continue;
+            float opacity = MathF.Min(1, cloud.Life / 20f) * 0.65f;
+            int rimCount = Math.Clamp((int)(cloud.Radius * 0.48f), 24, 96);
+            for (int i = 0; i < rimCount; i++)
+            {
+                float angle = i * (MathF.Tau / rimCount);
+                float x = cloud.Pos.X + MathF.Cos(angle) * cloud.Radius;
+                float y = cloud.Pos.Y + MathF.Sin(angle) * cloud.Radius;
+                color.AlphaDisc(x, y, 1.7f, 0xFF62CF9Fu, opacity * (0.8f + 0.2f * MathF.Sin(angle * 4 - _time * 4)));
+            }
+            int sporeCount = Math.Clamp((int)(cloud.Radius * 0.225f), 12, 45);
+            for (int i = 0; i < sporeCount; i++)
+            {
+                float angle = i * 2.399f + _time * 0.18f;
+                float distance = cloud.Radius * MathF.Sqrt((i + 0.5f) / sporeCount);
+                float x = cloud.Pos.X + MathF.Cos(angle) * distance;
+                float y = cloud.Pos.Y + MathF.Sin(angle) * distance;
+                float pulse = 0.5f + 0.5f * MathF.Sin(i * 3.2f + _time * 3);
+                color.AlphaDisc(x, y, 3 + 4 * pulse, 0xFF3E8044u, opacity * 0.52f);
+                color.Dot(x + 2, y - 3 - 3 * pulse, 0xFF8CECD4u, opacity * pulse);
+            }
+        }
+
+        for (int i = 0; i < world.EnemyHighWater; i++)
+        {
+            if (!world.EAlive[i] || world.EnemyWindup(i) == 0) continue;
+            float radius = world.Content.Enemies[world.EDef[i]].BlastRadius;
+            var pos = world.EnemyPos(i, alpha);
+            if (radius <= 0 || !VisibleArea(pos, radius)) continue;
+            float charge = 1 - world.EnemyWindup(i) / (float)RunWorld.EnemyWindupTicks;
+            for (int j = 0; j < 48; j++)
+            {
+                float angle = j * (MathF.Tau / 48);
+                float x = pos.X + MathF.Cos(angle) * radius;
+                float y = pos.Y + MathF.Sin(angle) * radius;
+                color.AlphaDisc(x, y, 1.7f + charge, 0xFF407AFFu, 0.6f + 0.4f * charge);
+            }
+            light.Glow(pos.X, pos.Y - 7, 16 + 14 * charge, 0xFF389DFFu, 0.5f + 0.45f * charge);
+        }
+
+        foreach (ref readonly var shot in world.EnemyShots)
+        {
+            var pos = shot.Pos + shot.Velocity * (RunWorld.Dt * (alpha - 1));
+            if (!VisibleArea(pos, 12)) continue;
+            var tail = shot.Velocity * 0.045f;
+            color.Line(pos.X - tail.X, pos.Y - tail.Y, pos.X, pos.Y, 0xFFC040B0u);
+            color.Disc(pos.X, pos.Y, 3, 0xFF33142Au);
+            color.Disc(pos.X, pos.Y, 2, 0xFF3DC2FFu);
+            color.Set(pos.X - 1, pos.Y - 1, 0xFFA6F3FFu);
+            light.Glow(pos.X, pos.Y, 9, 0xFF3DC2FFu, 0.7f);
+        }
+    }
 
     private void DrawTerrain(RunWorld world, int ox, int oy, int width, int height)
     {
