@@ -17,7 +17,8 @@ Pick one of six heroes from the owner roster (Octarine, Swordsman, Smith, Goflin
 | WASD / arrows | Move |
 | Space | Dash (short invulnerable burst, cooldown bar under the hero) |
 | A / D or arrows, Space / Enter | Choose a hero / start the run on the character screen |
-| P / R / Esc | Pause / back to hero select (after death or while paused) / quit |
+| Esc / P | Open or close the pause menu during a solo run |
+| R | Back to hero select after death or from pause |
 
 Content (6 heroes, 6 items, enemies, waves, rules) is data in `content/core/*.json`, the built-in `core` mod; the full plan is the [content roadmap](docs/CONTENT_ROADMAP.md). Autopilot and captures: `--demo --character ID --menu --frames N --screenshot PATH --seed S --no-vsync`.
 
