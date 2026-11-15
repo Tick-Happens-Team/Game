@@ -3,7 +3,7 @@ using TickHappens.Game.Content;
 
 namespace TickHappens.Game.Sim;
 
-public enum PickupKind : byte { Xp, Gold }
+public enum PickupKind : byte { Xp, Gold, Heal, Cursed }
 
 public sealed partial class RunWorld
 {
@@ -65,6 +65,7 @@ public sealed partial class RunWorld
             if (kind == PickupKind.Xp)
                 for (int i = 0; i < PickupCapacity; i++)
                     if (GKind[i] == PickupKind.Xp) { GValue[i] += value; return; }
+            if (kind == PickupKind.Cursed) AwardItem(_players[owner], value, fromChest: false);
             return;
         }
         _pickupCursor = (slot + 1) % PickupCapacity;
@@ -87,7 +88,7 @@ public sealed partial class RunWorld
                 {
                     var candidate = _players[j];
                     if (!candidate.Active || candidate.Hp <= 0 ||
-                        (GKind[i] == PickupKind.Gold && GOwner[i] != j)) continue;
+                        (GKind[i] != PickupKind.Xp && GOwner[i] != j)) continue;
                     float mx = candidate.Pos.X - GX[i], my = candidate.Pos.Y - 8 - GY[i];
                     float dSquared = mx * mx + my * my;
                     float radius = candidate.Stats[Stat.Magnet];
@@ -107,7 +108,9 @@ public sealed partial class RunWorld
             {
                 GAlive[i] = false;
                 if (GKind[i] == PickupKind.Xp) GainXp(p, GValue[i]);
-                else CollectGold(p, GValue[i], GOwner[i]);
+                else if (GKind[i] == PickupKind.Gold) CollectGold(p, GValue[i], GOwner[i]);
+                else if (GKind[i] == PickupKind.Heal) RestorePlayer(p, p.Hp * GValue[i] / 10_000);
+                else AwardItem(p, GValue[i], fromChest: false);
                 Emit(EventKind.Pickup, GX[i], GY[i], GValue[i], a: (int)GKind[i]);
                 continue;
             }
@@ -141,7 +144,7 @@ public sealed partial class RunWorld
             p.Level++;
             p.XpNext = XpForLevel(p.Level);
             ApplyLevelStats(p);
-            UpdateDynamicStats(p);
+            UpdateAllPlayerStats();
             p.Hp += MathF.Max(0, MaxHealthFor(p) - before);
             Emit(EventKind.LevelUp, p.Pos.X, p.Pos.Y, p.Level);
         }
@@ -154,34 +157,63 @@ public sealed partial class RunWorld
     private void GiveItem(PlayerState p, int def)
     {
         float before = MaxHealthFor(p);
+        float shieldBefore = ShieldCapacity(p);
         p.ItemStacks[def]++;
-        foreach (var m in Content.Items[def].Mods)
+        var item = Content.Items[def];
+        if (item.Effect is { } effect && p.ItemStacks[def] == 1)
+        {
+            p.EffectItems.Add(def);
+            if (effect.Kind is "resetCooldown" or "lowestHealthShield")
+                p.ItemTimers[def] = effect.Duration * p.Stats[Stat.Cooldown];
+        }
+        if (p.ItemStacks[def] == 1 && item.Weapon is { Kind: "accelerator" or "execute" or "snipe" or "dropped" or "boomerang" or "cane" } weapon)
+            p.ItemTimers[def] = weapon.Cooldown * p.Stats[Stat.Cooldown];
+        if (item.Companion is { } companion && p.ItemStacks[def] == 1)
+        {
+            if (companion.Kind == "demon") p.ConversionItem = def;
+            else if (companion.Kind is "gnome" or "boar" or "leech")
+                p.ItemTimers[def] = companion.Interval * p.Stats[Stat.Cooldown];
+        }
+        foreach (var m in item.Mods)
             if (ContentLoader.TryParseStat(m.Stat, out var s)) p.Stats.Apply(s, m.Add, m.Pct);
         // Max HP increases also heal by the same amount; decreases clamp.
         float after = MaxHealthFor(p);
         p.Hp = after >= before ? p.Hp + (after - before) : MathF.Min(p.Hp, after);
+        p.Shield += Math.Max(0, ShieldCapacity(p) - shieldBefore);
+        if (item.XpOnPickup > 0) GainXp(p, item.XpOnPickup * Minutes);
     }
 
-    /// <summary>Rolls a chest item: pick a rarity by weight among rarities that have items, then a uniform item of it.</summary>
-    public int RollChestItem()
+    public const int ChestChoiceTicks = 10 * TicksPerSecond;
+
+    /// <summary>Rolls a weighted rarity, then a uniform item within that rarity.</summary>
+    public int RollChestItem() => RollChestItem(-1, -1);
+
+    private int RollChestItem(int excluded, int alsoExcluded)
     {
         var weights = Rules.Chests.RarityWeights;
         float total = 0;
-        foreach (var r in ContentSet.Rarities)
-            if (Content.Items.Exists(i => i.Rarity == r)) total += weights.GetValueOrDefault(r);
+        var rarities = ContentSet.Rarities;
+        Span<int> counts = stackalloc int[rarities.Length];
+        counts.Clear();
+        for (int i = 0; i < Content.Items.Count; i++)
+        {
+            if (i == excluded || i == alsoExcluded) continue;
+            int rarityIndex = Array.IndexOf(rarities, Content.Items[i].Rarity);
+            if (rarityIndex >= 0) counts[rarityIndex]++;
+        }
+        for (int i = 0; i < rarities.Length; i++)
+            if (counts[i] > 0) total += weights.GetValueOrDefault(rarities[i]);
         if (total <= 0) return -1;
         float roll = _rng.Next() * total;
-        string rarity = ContentSet.Rarities[^1];
-        foreach (var r in ContentSet.Rarities)
+        for (int rarity = 0; rarity < rarities.Length; rarity++)
         {
-            if (!Content.Items.Exists(i => i.Rarity == r)) continue;
-            roll -= weights.GetValueOrDefault(r);
-            if (roll <= 0) { rarity = r; break; }
+            float weight = weights.GetValueOrDefault(rarities[rarity]);
+            if (counts[rarity] == 0 || weight <= 0) continue;
+            if (roll >= weight) { roll -= weight; continue; }
+            int pick = _rng.Int(counts[rarity]);
+            for (int i = 0; i < Content.Items.Count; i++)
+                if (i != excluded && i != alsoExcluded && Content.Items[i].Rarity == rarities[rarity] && pick-- == 0) return i;
         }
-        int n = Content.Items.Count(i => i.Rarity == rarity);
-        int pick = _rng.Int(Math.Max(1, n));
-        for (int i = 0; i < Content.Items.Count; i++)
-            if (Content.Items[i].Rarity == rarity && pick-- == 0) return i;
         return -1;
     }
 
@@ -202,27 +234,72 @@ public sealed partial class RunWorld
         }
     }
 
-    private void StepChests()
+    private void StepChests(ReadOnlySpan<RunInput> inputs)
     {
         foreach (var p in _players)
         {
             p.NearbyChest = -1;
             if (!p.Active || p.Hp <= 0) continue;
+            if (p.ChestOfferFirst >= 0)
+            {
+                int choice = inputs[p.Id].ChestChoice;
+                if (Tick >= p.ChestOfferUntilTick) choice = 1;
+                int selected = choice switch
+                {
+                    1 => p.ChestOfferFirst,
+                    2 => p.ChestOfferSecond,
+                    3 => p.ChestOfferThird,
+                    _ => -1,
+                };
+                if (selected >= 0)
+                {
+                    AwardItem(p, selected, fromChest: true);
+                    p.ChestOfferFirst = p.ChestOfferSecond = p.ChestOfferThird = -1;
+                    p.ChestOfferUntilTick = 0;
+                }
+                continue;
+            }
             var area = CombatArea.Circle(p.Pos, Rules.Chests.Radius);
             for (int i = 0; i < Chests.Length; i++)
             {
                 if (ChestOpen[i] || !area.Contains(Chests[i], out _)) continue;
                 int price = p.Wallet.NextPrice;
                 if (!p.Wallet.TryPay()) { p.NearbyChest = i; continue; }
+                float refund = price * Math.Min(1, p.Stats[Stat.GoldRefund]) + p.RefundCarry;
+                int coins = (int)MathF.Floor(refund);
+                p.RefundCarry = refund - coins;
+                if (coins > 0) p.Wallet.Collect(new GoldDrop(coins, p.Id), p.Id);
                 ChestOpen[i] = true;
-                int item = RollChestItem();
-                if (item >= 0) GiveItem(p, item);
-                p.LastChestItem = item;
-                Emit(EventKind.Chest, Chests[i].X, Chests[i].Y, price, a: item);
+                int first = RollChestItem();
+                int second = first >= 0 ? RollChestItem(first, -1) : -1;
+                bool extraChoice = false;
+                foreach (int item in p.EffectItems)
+                {
+                    if (Content.Items[item].Effect!.Kind != "extraChestChoice") continue;
+                    extraChoice = ++p.BoughtChests % 2 == 0;
+                    break;
+                }
+                if (second < 0) AwardItem(p, first, fromChest: true);
+                else
+                {
+                    p.ChestOfferFirst = first;
+                    p.ChestOfferSecond = second;
+                    p.ChestOfferThird = extraChoice ? RollChestItem(first, second) : -1;
+                    p.ChestOfferUntilTick = Tick + ChestChoiceTicks;
+                }
+                break;
             }
         }
         foreach (var p in _players)
             if (p.NearbyChest >= 0 && ChestOpen[p.NearbyChest]) p.NearbyChest = -1;
+    }
+
+    private void AwardItem(PlayerState player, int item, bool fromChest)
+    {
+        if (item < 0) return;
+        GiveItem(player, item);
+        if (fromChest) player.LastChestItem = item;
+        Emit(fromChest ? EventKind.Chest : EventKind.BossReward, player.Pos.X, player.Pos.Y, a: item, b: player.Id);
     }
 
     /// <summary>Item granted by the most recent chest (-1 if none yet).</summary>

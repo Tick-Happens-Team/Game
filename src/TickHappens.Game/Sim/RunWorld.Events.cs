@@ -57,9 +57,9 @@ public sealed partial class RunWorld
                     B = reader.Int(),
                     Seed = unchecked((uint)reader.Int()),
                 };
-                Require(e.Kind <= EventKind.Elite);
+                Require(e.Kind <= EventKind.BossReward);
                 if (e.Kind == EventKind.Hit) Require((uint)e.A <= (uint)DamageKind.Pure);
-                if (e.Kind == EventKind.Chest) Require((uint)e.A < (uint)Content.Items.Count);
+                if (e.Kind is EventKind.Chest or EventKind.BossReward) Require((uint)e.A < (uint)Content.Items.Count && (uint)e.B < (uint)_players.Length);
                 if (e.Kind == EventKind.Chain)
                 {
                     Require(e.B is >= 2 and <= MaxChainHops + 1);

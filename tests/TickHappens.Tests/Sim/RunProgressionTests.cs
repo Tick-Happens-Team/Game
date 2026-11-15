@@ -107,21 +107,21 @@ public sealed class RunProgressionTests
         world.GiveItem(sprats);
 
         Assert.Equal(2, p.ItemStacks[sprats]);
-        TestWorld.Close(200f, world.MaxHealth);
-        TestWorld.Close(150f, p.Hp);
+        TestWorld.Close(196f, world.MaxHealth);
+        TestWorld.Close(146f, p.Hp);
     }
 
     [Fact]
-    public void HeavyShacklesHalveMoveSpeedAndAddMight()
+    public void HeavyShacklesReduceMoveSpeedAndAddMight()
     {
         var content = TestContent.LoadCore();
         var world = new RunWorld(content, seed: 1, character: "octarine");
 
         world.GiveItem(content.ItemIndex("heavy_shackles"));
 
-        TestWorld.Close(12.5f, world.Player.Stats[Stat.MoveSpeed]);
-        TestWorld.Close(1.3f, world.Player.Stats[Stat.Might]);
-        TestWorld.Close(37.5f, world.MoveSpeedPx);
+        TestWorld.Close(15f, world.Player.Stats[Stat.MoveSpeed]);
+        TestWorld.Close(1.25f, world.Player.Stats[Stat.Might]);
+        TestWorld.Close(45f, world.MoveSpeedPx);
     }
 
     [Fact]
@@ -145,7 +145,7 @@ public sealed class RunProgressionTests
     }
 
     [Fact]
-    public void ChestGrantsExactlyOneItemAndRaisesPrice()
+    public void ChestChoiceGrantsOneItemWhileThePlayerKeepsMoving()
     {
         var content = TestContent.LoadCore();
         var world = new RunWorld(content, seed: 1);
@@ -156,11 +156,41 @@ public sealed class RunProgressionTests
         world.Step(default);
 
         Assert.True(world.ChestOpen[0], "standing on an affordable chest must open it");
+        Assert.Equal(0, p.ItemStacks.Sum());
+        int selected = p.ChestOfferSecond;
+        Assert.NotEqual(p.ChestOfferFirst, selected);
+        var atChest = p.Pos;
+        var loop = new RunLoop(world);
+        loop.Advance(1d / 60, new RunInput(1, 0, ChestChoice: 2));
+        loop.Advance(1d / 60, new RunInput(1, 0));
+
+        Assert.True(p.Pos.X > atChest.X);
+        Assert.Equal(selected, world.LastChestItem);
         Assert.Equal(1, p.ItemStacks.Sum());
         Assert.Equal(15, p.Wallet.NextPrice);
         Assert.InRange(world.LastChestItem, 0, content.Items.Count - 1);
         Assert.Equal(1, p.ItemStacks[world.LastChestItem]);
         Assert.Equal(100 - content.Rules.Chests.StartPrice, p.Wallet.Gold);
+    }
+
+    [Fact]
+    public void ChestChoiceTimesOutToTheFirstItem()
+    {
+        var world = new RunWorld(TestContent.LoadCore());
+        var player = world.Player;
+        player.Wallet.Collect(new GoldDrop(world.Rules.Chests.StartPrice, player.Id), player.Id);
+        player.Pos = world.Chests[0];
+        world.Step(default);
+        int first = player.ChestOfferFirst;
+        Assert.True(first >= 0);
+
+        while (world.Tick < player.ChestOfferUntilTick - 1) world.Step(default);
+        Assert.Equal(0, player.ItemStacks.Sum());
+        world.Step(default);
+
+        Assert.Equal(first, world.LastChestItem);
+        Assert.Equal(1, player.ItemStacks.Sum());
+        Assert.Equal(-1, player.ChestOfferFirst);
     }
 
     [Fact]

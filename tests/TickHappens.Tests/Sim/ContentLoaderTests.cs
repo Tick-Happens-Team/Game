@@ -13,7 +13,7 @@ public sealed class ContentLoaderTests
         var content = TestContent.LoadCore();
 
         Assert.Equal(CharacterIds.Length, content.Characters.Count);
-        Assert.Equal(6, content.Items.Count);
+        Assert.Equal(62, content.Items.Count);
         Assert.Equal(3, content.Enemies.Count);
         Assert.NotEmpty(content.Waves.Waves);
         Assert.Equal(1.5m, content.Rules.Chests.PriceGrowth);
@@ -35,8 +35,8 @@ public sealed class ContentLoaderTests
 
         foreach (var item in content.Items)
         {
-            Assert.Contains(item.Rarity, ContentSet.Rarities);
-            Assert.True(item.Mods.Count > 0 || item.Weapon != null, $"item '{item.Id}' needs mods or a weapon");
+            Assert.Contains(item.Rarity, ContentSet.Rarities.Append(ContentSet.CursedRarity));
+            Assert.True(item.Mods.Count > 0 || item.Weapon != null || item.XpOnPickup > 0 || item.Companion != null || item.Effect != null, $"item '{item.Id}' needs mods, a weapon or pickup XP");
         }
     }
 

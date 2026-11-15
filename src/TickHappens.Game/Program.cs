@@ -124,8 +124,9 @@ for (int frame = 1; !window.QuitRequested; frame++)
     else if (inMenu && online.CanReconnect && window.WasPressed(Key.F7)) online.Reconnect();
     else if (inMenu && !stayInMenu && !online.Playing)
         onlineMenu.Read(window, view.Renderer, content.Characters[selected].Id, seed);
+    int chestChoice = window.WasPressed(Key.D1) ? 1 : window.WasPressed(Key.D2) ? 2 : window.WasPressed(Key.D3) ? 3 : 0;
     var netInput = new RunInput(Axis(Key.D, Key.Right, Key.A, Key.Left),
-        Axis(Key.S, Key.Down, Key.W, Key.Up), window.IsDown(Key.Space) || window.WasPressed(Key.Space));
+        Axis(Key.S, Key.Down, Key.W, Key.Up), window.IsDown(Key.Space) || window.WasPressed(Key.Space), chestChoice);
     online.Update(frameDt, coopHud.CapturesInput ? default : netInput);
     if (online.Playing != wasOnlinePlaying)
     {
@@ -184,7 +185,7 @@ for (int frame = 1; !window.QuitRequested; frame++)
         if (window.WasPressed(Key.P) && world.Phase == RunPhase.Playing) loop.TogglePause();
 
         var input = demo ? DemoPilot.Decide(world)
-            : new RunInput(Axis(Key.D, Key.Right, Key.A, Key.Left), Axis(Key.S, Key.Down, Key.W, Key.Up), window.IsDown(Key.Space));
+            : new RunInput(Axis(Key.D, Key.Right, Key.A, Key.Left), Axis(Key.S, Key.Down, Key.W, Key.Up), window.IsDown(Key.Space), chestChoice);
         loop.Advance(frameDt, input);
         view.Consume(world);
         world.ClearEvents();

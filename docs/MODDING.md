@@ -47,11 +47,13 @@ The built-in `core` mod (`Game/content/core/`) uses exactly this format. Validat
 | `sprites/*.png` and `*.sprite.json` | Frames, origin, animations, emission, normals |
 | `sfx/*.ogg` | Sound effects |
 
-A passive is a level-scaled stat formula: `{"stat": "armor", "add": 0, "pct": 0, "perLevel": {"add": 0.01}, "per": "runMinute"}`. Its value is `base + perLevel × (level − 1)`; with `"per": "runMinute"` it is multiplied by the run clock in minutes. Stats are `(base + Σadd) × (1 + Σpct)`. Damage passes through might, the type multiplier and, for items, item damage, then the target's armor (physical) or magic resist (magical), capped at 90%. Pure damage ignores defences. Units: px/s = Move speed × 3; attacks per second = Attack speed / 25. Items come only from chests and stack. See [the content roadmap](CONTENT_ROADMAP.md) for the systems that later tiers add.
+A passive is a level-scaled stat formula: `{"stat": "armor", "add": 0, "pct": 0, "perLevel": {"add": 0.01}, "per": "runMinute"}`. Its value is `base + perLevel × (level − 1)`; with `"per": "runMinute"` it is multiplied by the run clock in minutes. Stats are `(base + Σadd) × (1 + Σpct)`. Damage passes through might, the type multiplier and, for items, item damage, then the target's armor (physical) or magic resist (magical), capped at 90%. Pure damage ignores defences. Units: px/s = Move speed × 3; attacks per second = Attack speed / 25. Standard items come from chests and stack. Cursed items use `rarity: "cursed"` and a `bossDrop` enemy ID. They are excluded from chest rolls and drop for the player credited with the matching boss kill. See [the content roadmap](CONTENT_ROADMAP.md) for the systems that later tiers add.
 
 Mods compose parameterized engine behaviors; new behaviors arrive as engine systems listed in the content roadmap. Formula expressions use a deterministic AST with no loops or I/O. StyleLint applies to mod sprites, with TH001–TH003 blocking errors. The loader builds the atlas at runtime.
 
 ### Combat effect parameters
+
+An item can define stat `mods`, `xpOnPickup` (XP per run minute), one `weapon`, a `companion` or an `effect`. See the built-in item catalog for supported kinds and parameter examples. Companions use an atlas sprite with a `move` animation. Only the host simulates companions, loot offers and combat. Guests receive their render state in snapshots.
 
 Item weapons fire automatically on their own cooldown. The `count` parameter sets the base number of projectiles, chain targets, or blasts. Each extra item copy and each point of `amount` adds one to this count. For `pulse`, count (with a minimum of one) multiplies the damage of the single area hit. A `blast` centers on the in-range enemy with the most enemies inside the blast radius, preferring the nearer center when densities match.
 

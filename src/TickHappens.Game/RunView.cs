@@ -25,6 +25,7 @@ internal sealed class RunView : IDisposable
     private readonly AtlasSprite _chest, _grass, _stone, _gem, _statue;
     private readonly AtlasSprite[] _heroSprites;
     private readonly AtlasSprite[] _enemySprites;
+    private readonly AtlasSprite?[] _companionSprites;
     private readonly SpriteAnim[] _enemyAnims;
     private readonly uint[] _enemyTint;
     private readonly int _chestOpenFrame;
@@ -49,6 +50,8 @@ internal sealed class RunView : IDisposable
         _chestOpenFrame = _chest.FrameNames.IndexOf("open");
         if (_chestOpenFrame < 0) throw new InvalidDataException("The atlas is missing the open chest frame. Rebuild Assets.");
         _enemySprites = [.. content.Enemies.Select(e => S(e.Sprite))];
+        _companionSprites = [.. content.Items.Select(item => item.Companion is { } c &&
+            atlas.Sprites.TryGetValue(c.Sprite, out var sprite) && sprite.Anims.ContainsKey("move") ? sprite : null)];
         _enemyAnims = [.. content.Enemies.Select((e, i) => _enemySprites[i].Anims.TryGetValue(e.Anim, out var a) ? a
             : throw new InvalidDataException($"sprite '{e.Sprite}' has no animation '{e.Anim}'"))];
         _enemyTint = [.. content.Enemies.Select(e => e.Tint is { } t ? TintFromHex(t) : 0xFFFFFFFFu)];
@@ -115,6 +118,42 @@ internal sealed class RunView : IDisposable
                         }));
                     break;
                 }
+                case EventKind.Melee:
+                    if (_effects.Count < MaxCpuEffects)
+                    {
+                        float halfAngle = e.A * MathF.PI / 360f;
+                        _effects.Add(new SlashEffect(new SlashOptions
+                        {
+                            X = e.X * 2, Y = e.Y * 2, Radius = e.Value * 2, Width = 12, Squash = 1,
+                            Tilt = MathF.Atan2(e.Y2, e.X2), From = -halfAngle, To = halfAngle, Seed = e.Seed,
+                        }));
+                    }
+                    break;
+                case EventKind.Frost:
+                    _hud.Ring(e.X, e.Y, e.Value);
+                    RingBurst(e.X, e.Y, e.Value, 0xFFFFE4ACu, 0xFFD58848u);
+                    break;
+                case EventKind.Flame:
+                    for (int k = 0; k < 16; k++)
+                    {
+                        float angle = MathF.Atan2(e.Y2, e.X2) + (_cosmetic.NextSingle() - 0.5f) * e.A * MathF.PI / 180f;
+                        float speed = e.Value * (1 + _cosmetic.NextSingle());
+                        _particles.Spawn(new GpuParticle
+                        {
+                            X = e.X + e.X2 * 8, Y = e.Y + e.Y2 * 8 - 5,
+                            Vx = MathF.Cos(angle) * speed, Vy = MathF.Sin(angle) * speed,
+                            Life = 0.45f, MaxLife = 0.45f, ColorA = 0xFF40C7FFu, ColorB = 0xFF1936DEu, Intensity = 1.25f,
+                        });
+                    }
+                    break;
+                case EventKind.ItemBeam:
+                    if (_effects.Count < MaxCpuEffects)
+                        _effects.Add(new LightningEffect(new LightningOptions
+                        {
+                            Kind = LightningKind.Arc, From = (e.X * 2, (e.Y - 10) * 2),
+                            To = [(e.X2 * 2, (e.Y2 - 6) * 2)], Duration = 0.23f, Seed = e.Seed,
+                        }));
+                    break;
                 case EventKind.Pulse:
                     _hud.Ring(e.X, e.Y - 4, e.Value);
                     RingBurst(e.X, e.Y - 4, e.Value, 0xFFDEF08Fu, 0xFF6A8A1Fu);
@@ -132,12 +171,13 @@ internal sealed class RunView : IDisposable
                     Shake(0.5f);
                     break;
                 case EventKind.Chest:
+                case EventKind.BossReward:
                     _effects.Add(new SparkleEffect(new SparkleOptions { X = e.X * 2, Y = (e.Y - 12) * 2, Size = 10, Seed = e.Seed }));
                     Burst(e.X, e.Y - 8, 60, 120, 0xFF6BE2FFu, 0xFF2A8AFFu, 2f);
-                    if (e.A >= 0)
+                    if (e.A >= 0 && e.B == world.Player.Id)
                     {
                         var item = world.Content.Items[e.A];
-                        _hud.Notice(Localizer.Format("notice.chest", Hud.ItemName(item), Hud.RarityName(item.Rarity), Localizer.Content("items", item.Id, "description", item.Description)), Hud.RarityColor(item.Rarity));
+                        _hud.Notice(Localizer.Format(e.Kind == EventKind.Chest ? "notice.chest" : "notice.bossReward", Hud.ItemName(item), Hud.RarityName(item.Rarity)), Hud.RarityColor(item.Rarity));
                     }
                     break;
                 case EventKind.PlayerHurt:
@@ -243,15 +283,21 @@ internal sealed class RunView : IDisposable
         void Add(int id, float y) { if (n < order.Length) { order[n] = id; _depth[n++] = y; } }
         for (int i = 0; i < world.EnemyHighWater; i++)
             if (world.EAlive[i] && Visible(world.EX[i], world.EY[i])) Add(i, world.EY[i]);
-        const int HeroBase = -1, StatueBase = -1000, ChestBase = -2000;
+        const int HeroBase = -1, StatueBase = -1000, ChestBase = -2000, CompanionBase = -3000, IllusionBase = -4000;
         for (int i = 0; i < world.Players.Count; i++)
         {
             var player = world.Players[i];
             var position = _displayPlayers[i];
             if (player.Active && Visible(position.X, position.Y)) Add(HeroBase - i, position.Y);
+            if (player.Active && player.Hp > 0 && player.IllusionUntilTick > world.Tick &&
+                Visible(player.IllusionPosition.X, player.IllusionPosition.Y))
+                Add(IllusionBase - i, player.IllusionPosition.Y);
         }
         for (int i = 0; i < world.Statues.Length; i++) if (Visible(world.Statues[i].X, world.Statues[i].Y)) Add(StatueBase - i, world.Statues[i].Y);
         for (int i = 0; i < world.Chests.Length; i++) if (Visible(world.Chests[i].X, world.Chests[i].Y)) Add(ChestBase - i, world.Chests[i].Y);
+        var companions = world.Companions;
+        for (int i = 0; i < companions.Length; i++)
+            if (companions[i].Active && Visible(companions[i].Pos.X, companions[i].Pos.Y)) Add(CompanionBase - i, companions[i].Pos.Y);
         Array.Sort(_depth, order, 0, n);
         for (int k = 0; k < n; k++)
         {
@@ -276,6 +322,27 @@ internal sealed class RunView : IDisposable
                 var position = _displayPlayers[player.Id];
                 _batch.Draw(sprite, frame, position.X - ox, position.Y - oy, player.FacingLeft,
                     tint: ReferenceEquals(player, p) ? 0xFFFFFFFFu : 0xFFE6F4BCu);
+            }
+            else if (id <= IllusionBase)
+            {
+                var owner = world.Players[IllusionBase - id];
+                var sprite = _heroSprites[world.Content.CharacterIndex(owner.Character.Id)];
+                var anim = sprite.Anims["idle"];
+                int frame = anim.Frames[(int)(_time * anim.Fps) % anim.Frames.Count];
+                _batch.Draw(sprite, frame, owner.IllusionPosition.X - ox, owner.IllusionPosition.Y - oy,
+                    owner.FacingLeft, tint: 0xFFC69999u, emissionBoost: 40);
+            }
+            else if (id <= CompanionBase)
+            {
+                ref readonly var ally = ref companions[CompanionBase - id];
+                var pos = Vector2.Lerp(ally.Prev, ally.Pos, alpha);
+                if (_companionSprites[ally.Item] is { } sprite)
+                {
+                    var anim = sprite.Anims["move"];
+                    int frame = anim.Frames[(int)((_time + ally.Id * 0.13f) * anim.Fps) % anim.Frames.Count];
+                    _batch.Draw(sprite, frame, pos.X - ox, pos.Y - oy, ally.FacingLeft);
+                }
+                else _batch.Draw(_gem, 0, pos.X - ox, pos.Y - oy);
             }
             else if (id <= ChestBase)
             {
@@ -308,8 +375,39 @@ internal sealed class RunView : IDisposable
         {
             if (!world.PAlive[i]) continue;
             float px = world.PX[i] + world.PVx[i] * RunWorld.Dt * (alpha - 1), py = world.PY[i] + world.PVy[i] * RunWorld.Dt * (alpha - 1);
+            var style = world.PStyle[i];
+            if (style == RunWorld.ProjectileStyle.Bottle)
+            {
+                color.Disc(px, py, 3, 0xFF22141Au);
+                color.Disc(px, py, 2, 0xFFC43F9Bu);
+                color.Set(px, py - 3, 0xFFDEF08Fu);
+                continue;
+            }
             float len = MathF.Sqrt(world.PVx[i] * world.PVx[i] + world.PVy[i] * world.PVy[i]);
+            if (len <= 0.01f) continue;
             float ux = world.PVx[i] / len, uy = world.PVy[i] / len;
+            if (style is RunWorld.ProjectileStyle.Trident or RunWorld.ProjectileStyle.ReturningTrident)
+            {
+                color.Line(px - ux * 10, py - uy * 10, px, py, 0xFFE6D1A9u);
+                color.Line(px - uy * 3, py + ux * 3, px + uy * 3, py - ux * 3, 0xFFDEF08Fu);
+                for (int tine = -1; tine <= 1; tine++)
+                    color.Line(px - uy * tine * 3, py + ux * tine * 3,
+                        px - uy * tine * 3 + ux * 3, py + ux * tine * 3 + uy * 3, 0xFFEAECF4u);
+                continue;
+            }
+            if (style is RunWorld.ProjectileStyle.Magic or RunWorld.ProjectileStyle.Rocket or RunWorld.ProjectileStyle.Phantom)
+            {
+                uint core = style switch
+                {
+                    RunWorld.ProjectileStyle.Magic => 0xFFF3B78Bu,
+                    RunWorld.ProjectileStyle.Phantom => 0xFFFF9EADu,
+                    _ => 0xFF63C9FFu,
+                };
+                color.Line(px - ux * 7, py - uy * 7, px, py, core);
+                color.Disc(px, py, 2, core);
+                light.Glow(px, py, 9, core, 0.75f);
+                continue;
+            }
             color.Line(px - ux * 5, py - uy * 5, px - ux * 2, py - uy * 2, 0xFFC0C43Fu);
             color.Line(px - ux * 2, py - uy * 2, px, py, 0xFFDEF08Fu);
             color.Set(px, py, 0xFFFFFFFFu);
@@ -317,7 +415,17 @@ internal sealed class RunView : IDisposable
         }
         for (int i = 0; i < RunWorld.PickupCapacity; i++)
         {
-            if (!world.GAlive[i] || world.GKind[i] != PickupKind.Gold || !Visible(world.GX[i], world.GY[i])) continue;
+            if (!world.GAlive[i] || world.GKind[i] == PickupKind.Xp || !Visible(world.GX[i], world.GY[i])) continue;
+            if (world.GKind[i] is PickupKind.Heal or PickupKind.Cursed)
+            {
+                float x = world.GX[i], y = world.GY[i] - 3;
+                uint gem = world.GKind[i] == PickupKind.Heal ? 0xFFFFC379u : 0xFFFFA168u;
+                color.Disc(x, y, 3, 0xFF392742u);
+                color.Line(x - 1, y + 3, x + 1, y - 3, gem);
+                color.Set(x, y - 2, 0xFFFFFFFFu);
+                light.Glow(x, y, 10, gem, 0.5f);
+                continue;
+            }
             float gx = world.GX[i], gy = world.GY[i] - 2;
             color.Disc(gx, gy, 2.2f, 0xFF1A5E8Au);
             color.Disc(gx - 0.3f, gy - 0.3f, 1.6f, 0xFF3DC2FFu);
@@ -371,10 +479,33 @@ internal sealed class RunView : IDisposable
         _particles.Draw(ox, oy, tw, th, _time);
 
         if (menuSelection >= 0) _hud.DrawMenu(_renderer, world.Content, menuSelection);
-        else _hud.Draw(_renderer, world, hero, frameDt, paused, online, interruption, canReconnect);
+        else
+        {
+            DrawVisionMask(world, hero);
+            _hud.Draw(_renderer, world, hero, frameDt, paused, online, interruption, canReconnect);
+        }
         coopHud?.Draw(_renderer, world, _displayPlayers);
         overlay?.Invoke(_renderer);
         _renderer.Finish();
+    }
+
+    private void DrawVisionMask(RunWorld world, Vector2 hero)
+    {
+        var player = world.Player;
+        foreach (int item in player.EffectItems)
+        {
+            var effect = world.Content.Items[item].Effect!;
+            if (effect.Kind != "weldingBlock") continue;
+            var (hx, hy) = _renderer.WorldToUi(hero.X, hero.Y);
+            var ui = PixelCanvas.ColorOf(_renderer.UiFrame);
+            var origin = new Vector2(hx, hy);
+            var visible = CombatArea.Cone(origin, _renderer.ViewW + _renderer.ViewH, player.Facing, effect.Value);
+            for (int y = 0; y < _renderer.ViewH; y++)
+                for (int x = 0; x < _renderer.ViewW; x++)
+                    if (!visible.Contains(new Vector2(x, y), out float squared) && squared > 12 * 12)
+                        ui.Blend(x, y, 0xFF0E0B14u, 0.9f);
+            return;
+        }
     }
 
     private readonly int[] _order = new int[4096];
