@@ -63,6 +63,7 @@
   "online.searching": "FINDING LOBBY",
   "online.waitingPlayers": "WAITING FOR PLAYERS",
   "online.waitingHost": "WAITING FOR HOST",
+  "online.waitingStart": "WAITING FOR HOST TO START",
   "online.waitingP2p": "CONNECTING TO PEER VIA EOS",
   "online.p2pTimeout": "EOS PEER CONNECTION TIMED OUT",
   "online.player": "PLAYER {0}",

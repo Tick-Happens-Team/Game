@@ -277,6 +277,32 @@ public sealed class CoopSessionTests
     }
 
     [Fact]
+    public void GuestCanWaitInLobbyAndTimesOutOnlyAfterHostStopsResponding()
+    {
+        var clock = new ManualClock();
+        var wire = new Loopback();
+        using var host = new CoopSession(wire.Connect("host"), Digest, clock: clock);
+        using var guest = new CoopSession(wire.Connect("guest"), Digest, "host", clock);
+        guest.Join();
+        wire.Flush();
+
+        for (clock.Seconds = 2; clock.Seconds <= 20; clock.Seconds += 2)
+        {
+            host.Poll();
+            guest.Poll();
+            wire.Flush();
+        }
+        Assert.Equal(1, guest.LocalPlayerSlot);
+        Assert.Equal(2, host.PlayerCount);
+        Assert.Null(guest.JoinError);
+
+        clock.Seconds = 35;
+        guest.Poll();
+        Assert.Null(guest.LocalPlayerSlot);
+        Assert.Equal("online.timeout", guest.JoinError);
+    }
+
+    [Fact]
     public void MeasuresRoundTripTimeAndClearsItWhenPeerDisconnects()
     {
         var clock = new ManualClock();

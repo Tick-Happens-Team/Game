@@ -126,7 +126,11 @@ public sealed partial class CoopSession : IDisposable
         }
         else if (LocalPlayerSlot.HasValue)
         {
-            if (now - _lastHostActivity >= 15 * second) Disconnect(_hostPeerId!);
+            if (now - _lastHostActivity >= 15 * second)
+            {
+                Disconnect(_hostPeerId!);
+                JoinError = "online.timeout";
+            }
             else if (sendHeartbeat) SendPing(_hostPeerId!, 0, now);
         }
         if (IsHost && sendHeartbeat) BroadcastLatency();

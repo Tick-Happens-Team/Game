@@ -212,8 +212,9 @@ public sealed partial class EosTransport : ICoopTransport, IDisposable
                     string id = remote.ToString();
                     if (!IsAllowed(id)) return;
                     _connected.Remove(id);
-                    Console.Error.WriteLine($"EOS P2P connection closed ({reason}).");
-                    PeerDisconnected?.Invoke(id);
+                    // EOS can reopen the channel on the next send while the peer is still in the lobby.
+                    // Membership changes and the co-op heartbeat detect when the peer actually leaves.
+                    LogConnection($"EOS P2P connection closed ({reason}).");
                 });
             });
         var established = new AddNotifyPeerConnectionEstablishedOptions { LocalUserId = _local, SocketId = _socket };
@@ -332,7 +333,13 @@ public sealed partial class EosTransport : ICoopTransport, IDisposable
         if (result == Result.Success) return;
         if (result == previous) return;
         previous = result;
-        Console.Error.WriteLine($"EOS P2P {operation} failed ({result}).");
+        LogConnection($"EOS P2P {operation} failed ({result}).");
+    }
+
+    internal static void LogConnection(string message)
+    {
+        Console.WriteLine(message);
+        OnlineGame.WriteNetworkLog(message);
     }
 
     private void Close(ProductUserId remote)
