@@ -74,6 +74,7 @@ public sealed partial class EosTransport
                     }
                     RefreshMembers();
                     _busy = false;
+                    LogConnection("EOS lobby ready: role=host.");
                     finished.SetResult(code);
                 });
             });
@@ -157,6 +158,7 @@ public sealed partial class EosTransport
                         HostPeer = owner.ToString();
                         RefreshMembers();
                         _busy = false;
+                        LogConnection("EOS lobby joined: role=guest.");
                         finished.SetResult();
                     }
                     catch (Exception error) { Fail(finished, error); }
@@ -250,7 +252,7 @@ public sealed partial class EosTransport
         foreach (var (id, user) in _refreshed)
         {
             if (!_members.TryAdd(id, user) || !IsAllowed(id)) continue;
-            Console.WriteLine("EOS lobby peer discovered.");
+            LogConnection($"EOS lobby peer discovered: role={(IsHost ? "host" : "guest")}.");
             Accept(user);
         }
         foreach (string id in _removed) PeerDisconnected?.Invoke(id);

@@ -145,6 +145,7 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
     }
 
 #if TICKHAPPENS_EOS
+    private long? _p2pWaitStarted;
     private bool _forceRelays = LocalEosConfig.ForceRelays;
 
     public bool ForceRelays
@@ -333,10 +334,39 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
                 int size = SnapshotDelta.Decode(_baselineTick, _baseline.AsSpan(0, _baselineBytes), packet.Span, _snapshot);
                 if (size > 0) Apply(_snapshot.AsSpan(0, size));
             };
+#if TICKHAPPENS_EOS
+            if (_lan is null && _transport is { IsHostConnected: false })
+            {
+                _p2pWaitStarted = Stopwatch.GetTimestamp();
+                Status = Localizer.Get("online.waitingP2p");
+                return;
+            }
+#endif
             session.Join();
             Status = Localizer.Get("online.waitingHost");
         }
     }
+
+#if TICKHAPPENS_EOS
+    private void UpdateP2pJoin()
+    {
+        if (_p2pWaitStarted is not long started || _session is not { JoinError: null } session) return;
+
+        var elapsed = Stopwatch.GetElapsedTime(started);
+        if (_transport!.IsHostConnected)
+        {
+            _p2pWaitStarted = null;
+            EosTransport.LogConnection($"EOS P2P ready after {elapsed.TotalSeconds:F1}s; requesting game slot.");
+            session.Join();
+        }
+        else if (elapsed >= TimeSpan.FromSeconds(45))
+        {
+            EosTransport.LogConnection($"EOS P2P channel timed out after {elapsed.TotalSeconds:F1}s.");
+            CloseRoom(Interrupted);
+            Status = Localizer.Get("online.p2pTimeout");
+        }
+    }
+#endif
 
     public void Start()
     {
@@ -359,12 +389,15 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
             if (_lan is null) _transport?.Pump();
 #endif
             if (_operation?.IsCompleted == true) CompleteOperation();
+#if TICKHAPPENS_EOS
+            UpdateP2pJoin();
+#endif
             _session?.Poll();
             if (_session is { IsHost: false } guest && !_started)
             {
                 string key = guest.LocalPlayerSlot.HasValue ? "online.waitingStart" : "online.waitingHost";
 #if TICKHAPPENS_EOS
-                if (!guest.LocalPlayerSlot.HasValue && _lan is null && _transport is { IsHostConnected: false })
+                if (_p2pWaitStarted.HasValue)
                     key = "online.waitingP2p";
 #endif
                 Status = Localizer.Get(key);
@@ -373,9 +406,8 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
             {
                 string key = _session?.JoinError ?? "online.hostClosed";
 #if TICKHAPPENS_EOS
-                if (_lan is null && _transport is { } eos)
+                if (_lan is null && _transport is not null)
                 {
-                    if (key == "online.timeout" && !eos.IsHostConnected) key = "online.p2pTimeout";
                     EosTransport.LogConnection($"EOS session ended: {key}.");
                 }
 #endif
@@ -513,6 +545,9 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
         _lastSnapshotAt = null;
         _snapshotInterval = _snapshotJitter = _correction = 0;
         _relay = false;
+#if TICKHAPPENS_EOS
+        _p2pWaitStarted = null;
+#endif
         if (!keepResults)
         {
             World = null;

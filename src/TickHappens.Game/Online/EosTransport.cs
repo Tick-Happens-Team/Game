@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Epic.OnlineServices;
 using Epic.OnlineServices.Connect;
 using Epic.OnlineServices.Lobby;
+using Epic.OnlineServices.Logging;
 using Epic.OnlineServices.P2P;
 using Epic.OnlineServices.Platform;
 
@@ -71,6 +72,13 @@ public sealed partial class EosTransport : ICoopTransport, IDisposable
         Check(PlatformInterface.Initialize(ref init), "Initialize");
         try
         {
+            if (Environment.GetEnvironmentVariable("TICKHAPPENS_EOS_P2P_TRACE") == "1")
+            {
+                Check(LoggingInterface.SetLogLevel(LogCategory.AllCategories, LogLevel.Off), "Disable other SDK logs");
+                Check(LoggingInterface.SetLogLevel(LogCategory.P2P, LogLevel.Verbose), "Enable P2P SDK logs");
+                Check(LoggingInterface.SetCallback(static (ref LogMessage message) =>
+                    OnlineGame.WriteNetworkLog($"EOS SDK {message.Level}: {message.Message}")), "Set P2P log callback");
+            }
             string cache = config.CacheDirectory ?? Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TickHappens", "eos");
             Directory.CreateDirectory(cache);
@@ -106,6 +114,7 @@ public sealed partial class EosTransport : ICoopTransport, IDisposable
             RelayControl = forceRelays ? RelayControl.ForceRelays : RelayControl.AllowRelays,
         };
         Check(_p2p.SetRelayControl(ref options), "SetRelayControl");
+        LogConnection($"EOS P2P relay mode: {options.RelayControl}.");
     }
 
     public Task SignInAsync()
@@ -197,7 +206,9 @@ public sealed partial class EosTransport : ICoopTransport, IDisposable
                 {
                     RefreshMembers();
                     string id = remote.ToString();
-                    if (IsAllowed(id)) Accept(remote);
+                    bool allowed = IsAllowed(id);
+                    LogConnection($"EOS P2P incoming request: role={(IsHost ? "host" : "guest")}, lobby peer={allowed}.");
+                    if (allowed) Accept(remote);
                 });
             });
         var closed = new AddNotifyPeerConnectionClosedOptions { LocalUserId = _local, SocketId = _socket };
@@ -288,7 +299,7 @@ public sealed partial class EosTransport : ICoopTransport, IDisposable
             if (!_receivedRoomPacket)
             {
                 _receivedRoomPacket = true;
-                Console.WriteLine("EOS P2P first room packet received.");
+                LogConnection("EOS P2P first room packet received.");
             }
             PacketReceived?.Invoke(sender, _incoming.AsMemory(0, (int)written));
         }
@@ -316,7 +327,7 @@ public sealed partial class EosTransport : ICoopTransport, IDisposable
         if (result == Result.Success && !_sentRoomPacket)
         {
             _sentRoomPacket = true;
-            Console.WriteLine("EOS P2P first room packet queued.");
+            LogConnection("EOS P2P first room packet queued.");
         }
     }
 
