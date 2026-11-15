@@ -117,7 +117,9 @@ public sealed partial class RunWorld
                 Emit(EventKind.Pickup, GX[i], GY[i], GValue[i], a: (int)GKind[i]);
                 continue;
             }
-            float speed = 140 + 260 * MathF.Max(0, 1 - d / MathF.Max(magnet, 1));
+            float speed = GKind[i] is PickupKind.Xp or PickupKind.Gold
+                ? 15 * Rules.Units.MoveSpeedScale
+                : 140 + 260 * MathF.Max(0, 1 - d / MathF.Max(magnet, 1));
             float step = MathF.Min(d, speed * Dt);
             GX[i] += dx / d * step;
             GY[i] += dy / d * step;

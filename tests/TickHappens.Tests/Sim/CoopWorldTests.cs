@@ -9,6 +9,28 @@ namespace TickHappens.Tests;
 public sealed class CoopWorldTests
 {
     [Fact]
+    public void GuestDamageReplicatesTheDamagedPlayerSlot()
+    {
+        var content = TestContent.LoadCore();
+        content.Enemies[0].Speed = 0;
+        var host = new RunWorld(content, playerCount: 2);
+        host.SetPlayerActive(1, true);
+        var guest = host.Players[1];
+        guest.Pos = host.Player.Pos + new Vector2(200, 0);
+        host.SpawnEnemy(0, guest.Pos);
+        host.StepCoop([default, default]);
+
+        var client = new RunWorld(content, playerCount: 2, localPlayerId: 1);
+        Span<byte> events = stackalloc byte[CoopSession.MaxEventBytes];
+        int next = 0;
+        Assert.True(client.TryApplyEvents(events[..host.WriteEvents(events, ref next)]));
+
+        var hurt = Assert.Single(client.Events, e => e.Kind == EventKind.PlayerHurt);
+        Assert.Equal(client.Player.Id, hurt.A);
+        Assert.NotEqual(host.Player.Id, hurt.A);
+    }
+
+    [Fact]
     public void AllyRevivalRequiresContinuousPresenceInRadiusAndReplicates()
     {
         var content = TestContent.LoadCore();
