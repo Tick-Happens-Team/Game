@@ -19,7 +19,7 @@
 | 0.11 | [x] Port Sprite Fusion VFX core and explosion | P! | — | PixelFrame, PixelCanvas, VfxMath, and ExplosionEffect. RNG matches original and effect renders. |
 | 0.12 | [x] Port remaining effects | P+ | 0.11 | Energy (charge, beam, orb, projectile), Fire, Power-up, and Embers adapted to the engine. Crackle uses the animated actor silhouette. Seeded tests and VisualBench captures cover the new effects. |
 | 0.13 | [x] Visual benchmark | P! | 0.6, 0.11 | G-buffer, quantized lighting, emission, CPU VFX, GPU particles, bloom, integer scale, and screenshot capture. Developer PC measured ~550 FPS at 1,500 enemies and ~400 FPS at 3,000 in Release without vsync. |
-| 0.14 | [x] Owner selects licenses | P! | — | MIT for Game and the Mods catalog, CC BY 4.0 for original Assets, with separate third-party terms. License files are in each repository. |
+| 0.14 | [x] Owner selects licenses | P! | — | MIT for Game and the Mods catalog, CC BY-NC 4.0 for original Assets (changed from CC BY 4.0; earlier copies keep CC BY 4.0), with separate third-party terms. License files are in each repository. |
 | 0.15 | [ ] Effect intensity profiles | P+ | 0.12 | [x] Port remaining effects | P+ | 0.11 | Energy (charge, beam, orb, projectile), Fire, Power-up, and Embers adapted to the engine. Crackle uses the animated actor silhouette. Seeded tests and VisualBench captures cover the new effects. |
 | 0.16 | [ ] Recipe generator extensions | P+ | 0.9 | Angled bones and parts, secondary motion, wing folding, rim light and hue shift, indexed frame patches, and four directions. A new test enemy passes lint and meets the hand-authored reference, including bats in night crowds. |
 

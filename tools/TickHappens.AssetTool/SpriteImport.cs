@@ -29,7 +29,7 @@ public sealed class Provenance
     [JsonPropertyName("references")] public List<string> References { get; set; } = [];
     [JsonPropertyName("palette")] public string? Palette { get; set; }
     [JsonPropertyName("importedScale")] public int ImportedScale { get; set; } = 1;
-    [JsonPropertyName("license")] public string License { get; set; } = "CC-BY-4.0";
+    [JsonPropertyName("license")] public string License { get; set; } = "CC-BY-NC-4.0";
     [JsonPropertyName("notes")] public string? Notes { get; set; }
 }
 
