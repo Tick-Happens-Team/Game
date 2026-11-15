@@ -41,7 +41,7 @@ The built-in `core` mod (`Game/content/core/`) uses exactly this format. Validat
 |---|---|
 | `characters.json` | `id`, `name`, `sprite`, designer `passive` and `growth` text, table `stats` (`maxHp`/`maxHpPerLevel`, `moveSpeed` Move speed, `attackSpeed` Attack speed, `armor` and `magicResist` as fractions, `damage`/`damagePerLevel`), optional basic `attack` override (damage type, speed, range, pierce, count), `passives`, optional ally `aura` |
 | `items.json` | `id`, `name`, `rarity` (common, rare, epic, mythic, legendary), `description`, stat `mods` applied once per copy, optional `weapon` (kind `bolt`, `pulse`, `chain` or `blast`, damage type and parameters) |
-| `enemies.json` | `id`, sprite and animation, optional tint, HP, `speed` in Move speed, damage and type, `armor`/`magicResist`, `lifesteal`, radius, XP, gold chance, `boss` flag |
+| `enemies.json` | `id`, sprite and animation, optional tint, HP, `speed` in Move speed, damage and type, `armor`/`magicResist`, `lifesteal`, radius, XP, gold chance, `boss` flag. Optional `attackSpeed` enables a windup and cooldown. `shotRange` and `shotSpeed` enable a ranged attack. `blastRadius` makes the enemy explode on death, and `detonateRange` enables proximity detonation. Set `cloudRadius`, `cloudSeconds` and `cloudDps` to leave a magical damage zone on death. |
 | `waves.json` | Wave mix by run-clock minute, HP and damage growth, max alive, timed elites |
 | `rules.json` | Arena, XP curve, unit scales (`units`), basic attack defaults, dash, statues, chests with `rarityWeights` (price growth fixed at 1.5) |
 | `sprites/*.png` and `*.sprite.json` | Frames, origin, animations, emission, normals |

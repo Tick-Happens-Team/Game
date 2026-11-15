@@ -69,6 +69,9 @@ public sealed partial class RunWorld
         for (int i = 0; i < playerCount; i++) _players[i] = CreatePlayer(ch, i, i == localPlayerId);
 
         EnemyCapacity = content.Waves.MaxAlive + 64;
+        _enemyAttackTicks = new byte[EnemyCapacity];
+        _enemyAttackReady = new int[EnemyCapacity];
+        _enemyBlasts = new Queue<EnemyBlast>(EnemyCapacity);
         _acceleratorContact = new int[playerCount, EnemyCapacity];
         _enemySlow = new float[EnemyCapacity];
         _enemySlowUntil = new int[EnemyCapacity];
@@ -277,6 +280,7 @@ public sealed partial class RunWorld
             if (p.Active && p.Hp > 0) StepCompanionItems(p);
         StepCompanions();
         StepProjectiles();
+        StepEnemyEffects();
         StepPickups();
         StepStatues();
         StepChests(inputs);
@@ -371,7 +375,7 @@ public sealed partial class RunWorld
     private static float ShieldCapacity(PlayerState p) => MaxHealthFor(p) * p.Stats[Stat.RechargingShield];
 
     /// <summary>Damages the player after defences; returns the damage actually dealt (0 while invulnerable).</summary>
-    private float HurtPlayer(PlayerState p, float amount, DamageKind kind, float fromX, float fromY, int enemy)
+    private float HurtPlayer(PlayerState p, float amount, DamageKind kind, float fromX, float fromY, int enemy, bool continuous = false)
     {
         if (p.InvulnTicks > 0 || p.Hp <= 0 || p.GhostUntilTick > Tick) return 0;
         float dmg = amount * (1 - Resist(kind, p.Stats[Stat.Armor], p.Stats[Stat.MagicResist])) * p.Stats[Stat.DamageTaken];
@@ -389,7 +393,7 @@ public sealed partial class RunWorld
         p.ShieldRechargeTick = Tick + 8 * TicksPerSecond;
         dmg = Math.Min(p.Hp, dmg - absorbed);
         p.Hp -= dmg;
-        p.InvulnTicks = (int)MathF.Round(Rules.InvulnerableSeconds * TicksPerSecond);
+        if (!continuous) p.InvulnTicks = (int)MathF.Round(Rules.InvulnerableSeconds * TicksPerSecond);
         if (p.Hp <= 0) TryRevive(p);
         OnHeroDamaged(p, dmg);
         p.HurtTick = Tick;
@@ -496,6 +500,8 @@ public sealed partial class RunWorld
             _poisonDamage[player, slot] = 0;
         }
         EFlash[slot] = 0;
+        _enemyAttackTicks[slot] = 0;
+        _enemyAttackReady[slot] = 0;
         _enemySlowUntil[slot] = _enemyStunUntil[slot] = 0;
         EKx[slot] = EKy[slot] = 0;
         EUid[slot] = _nextUid++;
@@ -550,6 +556,9 @@ public sealed partial class RunWorld
             bool stunned = _enemyStunUntil[i] > Tick;
             float speed = stunned ? 0 : d.Speed * Rules.Units.MoveSpeedScale;
             if (_enemySlowUntil[i] > Tick) speed *= 1 - _enemySlow[i];
+            if (_enemyAttackTicks[i] > 0) speed *= 0.2f;
+            else if (d.ShotRange > 0)
+                speed *= dist < d.ShotRange * 0.5f ? -1 : dist <= d.ShotRange * 0.85f ? 0 : 1;
             if (dist > 0.5f) { vx = dx / dist * speed; vy = dy / dist * speed; }
             var sep = new Separation(this, i, d.Radius);
             _grid.Query(EX[i], EY[i], d.Radius * 2 + 2, ref sep);
@@ -571,32 +580,21 @@ public sealed partial class RunWorld
                 if (!EAlive[i]) break;
             }
             if (!EAlive[i]) continue;
+            if (d.AttackSpeed > 0 || d.DetonateRange > 0)
+            {
+                StepEnemyAttack(i, d, player, decoy, p, stunned, enemyLifestealCap);
+                if (EAlive[i] && dist > 700) Kill(i, credit: -1, deathEffects: false);
+                continue;
+            }
             if (!stunned && hasCompanions &&
                 TryHitCompanion(new Vector2(EX[i], EY[i]), d.Radius + CompanionRadius, EDamage[i], _enemyKind[EDef[i]])) continue;
             if (!stunned && dist < d.Radius + PlayerRadius)
             {
-                if (decoy != null)
-                {
-                    if (Tick >= decoy.IllusionHurtTick)
-                    {
-                        decoy.IllusionHurtTick = Tick + TicksPerSecond / 2;
-                        decoy.IllusionHealth -= EDamage[i];
-                        if (decoy.IllusionHealth <= 0) decoy.IllusionUntilTick = 0;
-                    }
-                    continue;
-                }
-                float dealt = HurtPlayer(player, EDamage[i], _enemyKind[EDef[i]], EX[i], EY[i], i);
-                // Enemy lifesteal (Вампиризм) heals the attacker by its share of the damage dealt.
-                if (!EAlive[i]) continue;
-                if (dealt > 0 && d.Lifesteal > 0)
-                    EHp[i] = MathF.Min(EMaxHp[i], EHp[i] + dealt * Math.Min(enemyLifestealCap, d.Lifesteal));
-                float reflected = dealt * player.Stats[Stat.DamageReflection];
-                if (reflected > 0)
-                    ApplyEnemyHit(i, reflected, DamageKind.Pure, player.Id, player.Pos.X, player.Pos.Y, 0);
+                HitPlayerWithEnemy(i, d, player, decoy, enemyLifestealCap);
                 if (!EAlive[i]) continue;
             }
             // Enemies left far behind are recycled closer to the action (keeps pressure constant).
-            if (dist > 700) { Kill(i, credit: -1); }
+            if (dist > 700) { Kill(i, credit: -1, deathEffects: false); }
         }
     }
 
@@ -674,7 +672,7 @@ public sealed partial class RunWorld
             if (RollChance(chance) && SpawnCompanion(p.Id, item, new Vector2(EX[i], EY[i]), EHp[i]))
             {
                 Emit(EventKind.Pulse, EX[i], EY[i], 15);
-                Kill(i, credit: -1);
+                Kill(i, credit: -1, deathEffects: false);
                 return;
             }
         }
@@ -699,18 +697,20 @@ public sealed partial class RunWorld
         if (EHp[i] <= 0) Kill(i, playerId, triggerItems);
     }
 
-    private void Kill(int i, int credit, bool triggerItems = false)
+    private void Kill(int i, int credit, bool triggerItems = false, bool deathEffects = true)
     {
         if (!EAlive[i]) return;
         EAlive[i] = false;
         AliveEnemies--;
         var d = Content.Enemies[EDef[i]];
+        if (deathEffects) QueueEnemyDeathEffect(i, d, credit);
+        if (deathEffects || (uint)credit < (uint)_players.Length)
+            DropPickup(PickupKind.Xp, EX[i], EY[i], d.Xp, -1);
         if ((uint)credit < (uint)_players.Length)
         {
             var killer = _players[credit];
             killer.Kills++;
             if (killer.Character.Id == "necromancer") killer.Souls++;
-            DropPickup(PickupKind.Xp, EX[i], EY[i], d.Xp, -1);
             uint dropSeed = _rng.State;
             if (d.Gold > 0 && _rng.Next() < d.GoldChance)
                 DropPickup(PickupKind.Gold, EX[i] + _rng.Range(-3, 3), EY[i] + _rng.Range(-3, 3), d.Gold, GoldDrop.FromKill(d.Gold, credit).OwnerId);
@@ -737,6 +737,8 @@ public sealed partial class RunWorld
             Mix(p.Kills); Mix(p.Wallet.Gold); Mix(p.Wallet.NextPrice);
         }
         for (int i = 0; i < _enemyHigh; i++) if (EAlive[i]) { Mix(EX[i]); Mix(EY[i]); Mix(EHp[i]); }
+        foreach (ref readonly var shot in EnemyShots) { Mix(shot.Pos.X); Mix(shot.Pos.Y); Mix(shot.Life); }
+        foreach (ref readonly var cloud in EnemyClouds) { Mix(cloud.Pos.X); Mix(cloud.Pos.Y); Mix(cloud.Life); }
         Mix(AliveEnemies);
         return h;
     }

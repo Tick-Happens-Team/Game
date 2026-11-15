@@ -214,6 +214,16 @@ public static class ContentLoader
             CheckDamage(w, en.DamageType);
             CheckResist(w, "armor", en.Armor);
             CheckResist(w, "magicResist", en.MagicResist);
+            if (en.AttackSpeed < 0 || en.ShotRange < 0 || en.ShotSpeed < 0 ||
+                en.DetonateRange < 0 || en.BlastRadius < 0 || en.CloudRadius < 0 || en.CloudSeconds < 0 || en.CloudDps < 0)
+                e.Add($"{w}: attack and death effect parameters must be nonnegative");
+            if ((en.ShotRange > 0 || en.ShotSpeed > 0) && (en.AttackSpeed <= 0 || en.ShotRange <= 0 || en.ShotSpeed <= 0))
+                e.Add($"{w}: ranged attacks need positive attackSpeed, shotRange and shotSpeed");
+            if (en.DetonateRange > 0 && en.BlastRadius < en.DetonateRange)
+                e.Add($"{w}: blastRadius must cover detonateRange");
+            if ((en.CloudRadius > 0 || en.CloudSeconds > 0 || en.CloudDps > 0) &&
+                (en.CloudRadius <= 0 || en.CloudSeconds <= 0 || en.CloudDps <= 0))
+                e.Add($"{w}: death clouds need positive cloudRadius, cloudSeconds and cloudDps");
         }
         if (!float.IsFinite(c.Waves.HpPerMinuteSquared) || c.Waves.HpPerMinuteSquared < 0)
             e.Add("waves.json: hpPerMinuteSquared must be finite and non-negative");

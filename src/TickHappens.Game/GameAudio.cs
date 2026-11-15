@@ -122,6 +122,7 @@ internal sealed class GameAudio : IDisposable
                     break;
                 case EventKind.Blast:
                 case EventKind.DroneBlast:
+                case EventKind.EnemyBlast:
                     Play("blast", 0.65f * near, pan, 0.08f, 3);
                     break;
                 case EventKind.LevelUp:
