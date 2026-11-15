@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using TickHappens.Distribution;
+using TickHappens.Localization;
 
 namespace TickHappens.Launcher;
 
@@ -19,7 +20,7 @@ internal sealed class Updater(string root, Uri channelUrl, string publicKey)
 
     public async Task<string?> UpdateAsync(Action<string> status, CancellationToken token)
     {
-        status("Checking for updates…");
+        status(Localizer.Get("launcher.checking"));
         if (publicKey.Length == 0) throw new InvalidOperationException("This launcher build has no embedded release public key.");
         string manifest = await ReadRemoteAsync(channelUrl, PackageArchive.MaxManifestBytes, token);
         string signature = await ReadRemoteAsync(new(channelUrl.AbsoluteUri + ".sig"), 1024, token);
@@ -118,7 +119,7 @@ internal sealed class Updater(string root, Uri channelUrl, string publicKey)
             PackageManifest? payload = null;
             foreach (var package in packages)
             {
-                status($"Installing {package.Kind} {package.Ref.Version}…");
+                status(Localizer.Format("launcher.installing", Localizer.Get("launcher.package." + package.Kind), package.Ref.Version));
                 string archive = await DownloadAsync(package.Ref, token);
                 var extracted = await Task.Run(() =>
                 {

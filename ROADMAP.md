@@ -47,7 +47,7 @@
 | 2.2 | [x] Data loader for built-in core mod | P! | 2.1 | content/core JSON for characters, weapons, items, enemies, waves, rules. ContentLoader reports file, id and field for unknown references, stats, wave gaps, duplicates and the fixed 1.5 chest growth. |
 | 2.3 | [x] Movement, enemy collisions, contact damage, HP, and death | P! | 2.1 | Seek plus SpatialGrid separation, contact damage with armor and i-frames, regen, death screen with results and R for a new run. |
 | 2.3a | [x] Dash/dodge | P+ | 2.3 | Space dashes along facing with invulnerability and cooldown bar. Movement and dash are the only manual gameplay actions. |
-| 2.4 | [~] Projectile, area, and chain-lightning auto-attacks with VFX | P! | 2.2, 0.12 | JSON weapons with levels: bolt (pierce, multi-target), pulse, chain (hops), blast (densest spot), with impact, lightning arc, explosion and particle VFX from events. Cursor targeting with the Прицел item remains. |
+| 2.4 | [~] Projectile, area, and chain-lightning auto-attacks with VFX | P! | 2.2, 0.12 | JSON weapons with levels: bolt (pierce, multi-target), pulse, chain (hops), blast (densest spot), with impact, lightning arc, explosion and particle VFX from events. Cursor targeting with the Scope item remains. |
 | 2.5 | [~] RunClock and time-based waves, stats, and bosses | P! | 2.2 | Run clock = ticks + statue bonus; wave table without gaps, HP/damage scaling per minute, timed elites. Bosses with patterns remain (5.3). Tests cover HpScale following the clock, not the level. |
 | 2.6 | [x] Time statues advance RunClock | P! | 2.5 | Standing near a statue for 1 s adds 2 minutes, HUD shows the bonus and a notice; tests verify BonusSeconds and HpScale. |
 | 2.7 | [x] XP drops, magnet, level-up, and upgrade choice | P! | 2.3 | Crystals with magnet pull and XP curve. Owner decision: level-ups apply table growth automatically and items come only from chests, so level-up cards were removed. |
@@ -85,8 +85,8 @@
 
 Depends on P2 and the owner's content list. The [content roadmap](docs/CONTENT_ROADMAP.md) orders the 16 characters, 56 items and 18 enemies by ease of implementation, lists the engine systems (S0–S14 for heroes and items, E0–E7 for enemies) they need, groups them into milestones, and records owner decisions and open questions. Content is data-driven, with stat application tests for each item and character.
 
-- [~] 5.1 Characters with unique passives: six C1 heroes (Октарин, Мечник, Кузнец, Гофлин, Небесный маг, Часовой) playable with table stats, passives, sprites and a character select screen; ten remain (content roadmap C2–C4).
-- [~] 5.2 Weapons, items, evolutions, and combinations: chest loot by rarity with stacking items; six I1 stat items playable; I2–I6 and Прицел remain.
+- [~] 5.1 Characters with unique passives: six C1 heroes (Octarine, Swordsman, Smith, Goflin, Celestial Mage, Watchman) playable with table stats, passives, sprites and a character select screen; ten remain (content roadmap C2–C4).
+- [~] 5.2 Weapons, items, evolutions, and combinations: chest loot by rarity with stacking items; six I1 stat items playable; I2–I6 and Scope remain.
 - [ ] 5.3 Enemies and bosses based on run time: 18 owner enemies in tiers E1–E5 (see the content roadmap).
 - [ ] 5.4 Balance using local run logs under .tmp/.
 - [ ] 5.5 Metaprogression pending owner decision.
@@ -94,7 +94,7 @@ Depends on P2 and the owner's content list. The [content roadmap](docs/CONTENT_R
 ## P6. Polish and release
 
 - [ ] 6.1 Sound and music.
-- [ ] 6.2 Menus, scale, effect brightness, VfxOpacity, screen shake, and RU/EN localization.
+- [~] 6.2 Game and launcher have English and Russian localization with a shared language preference. Menu expansion, scale, effect brightness, VfxOpacity, and screen shake settings remain.
 - [ ] 6.3 Profile and optimize. Consider SDL_GPU for macOS if needed.
 - [~] 6.4 Bootstrap CI for Game and Assets, with an atlas release and a Windows benchmark artifact. Complete signed game and launcher publication after 1.11, 6.8, and 6.9. Validate the exact package pair and recover from interrupted publishes.
 - [ ] 6.6 End-to-end acceptance after 3.5, 4.4, 6.4, and 6.9. Install successive Releases on clean Windows, play offline and through CGNAT, and install a compatible Workshop mod.

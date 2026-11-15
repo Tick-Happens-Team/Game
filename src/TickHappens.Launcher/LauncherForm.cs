@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using TickHappens.Localization;
 
 namespace TickHappens.Launcher;
 
@@ -11,9 +12,12 @@ internal sealed class LauncherForm : Form
     private readonly CancellationTokenSource _cancellation = new();
     private readonly Label _status = new() { AutoSize = false, Dock = DockStyle.Fill };
     private readonly CheckedListBox _mods = new() { Dock = DockStyle.Fill, CheckOnClick = true };
-    private readonly Button _play = new() { Text = "Play", Enabled = false, AutoSize = true };
-    private readonly Button _update = new() { Text = "Check for updates", AutoSize = true };
-    private readonly Button _folder = new() { Text = "Open mods folder", AutoSize = true };
+    private readonly Button _play = new() { Enabled = false, AutoSize = true };
+    private readonly Button _update = new() { AutoSize = true };
+    private readonly Button _folder = new() { AutoSize = true };
+    private readonly Label _modsLabel = new() { AutoSize = true };
+    private readonly Label _languageLabel = new() { AutoSize = true, Anchor = AnchorStyles.Left };
+    private readonly ComboBox _language = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 112 };
     private readonly System.Windows.Forms.Timer _updateTimer = new() { Interval = 15 * 60 * 1000 };
     private bool _busy, _closeRequested;
     private string? _game;
@@ -26,7 +30,6 @@ internal sealed class LauncherForm : Form
         _modsDirectory = Path.Combine(root, "mods");
         _profile = Path.Combine(root, "enabled-mods.json");
         Directory.CreateDirectory(_modsDirectory);
-        Text = "TickHappens Launcher";
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(500, 320);
         ClientSize = new Size(640, 360);
@@ -34,13 +37,20 @@ internal sealed class LauncherForm : Form
 
         var buttons = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill };
         buttons.Controls.AddRange([_play, _update, _folder]);
-        var layout = new TableLayoutPanel { ColumnCount = 1, Dock = DockStyle.Fill, Padding = new Padding(16), RowCount = 4 };
+        var language = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill };
+        language.Controls.AddRange([_languageLabel, _language]);
+        foreach (string code in Localizer.Languages) _language.Items.Add(Localizer.Get("language." + code));
+        _language.SelectedItem = Localizer.Get("language." + Localizer.Language);
+        ApplyLanguage();
+        var layout = new TableLayoutPanel { ColumnCount = 1, Dock = DockStyle.Fill, Padding = new Padding(16), RowCount = 5 };
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 64));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        layout.Controls.Add(language);
         layout.Controls.Add(_status);
-        layout.Controls.Add(new Label { Text = "Local item mods", AutoSize = true });
+        layout.Controls.Add(_modsLabel);
         layout.Controls.Add(_mods);
         layout.Controls.Add(buttons);
         Controls.Add(layout);
@@ -48,7 +58,18 @@ internal sealed class LauncherForm : Form
         Shown += async (_, _) => await RefreshAsync();
         _update.Click += async (_, _) => await RefreshAsync();
         _play.Click += async (_, _) => await LaunchAsync();
-        _folder.Click += (_, _) => Process.Start(new ProcessStartInfo(_modsDirectory) { UseShellExecute = true });
+        _folder.Click += (_, _) =>
+        {
+            try { Process.Start(new ProcessStartInfo(_modsDirectory) { UseShellExecute = true }); }
+            catch (Exception error) { _status.Text = ErrorText(error); }
+        };
+        _language.SelectedIndexChanged += (_, _) =>
+        {
+            if (_language.SelectedIndex < 0) return;
+            bool saved = Localizer.Select(Localizer.Languages[_language.SelectedIndex]);
+            ApplyLanguage();
+            _status.Text = Localizer.Get(saved ? _game is null ? "launcher.noGame" : "launcher.ready" : "language.saveError");
+        };
         _mods.ItemCheck += (_, e) => SaveSelection(e);
         FormClosing += (_, e) =>
         {
@@ -83,7 +104,7 @@ internal sealed class LauncherForm : Form
                 if (File.Exists(Path.Combine(dir, "items.json")))
                     _mods.Items.Add(Path.GetFileName(dir), selected.Contains(Path.GetFileName(dir), StringComparer.Ordinal));
         }
-        catch (Exception error) { _status.Text = error.Message; }
+        catch (Exception error) { _status.Text = ErrorText(error); }
         finally { _loadingMods = false; }
     }
 
@@ -101,7 +122,7 @@ internal sealed class LauncherForm : Form
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException)
         {
-            _status.Text = error.Message;
+            _status.Text = ErrorText(error);
             change.NewValue = change.CurrentValue;
         }
     }
@@ -112,13 +133,13 @@ internal sealed class LauncherForm : Form
         try
         {
             NewLauncher = await _updater.UpdateAsync(message => _status.Text = message, _cancellation.Token);
-            if (NewLauncher is null) _status.Text = "Game is up to date.";
+            if (NewLauncher is null) _status.Text = Localizer.Get("launcher.current");
         }
-        catch (Exception error) { _status.Text = error.Message; }
+        catch (Exception error) { _status.Text = ErrorText(error, "launcher.updateError"); }
         if (NewLauncher is null && !_closeRequested)
         {
             try { _game = await Task.Run(() => _updater.CurrentEntry("game")); }
-            catch (Exception error) { _game = null; _status.Text = error.Message; }
+            catch (Exception error) { _game = null; _status.Text = ErrorText(error); }
         }
         SetBusy(false);
         if (NewLauncher is not null || _closeRequested) Close();
@@ -129,17 +150,18 @@ internal sealed class LauncherForm : Form
         SetBusy(true);
         try
         {
-            string entry = await Task.Run(() => _updater.CurrentEntry("game")) ?? throw new IOException("Install the game first.");
+            string entry = await Task.Run(() => _updater.CurrentEntry("game")) ?? throw new LocalizedException("launcher.noGame");
             var start = new ProcessStartInfo(entry) { WorkingDirectory = Path.GetDirectoryName(entry)! };
             start.Environment["TICKHAPPENS_MODS_ROOT"] = _modsDirectory;
             start.Environment["TICKHAPPENS_MOD_PROFILE"] = _profile;
+            start.Environment["TICKHAPPENS_LANGUAGE"] = Localizer.Language;
             using var game = Process.Start(start) ?? throw new IOException("Could not start the game.");
-            _status.Text = "Game is running.";
+            _status.Text = Localizer.Get("launcher.running");
             // Keep the installation lease until this process exits.
             await game.WaitForExitAsync();
-            _status.Text = game.ExitCode == 0 ? "Ready to play." : $"Game exited with code {game.ExitCode}.";
+            _status.Text = game.ExitCode == 0 ? Localizer.Get("launcher.ready") : Localizer.Format("launcher.exit", game.ExitCode);
         }
-        catch (Exception error) { _status.Text = error.Message; }
+        catch (Exception error) { _status.Text = ErrorText(error); }
         SetBusy(false);
         if (_closeRequested) Close();
     }
@@ -148,6 +170,29 @@ internal sealed class LauncherForm : Form
     {
         _busy = busy;
         _play.Enabled = !busy && _game is not null;
-        _update.Enabled = _mods.Enabled = !busy;
+        _update.Enabled = _mods.Enabled = _language.Enabled = !busy;
+    }
+
+    private void ApplyLanguage()
+    {
+        Text = Localizer.Get("launcher.title");
+        _play.Text = Localizer.Get("launcher.play");
+        _update.Text = Localizer.Get("launcher.update");
+        _folder.Text = Localizer.Get("launcher.folder");
+        _modsLabel.Text = Localizer.Get("launcher.mods");
+        _languageLabel.Text = Localizer.Get("launcher.language");
+    }
+
+    public static string ErrorText(Exception error, string key = "launcher.error")
+    {
+        if (error is LocalizedException localized) return Localizer.Get(localized.Key);
+        try
+        {
+            string root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TickHappens");
+            Directory.CreateDirectory(root);
+            File.AppendAllText(Path.Combine(root, "launcher.log"), error + Environment.NewLine);
+        }
+        catch (Exception logError) when (logError is IOException or UnauthorizedAccessException) { }
+        return Localizer.Get(key);
     }
 }

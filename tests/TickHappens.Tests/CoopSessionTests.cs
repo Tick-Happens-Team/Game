@@ -76,7 +76,7 @@ public sealed class CoopSessionTests
         Assert.Equal(2, second.LocalPlayerSlot);
         Assert.Equal(3, third.LocalPlayerSlot);
         Assert.Null(extra.LocalPlayerSlot);
-        Assert.Equal("The room is full.", extra.JoinError);
+        Assert.Equal("online.full", extra.JoinError);
         Assert.Equal([1, 2, 3], joined);
 
         loopback.Drop("second");
@@ -86,7 +86,7 @@ public sealed class CoopSessionTests
         Assert.Equal(2, extra.LocalPlayerSlot);
         loopback.Drop("host");
         Assert.Null(extra.LocalPlayerSlot);
-        Assert.Equal("The host disconnected.", extra.JoinError);
+        Assert.Equal("online.hostClosed", extra.JoinError);
     }
 
     [Fact]
@@ -105,7 +105,7 @@ public sealed class CoopSessionTests
         loopback.Flush();
 
         Assert.Null(client.LocalPlayerSlot);
-        Assert.Equal("Game versions or content differ.", client.JoinError);
+        Assert.Equal("online.incompatible", client.JoinError);
     }
 
     [Fact]

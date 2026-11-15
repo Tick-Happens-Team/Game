@@ -1,5 +1,6 @@
 #if TICKHAPPENS_EOS
 using System.Text.Json;
+using TickHappens.Localization;
 
 namespace TickHappens.Game.Online;
 
@@ -9,7 +10,7 @@ internal static class LocalEosConfig
     {
         string root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TickHappens");
         string path = Environment.GetEnvironmentVariable("TICKHAPPENS_EOS_CONFIG") ?? Path.Combine(root, "eos.local.json");
-        if (!File.Exists(path)) throw new InvalidOperationException("EOS local configuration is missing.");
+        if (!File.Exists(path)) throw new LocalizedException("online.missingConfig");
 
         using var json = JsonDocument.Parse(File.ReadAllText(path));
         string Read(string property) =>

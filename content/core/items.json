@@ -1,14 +1,8 @@
 [
-  { "id": "sneakers", "name": "Чешки", "rarity": "common", "description": "+10% к скорости передвижения.",
-    "mods": [ { "stat": "moveSpeed", "pct": 0.10 } ] },
-  { "id": "sprats", "name": "Банка шпрот", "rarity": "common", "description": "+25 к максимальному здоровью.",
-    "mods": [ { "stat": "maxHp", "add": 25 } ] },
-  { "id": "chocolate", "name": "Шоколад", "rarity": "common", "description": "+3% магического урона.",
-    "mods": [ { "stat": "magicalDamage", "pct": 0.03 } ] },
-  { "id": "snack_bar", "name": "Батончик", "rarity": "common", "description": "Перезарядка рывка короче на 10%.",
-    "mods": [ { "stat": "dashCooldown", "pct": -0.10 } ] },
-  { "id": "expander", "name": "Расширяло", "rarity": "epic", "description": "+15% к радиусу всех предметов и оружия.",
-    "mods": [ { "stat": "area", "pct": 0.15 } ] },
-  { "id": "heavy_shackles", "name": "Тяжкие кандалы", "rarity": "legendary", "description": "-50% скорости передвижения, +30% ко всему исходящему урону.",
-    "mods": [ { "stat": "moveSpeed", "pct": -0.50 }, { "stat": "might", "pct": 0.30 } ] }
+  { "id": "sneakers", "rarity": "common", "mods": [ { "stat": "moveSpeed", "pct": 0.10 } ] },
+  { "id": "sprats", "rarity": "common", "mods": [ { "stat": "maxHp", "add": 25 } ] },
+  { "id": "chocolate", "rarity": "common", "mods": [ { "stat": "magicalDamage", "pct": 0.03 } ] },
+  { "id": "snack_bar", "rarity": "common", "mods": [ { "stat": "dashCooldown", "pct": -0.10 } ] },
+  { "id": "expander", "rarity": "epic", "mods": [ { "stat": "area", "pct": 0.15 } ] },
+  { "id": "heavy_shackles", "rarity": "legendary", "mods": [ { "stat": "moveSpeed", "pct": -0.50 }, { "stat": "might", "pct": 0.30 } ] }
 ]

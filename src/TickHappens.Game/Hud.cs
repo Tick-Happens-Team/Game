@@ -1,3 +1,4 @@
+using TickHappens.Localization;
 using System.Globalization;
 using System.Numerics;
 using TickHappens.Engine.Graphics;
@@ -34,11 +35,11 @@ internal sealed class Hud
 
     public static string RarityName(string rarity) => rarity switch
     {
-        "rare" => "РЕДКИЙ",
-        "epic" => "ЭПИЧЕСКИЙ",
-        "mythic" => "МИФИЧЕСКИЙ",
-        "legendary" => "ЛЕГЕНДАРНЫЙ",
-        _ => "ОБЫЧНЫЙ",
+        "rare" => Localizer.Get("rarity.rare"),
+        "epic" => Localizer.Get("rarity.epic"),
+        "mythic" => Localizer.Get("rarity.mythic"),
+        "legendary" => Localizer.Get("rarity.legendary"),
+        _ => Localizer.Get("rarity.common"),
     };
 
     public void Reset()
@@ -82,8 +83,14 @@ internal sealed class Hud
         }
     }
 
-    private static string F(float v) => v.ToString("0.##", CultureInfo.InvariantCulture);
-    private static string Pct(float v) => (v * 100).ToString("0.##", CultureInfo.InvariantCulture) + "%";
+    private static string F(float v) => Localizer.Number(v, "0.##");
+    private static string Pct(float v) => Localizer.Number(v, "0.##%");
+
+    private static string CharacterName(CharacterDef character) =>
+        Localizer.Content("characters", character.Id, "name", string.IsNullOrEmpty(character.Name) ? character.Id : character.Name);
+
+    public static string ItemName(ItemDef item) =>
+        Localizer.Content("items", item.Id, "name", string.IsNullOrEmpty(item.Name) ? item.Id : item.Name);
 
     public void Draw(PixelRenderer renderer, RunWorld world, Vector2 hero, float dt, bool paused, bool online)
     {
@@ -113,15 +120,15 @@ internal sealed class Hud
 
         // Top: XP bar, hero and level, run clock (with statue bonus), gold and chest price, kills.
         Bar(ui, 2, 2, w - 4, 5, p.Xp / p.XpNext, Teal, TealDark);
-        PixelFont.Draw(ui, $"{p.Character.Name}  УР {p.Level}", 4, 10, White, Ink);
-        PixelFont.Draw(ui, $"ХП {(int)MathF.Ceiling(p.Hp)}/{(int)MathF.Ceiling(world.MaxHealth)}", 4, 20, 0xFF7070FFu, Ink);
+        PixelFont.Draw(ui, Localizer.Format("hud.level", CharacterName(p.Character), p.Level), 4, 10, White, Ink);
+        PixelFont.Draw(ui, Localizer.Format("hud.hp", (int)MathF.Ceiling(p.Hp), (int)MathF.Ceiling(world.MaxHealth)), 4, 20, 0xFF7070FFu, Ink);
         int secs = (int)world.RunSeconds;
-        PixelFont.DrawCentered(ui, $"{secs / 60:00}:{secs % 60:00}", w / 2, 10, White, Ink, 2);
+        PixelFont.DrawCentered(ui, Localizer.Format("hud.time", secs / 60, secs % 60), w / 2, 10, White, Ink, 2);
         if (world.BonusSeconds > 0)
-            PixelFont.DrawCentered(ui, $"СТАТУИ +{(int)world.BonusSeconds / 60}:{(int)world.BonusSeconds % 60:00}", w / 2, 27, Teal, Ink);
-        string right = $"ЗОЛОТО {p.Wallet.Gold}  СУНДУК {p.Wallet.NextPrice}";
+            PixelFont.DrawCentered(ui, Localizer.Format("hud.statues", (int)world.BonusSeconds / 60, (int)world.BonusSeconds % 60), w / 2, 27, Teal, Ink);
+        string right = Localizer.Format("hud.gold", p.Wallet.Gold, p.Wallet.NextPrice);
         PixelFont.Draw(ui, right, w - 4 - PixelFont.Measure(right), 10, Gold, Ink);
-        string kills = $"УБИТО {p.Kills}";
+        string kills = Localizer.Format("hud.kills", p.Kills);
         PixelFont.Draw(ui, kills, w - 4 - PixelFont.Measure(kills), 20, Grey, Ink);
 
         // Bottom-left: items with stacks, colored by rarity.
@@ -132,7 +139,7 @@ internal sealed class Hud
         {
             if (p.ItemStacks[i] == 0) continue;
             var it = world.Content.Items[i];
-            PixelFont.Draw(ui, p.ItemStacks[i] > 1 ? $"{it.Name} ×{p.ItemStacks[i]}" : it.Name, 4, ly, RarityColor(it.Rarity), Ink);
+            PixelFont.Draw(ui, p.ItemStacks[i] > 1 ? Localizer.Format("hud.stack", ItemName(it), p.ItemStacks[i]) : ItemName(it), 4, ly, RarityColor(it.Rarity), Ink);
             ly += PixelFont.LineHeight;
         }
 
@@ -140,7 +147,7 @@ internal sealed class Hud
         if (world.NearbyChest >= 0)
         {
             var (cx, cy) = renderer.WorldToUi(world.Chests[world.NearbyChest].X, world.Chests[world.NearbyChest].Y - 26);
-            PixelFont.DrawCentered(ui, $"НУЖНО {p.Wallet.NextPrice} ЗОЛОТА", cx, cy, Gold, Ink);
+            PixelFont.DrawCentered(ui, Localizer.Format("hud.needGold", p.Wallet.NextPrice), cx, cy, Gold, Ink);
         }
         if (_noticeAge < 2.6f)
         {
@@ -152,8 +159,8 @@ internal sealed class Hud
         else if (paused)
         {
             Dim(ui, w, h, 0.5f);
-            PixelFont.DrawCentered(ui, "ПАУЗА", w / 2, h / 2 - 8, White, Ink, 2);
-            PixelFont.DrawCentered(ui, "P - ПРОДОЛЖИТЬ   R - НОВЫЙ ЗАБЕГ   ESC - ВЫХОД", w / 2, h / 2 + 12, Grey, Ink);
+            PixelFont.DrawCentered(ui, Localizer.Get("hud.paused"), w / 2, h / 2 - 8, White, Ink, 2);
+            PixelFont.DrawCentered(ui, Localizer.Get("hud.pauseHelp"), w / 2, h / 2 + 12, Grey, Ink);
         }
     }
 
@@ -165,15 +172,15 @@ internal sealed class Hud
         for (int y = 0; y < h; y++)
             for (int x = 0; x < w; x++)
                 if (x < w / 2 - 40 || x > w / 2 + 40 || y < h / 2 - 50 || y > h / 2 + 20) ui.Blend(x, y, 0xFF140A10u, 0.55f);
-        PixelFont.DrawCentered(ui, "TICKHAPPENS", w / 2, 12, Teal, Ink, 2);
-        PixelFont.DrawCentered(ui, "ВЫБОР ГЕРОЯ", w / 2, 32, Grey, Ink);
+        PixelFont.DrawCentered(ui, Localizer.Get("app.title"), w / 2, 12, Teal, Ink, 2);
+        PixelFont.DrawCentered(ui, Localizer.Get("menu.pick"), w / 2, 32, Grey, Ink);
 
         int lx = 16, ly = 60;
         for (int i = 0; i < content.Characters.Count; i++)
         {
             bool sel = i == selected;
             if (sel) for (int y = -2; y < PixelFont.LineHeight; y++) for (int x = -4; x < 130; x++) ui.Set(lx + x, ly + y, Panel);
-            PixelFont.Draw(ui, (sel ? "> " : "  ") + content.Characters[i].Name, lx, ly, sel ? White : Grey, Ink);
+            PixelFont.Draw(ui, Localizer.Format("menu.row", sel ? ">" : " ", CharacterName(content.Characters[i])), lx, ly, sel ? White : Grey, Ink);
             ly += PixelFont.LineHeight + 4;
         }
 
@@ -181,30 +188,32 @@ internal sealed class Hud
         var s = c.Stats;
         int px = w - 250, py = 60, pw = 236;
         Box(ui, px - 8, py - 8, pw + 16, h - py - 30, Teal);
-        PixelFont.Draw(ui, c.Name, px, py, White, Ink, 2);
+        PixelFont.Draw(ui, CharacterName(c), px, py, White, Ink, 2);
         py += 22;
-        PixelFont.Draw(ui, $"ХП {F(s.MaxHp)}/+{F(s.MaxHpPerLevel)}   УРОН {F(s.Damage)}/+{F(s.DamagePerLevel)}", px, py, White, Ink);
+        PixelFont.Draw(ui, Localizer.Format("menu.healthDamage", F(s.MaxHp), F(s.MaxHpPerLevel), F(s.Damage), F(s.DamagePerLevel)), px, py, White, Ink);
         py += PixelFont.LineHeight + 2;
-        PixelFont.Draw(ui, $"С/П {F(s.MoveSpeed)}   С/А {F(s.AttackSpeed)}", px, py, White, Ink);
+        PixelFont.Draw(ui, Localizer.Format("menu.speed", F(s.MoveSpeed), F(s.AttackSpeed)), px, py, White, Ink);
         py += PixelFont.LineHeight + 2;
-        PixelFont.Draw(ui, $"БРОНЯ {Pct(s.Armor)}   М/З {Pct(s.MagicResist)}", px, py, White, Ink);
+        PixelFont.Draw(ui, Localizer.Format("menu.resist", Pct(s.Armor), Pct(s.MagicResist)), px, py, White, Ink);
         py += PixelFont.LineHeight + 8;
-        PixelFont.Draw(ui, "ПАССИВКА", px, py, Teal, Ink);
+        PixelFont.Draw(ui, Localizer.Get("menu.passive"), px, py, Teal, Ink);
         py += PixelFont.LineHeight + 1;
-        foreach (var line in Wrap(c.Passive, pw / PixelFont.Advance))
+        foreach (var line in Wrap(Localizer.Content("characters", c.Id, "passive", c.Passive), pw / PixelFont.Advance))
         {
             PixelFont.Draw(ui, line, px, py, Grey, Ink);
             py += PixelFont.LineHeight;
         }
         py += 6;
-        PixelFont.Draw(ui, "РОСТ ЗА УРОВЕНЬ", px, py, Teal, Ink);
+        PixelFont.Draw(ui, Localizer.Get("menu.growth"), px, py, Teal, Ink);
         py += PixelFont.LineHeight + 1;
-        foreach (var line in Wrap(c.Growth, pw / PixelFont.Advance))
+        foreach (var line in Wrap(Localizer.Content("characters", c.Id, "growth", c.Growth), pw / PixelFont.Advance))
         {
             PixelFont.Draw(ui, line, px, py, Grey, Ink);
             py += PixelFont.LineHeight;
         }
-        PixelFont.DrawCentered(ui, "A/D ИЛИ СТРЕЛКИ - ВЫБОР    ПРОБЕЛ - НАЧАТЬ    ESC - ВЫХОД", w / 2, h - 14, Teal, Ink);
+        PixelFont.DrawCentered(ui, Localizer.Format("menu.language", Localizer.Get("language." + Localizer.Language)),
+            w / 2, h - 50, White, Ink);
+        PixelFont.DrawCentered(ui, Localizer.Get("menu.help"), w / 2, h - 14, Teal, Ink);
     }
 
     private static void Bar(PixelCanvas ui, int x, int y, int width, int height, float k, uint fill, uint back)
@@ -236,10 +245,10 @@ internal sealed class Hud
         Dim(ui, w, h, 0.65f);
         var p = world.Player;
         int secs = (int)(world.Tick * RunWorld.Dt);
-        PixelFont.DrawCentered(ui, "ГЕРОЙ ПАЛ", w / 2, h / 2 - 50, 0xFF6060FFu, Ink, 3);
-        PixelFont.DrawCentered(ui, $"ПРОДЕРЖАЛСЯ {secs / 60:00}:{secs % 60:00}   ЧАСЫ ЗАБЕГА {(int)world.RunSeconds / 60:00}:{(int)world.RunSeconds % 60:00}", w / 2, h / 2 - 12, White, Ink);
-        PixelFont.DrawCentered(ui, $"{p.Character.Name}   УРОВЕНЬ {p.Level}   УБИТО {p.Kills}   ЗОЛОТО {p.Wallet.Gold}", w / 2, h / 2 + 2, White, Ink);
-        PixelFont.DrawCentered(ui, online ? "ESC - ПОКИНУТЬ КОМНАТУ" : "R - НОВЫЙ ЗАБЕГ   ESC - ВЫХОД",
+        PixelFont.DrawCentered(ui, Localizer.Get("hud.fallen"), w / 2, h / 2 - 50, 0xFF6060FFu, Ink, 3);
+        PixelFont.DrawCentered(ui, Localizer.Format("hud.summaryTime", secs / 60, secs % 60, (int)world.RunSeconds / 60, (int)world.RunSeconds % 60), w / 2, h / 2 - 12, White, Ink);
+        PixelFont.DrawCentered(ui, Localizer.Format("hud.summary", CharacterName(p.Character), p.Level, p.Kills, p.Wallet.Gold), w / 2, h / 2 + 2, White, Ink);
+        PixelFont.DrawCentered(ui, online ? Localizer.Get("hud.leave") : Localizer.Get("hud.restart"),
             w / 2, h / 2 + 26, Teal, Ink);
     }
 

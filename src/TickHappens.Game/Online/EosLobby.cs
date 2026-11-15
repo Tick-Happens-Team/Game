@@ -2,6 +2,7 @@
 using System.Security.Cryptography;
 using Epic.OnlineServices;
 using Epic.OnlineServices.Lobby;
+using TickHappens.Localization;
 
 namespace TickHappens.Game.Online;
 
@@ -132,7 +133,7 @@ public sealed partial class EosTransport
             Check(result, "Find room");
             var countOptions = new LobbySearchGetSearchResultCountOptions();
             uint count = search.GetSearchResultCount(ref countOptions);
-            if (count == 0) throw new InvalidOperationException("No available lobby matches that code.");
+            if (count == 0) throw new LocalizedException("online.notFound");
             if (count != 1) throw new InvalidOperationException("The code matches multiple rooms. Ask the host to create a new room.");
             var copy = new LobbySearchCopySearchResultByIndexOptions { LobbyIndex = 0 };
             Check(search.CopySearchResultByIndex(ref copy, out details), "CopySearchResultByIndex");
@@ -140,7 +141,7 @@ public sealed partial class EosTransport
             var owner = details.GetLobbyOwner(ref ownerOptions);
             if (owner is null || !owner.IsValid()) throw new InvalidOperationException("The room has no host.");
             if (owner.ToString() == LocalPeer)
-                throw new InvalidOperationException("The room uses your Device ID. Join from another Windows user or PC.");
+                throw new LocalizedException("online.sameDevice");
             var options = new JoinLobbyOptions { LobbyDetailsHandle = details, LocalUserId = _local };
             _lobby.JoinLobby(ref options, null, (ref JoinLobbyCallbackInfo info) =>
             {

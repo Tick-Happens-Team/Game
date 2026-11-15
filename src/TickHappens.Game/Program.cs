@@ -4,9 +4,14 @@ using TickHappens.Engine.Platform;
 using TickHappens.Game;
 using TickHappens.Game.Content;
 using TickHappens.Game.Sim;
+using TickHappens.Localization;
 #if TICKHAPPENS_EOS
 using TickHappens.Game.Online;
+#endif
 
+Localizer.Initialize();
+
+#if TICKHAPPENS_EOS
 if (args is ["--eos-probe"]) return EosProbe.Run();
 #endif
 
@@ -63,7 +68,7 @@ if (characterId != null)
 }
 
 var atlas = AtlasData.Load(AssetPaths.Get("atlas", "main.json"));
-using var window = new GameWindow("TickHappens", 1280, 720, vsync: !demo && !noVsync);
+using var window = new GameWindow(Localizer.Get("app.title"), 1280, 720, vsync: !demo && !noVsync);
 using var view = new RunView(window.Gl, atlas, content);
 // The menu shows the selected hero standing in a quiet arena; the run starts from a fresh world.
 bool inMenu = stayInMenu || (!demo && characterId == null);
@@ -122,6 +127,11 @@ for (int frame = 1; !window.QuitRequested; frame++)
 
     if (inMenu)
     {
+        if (window.WasPressed(Key.F4))
+        {
+            string next = Localizer.Languages.First(language => language != Localizer.Language);
+            if (!Localizer.Select(next)) Console.Error.WriteLine(Localizer.Get("language.saveError"));
+        }
         int delta = (window.WasPressed(Key.D) || window.WasPressed(Key.Right) || window.WasPressed(Key.Down) ? 1 : 0)
                   - (window.WasPressed(Key.A) || window.WasPressed(Key.Left) || window.WasPressed(Key.Up) ? 1 : 0);
         if (delta != 0)
@@ -165,7 +175,7 @@ for (int frame = 1; !window.QuitRequested; frame++)
     fpsFrames++;
     if (now - fpsTimer > 0.5)
     {
-        window.SetTitle($"TickHappens | {fpsFrames / (now - fpsTimer):F0} fps | enemies {world.AliveEnemies}");
+        window.SetTitle(Localizer.Format("app.stats", fpsFrames / (now - fpsTimer), world.AliveEnemies));
         fpsTimer = now;
         fpsFrames = 0;
     }

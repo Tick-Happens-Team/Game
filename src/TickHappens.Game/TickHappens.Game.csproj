@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <InvariantGlobalization>false</InvariantGlobalization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(TickHappensEosSdk)' != ''">
     <DefineConstants>$(DefineConstants);TICKHAPPENS_EOS</DefineConstants>
@@ -10,6 +11,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\TickHappens.Engine\TickHappens.Engine.csproj" />
+    <ProjectReference Include="../TickHappens.Localization/TickHappens.Localization.csproj" />
     <None Include="..\..\assets\**\*" LinkBase="assets" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\content\**\*" LinkBase="content" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

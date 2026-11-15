@@ -12,6 +12,9 @@ public static class PixelFont
 
     private static readonly Dictionary<char, byte[]> Glyphs = Build();
 
+    /// <summary>True when the character (after uppercasing) has a glyph or is a space or newline.</summary>
+    public static bool HasGlyph(char c) => c is ' ' or '\n' ||Glyphs.ContainsKey(char.ToUpperInvariant(c));
+
     public static int Measure(string text, int scale = 1)
     {
         int w = 0, best = 0;
