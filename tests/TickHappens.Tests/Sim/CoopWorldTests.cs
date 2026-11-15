@@ -94,6 +94,24 @@ public sealed class CoopWorldTests
     }
 
     [Fact]
+    public void AnEarlySnapshotContinuesRemoteInterpolationFromTheDisplayedPosition()
+    {
+        var content = TestContent.LoadCore();
+        var host = new RunWorld(content, playerCount: 2);
+        var client = new RunWorld(content, playerCount: 2, localPlayerId: 1);
+        var packet = new byte[RunWorld.SnapshotCapacity];
+        Assert.True(client.TryApplySnapshot(packet.AsSpan(0, host.WriteSnapshot(packet))));
+        host.StepCoop([new RunInput(1, 0), default]);
+        Assert.True(client.TryApplySnapshot(packet.AsSpan(0, host.WriteSnapshot(packet))));
+        var remote = client.Players[0];
+        var displayed = Vector2.Lerp(remote.Prev, remote.Pos, 0.25f);
+        host.StepCoop([new RunInput(1, 0), default]);
+        Assert.True(client.TryApplySnapshot(packet.AsSpan(0, host.WriteSnapshot(packet)), previousAlpha: 0.25f));
+        Assert.Equal(displayed, remote.Prev);
+        Assert.True(remote.Pos.X > displayed.X);
+    }
+
+    [Fact]
     public void KillEventCarriesTheSeedUsedForTheAuthoritativeDrop()
     {
         var content = TestContent.LoadCore();

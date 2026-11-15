@@ -12,6 +12,7 @@ internal sealed class OnlineMenu(OnlineGame game)
     private enum Screen { Closed, Main, Code }
     private Screen _screen;
     private string _code = "";
+    private string? _editingNickname;
 #if TICKHAPPENS_EOS
     private bool _eos;
 #else
@@ -39,6 +40,13 @@ internal sealed class OnlineMenu(OnlineGame game)
 
     public void Show() => _screen = Screen.Main;
 
+    public void EndNicknameInput(GameWindow window)
+    {
+        if (_editingNickname is null) return;
+        _editingNickname = null;
+        window.SetTextInput(false);
+    }
+
     public void Read(GameWindow window, PixelRenderer renderer, string character, uint seed)
     {
         int w = renderer.ViewW, h = renderer.ViewH;
@@ -47,12 +55,32 @@ internal sealed class OnlineMenu(OnlineGame game)
             click is { } point && point.X * w >= x && point.X * w < x + width &&
             point.Y * h >= y && point.Y * h < y + height;
 
+        if (_editingNickname is not null)
+        {
+            bool confirm = window.WasPressed(Key.Return) || Click(w / 2 - 90, h / 2 + 8, 180, 16);
+            if (confirm || window.WasPressed(Key.Escape) || game.LocalSlot is null)
+            {
+                if (confirm) game.EditProfile(game.SelectedHero, _editingNickname);
+                _editingNickname = null;
+                window.SetTextInput(false);
+            }
+            else
+            {
+                foreach (char c in window.TextInput)
+                    if (_editingNickname.Length < CoopSession.NicknameLimit && CoopSession.NicknameCharacter(c))
+                        _editingNickname += c;
+                if (window.WasPressed(Key.Backspace) && _editingNickname.Length != 0)
+                    _editingNickname = _editingNickname[..^1];
+            }
+            return;
+        }
+
         if (!IsOpen)
         {
             if (window.WasPressed(Key.F1) || Click(w / 2 - 90, h - 38, 180, 16)) Show();
             return;
         }
-        if (window.WasPressed(Key.Escape) || Click(w / 2 - 90, h / 2 + 36, 180, 16))
+        if (window.WasPressed(Key.Escape) || Click(w / 2 - 90, h / 2 + (game.InRoom ? 58 : 36), 180, 16))
         {
             if (game.Busy || game.InRoom) game.Leave();
             _screen = _screen == Screen.Code ? Screen.Main : Screen.Closed;
@@ -61,7 +89,19 @@ internal sealed class OnlineMenu(OnlineGame game)
         if (game.Busy) return;
         if (game.InRoom)
         {
-            if (game.IsHost && (window.WasPressed(Key.Return) || Click(w / 2 - 90, h / 2 + 12, 180, 16)))
+            if (game.LocalSlot is not null)
+            {
+                int step = (window.WasPressed(Key.Right) || Click(w / 2 + 74, h / 2 + 14, 16, 16) ? 1 : 0)
+                    - (window.WasPressed(Key.Left) || Click(w / 2 - 90, h / 2 + 14, 16, 16) ? 1 : 0);
+                if (step != 0)
+                    game.EditProfile((game.SelectedHero + step + game.HeroCount) % game.HeroCount, game.Nickname);
+                if (window.WasPressed(Key.F4) || Click(w / 2 - 90, h / 2 - 4, 180, 16))
+                {
+                    _editingNickname = game.Nickname;
+                    window.SetTextInput(true);
+                }
+            }
+            if (game.IsHost && (window.WasPressed(Key.Return) || Click(w / 2 - 90, h / 2 + 36, 180, 16)))
                 game.Start();
             return;
         }
@@ -136,8 +176,9 @@ internal sealed class OnlineMenu(OnlineGame game)
             Button(Localizer.Get("online.entry"), renderer.ViewH - 38);
             return;
         }
+        int halfWidth = Math.Min(renderer.ViewW / 2 - 3, game.InRoom ? 185 : 130);
         for (int dy = -82; dy < 80; dy++)
-            for (int dx = -130; dx <= 130; dx++)
+            for (int dx = -halfWidth; dx <= halfWidth; dx++)
                 ui.Set(x + dx, y + dy, Ink);
         PixelFont.DrawCentered(ui, Localizer.Get(IsEos ? "online.title" : "online.lanTitle"), x, y - 73, Teal, Ink);
         string status = game.RoomCode is { } code ? Localizer.Format("online.room", code, game.PlayerCount)
@@ -149,7 +190,33 @@ internal sealed class OnlineMenu(OnlineGame game)
         {
             if (game.InRoom)
             {
-                if (game.IsHost) Button(Localizer.Get("online.start"), y + 12, game.PlayerCount >= 2);
+                if (_editingNickname is not null)
+                {
+                    PixelFont.DrawCentered(ui, Localizer.Get("online.nickname"), x, y - 28, Teal, Ink);
+                    PixelFont.DrawCentered(ui, _editingNickname + "_", x, y - 13, Text, Ink);
+                    Button(Localizer.Get("online.confirmNickname"), y + 8);
+                    return;
+                }
+                int row = y - 38;
+                for (int slot = 0; slot < CoopSession.MaxPlayers; slot++)
+                {
+                    if (!game.PlayerPresent(slot)) continue;
+                    string hero = game.PlayerHero(slot) is int index ? game.HeroName(index) : "-";
+                    string ping = game.Ping(slot == game.LocalSlot ? 0 : slot) is int ms
+                        ? Localizer.Format("online.ms", ms) : "-";
+                    if (game.IsHost && slot == 0) ping = "-";
+                    string line = $"{game.PlayerName(slot)}  |  {hero}  |  {ping}";
+                    int max = (halfWidth * 2 - 10) / 6;
+                    PixelFont.DrawCentered(ui, line[..Math.Min(max, line.Length)], x, row,
+                        game.LocalSlot == slot ? Teal : Text, Ink);
+                    row += 8;
+                }
+                if (game.LocalSlot is not null)
+                {
+                    Button(Localizer.Get("online.editNickname"), y - 4);
+                    Button($"<   {game.HeroName(game.SelectedHero)}   >", y + 14);
+                }
+                if (game.IsHost) Button(Localizer.Get("online.start"), y + 36, game.CanStart);
             }
             else if (_screen == Screen.Code)
             {
@@ -168,6 +235,6 @@ internal sealed class OnlineMenu(OnlineGame game)
 #endif
             }
         }
-        Button(Localizer.Get("online.back"), y + 36);
+        Button(Localizer.Get("online.back"), y + (game.InRoom ? 58 : 36));
     }
 }

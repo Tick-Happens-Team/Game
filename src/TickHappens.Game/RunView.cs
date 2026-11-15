@@ -197,11 +197,27 @@ internal sealed class RunView : IDisposable
     /// <summary>Draws a frame; with <paramref name="menuSelection"/> ≥ 0 the character select screen is drawn over the scene.</summary>
     public void Draw(int width, int height, RunWorld world, float alpha, bool paused, float frameDt,
         int menuSelection = -1, Action<PixelRenderer>? overlay = null, bool online = false, string? interruption = null, bool canReconnect = false,
-        float? localAlpha = null)
+        float? localAlpha = null, Vector2 localCorrection = default, CoopHud? coopHud = null)
     {
         _time += paused ? 0 : frameDt;
         var p = world.Player;
-        var hero = Vector2.Lerp(p.Prev, p.Pos, localAlpha ?? alpha);
+        var hero = Vector2.Lerp(p.Prev, p.Pos, localAlpha ?? alpha) + localCorrection;
+        if (!ReferenceEquals(world, _displayWorld))
+        {
+            _displayWorld = world;
+            Array.Clear(_displayActive);
+        }
+        for (int slot = 0; slot < world.Players.Count; slot++)
+        {
+            var player = world.Players[slot];
+            Vector2 target = ReferenceEquals(player, p) ? hero : Vector2.Lerp(player.Prev, player.Pos, alpha);
+            if (!online || ReferenceEquals(player, p) || !_displayActive[slot] ||
+                Vector2.DistanceSquared(_displayPlayers[slot], target) > 48 * 48)
+                _displayPlayers[slot] = target;
+            else if (!paused)
+                _displayPlayers[slot] = Vector2.Lerp(_displayPlayers[slot], target, 1 - MathF.Exp(-frameDt * 24));
+            _displayActive[slot] = player.Active;
+        }
         _shake = MathF.Max(0, _shake - frameDt * 2.2f);
         float sx = (_cosmetic.NextSingle() - 0.5f) * _shake * _shake * 8, sy = (_cosmetic.NextSingle() - 0.5f) * _shake * _shake * 8;
         // Keep the camera inside the arena so the void beyond the edge never shows.
@@ -231,7 +247,8 @@ internal sealed class RunView : IDisposable
         for (int i = 0; i < world.Players.Count; i++)
         {
             var player = world.Players[i];
-            if (player.Active && Visible(player.Pos.X, player.Pos.Y)) Add(HeroBase - i, player.Pos.Y);
+            var position = _displayPlayers[i];
+            if (player.Active && Visible(position.X, position.Y)) Add(HeroBase - i, position.Y);
         }
         for (int i = 0; i < world.Statues.Length; i++) if (Visible(world.Statues[i].X, world.Statues[i].Y)) Add(StatueBase - i, world.Statues[i].Y);
         for (int i = 0; i < world.Chests.Length; i++) if (Visible(world.Chests[i].X, world.Chests[i].Y)) Add(ChestBase - i, world.Chests[i].Y);
@@ -256,7 +273,7 @@ internal sealed class RunView : IDisposable
                 var sprite = _heroSprites[world.Content.CharacterIndex(player.Character.Id)];
                 var anim = sprite.Anims[player.Walking && sprite.Anims.ContainsKey("walk") ? "walk" : "idle"];
                 int frame = anim.Frames[(int)(_time * anim.Fps) % anim.Frames.Count];
-                var position = ReferenceEquals(player, p) ? hero : Vector2.Lerp(player.Prev, player.Pos, alpha);
+                var position = _displayPlayers[player.Id];
                 _batch.Draw(sprite, frame, position.X - ox, position.Y - oy, player.FacingLeft,
                     tint: ReferenceEquals(player, p) ? 0xFFFFFFFFu : 0xFFE6F4BCu);
             }
@@ -326,6 +343,20 @@ internal sealed class RunView : IDisposable
         float flick = 0.94f + 0.06f * MathF.Sin(_time * 11) * MathF.Sin(_time * 6.1f);
         _lights.Add(new PointLight { X = hero.X - 5, Y = hero.Y - 20, Radius = 130, R = 1.0f * flick, G = 0.78f * flick, B = 0.52f * flick, Height = 26 });
         _lights.Add(new PointLight { X = hero.X, Y = hero.Y - 16, Radius = 30, R = 0.2f, G = 0.7f, B = 0.65f, Height = 10 });
+        if (online)
+        {
+            for (int i = 0; i < world.Players.Count; i++)
+            {
+                var player = world.Players[i];
+                var position = _displayPlayers[i];
+                if (!player.Active || player.Hp <= 0 || ReferenceEquals(player, p) ||
+                    !Visible(position.X, position.Y)) continue;
+                _lights.Add(new PointLight { X = position.X - 5, Y = position.Y - 20, Radius = 130,
+                    R = 1.0f * flick, G = 0.78f * flick, B = 0.52f * flick, Height = 26 });
+                _lights.Add(new PointLight { X = position.X, Y = position.Y - 16, Radius = 30,
+                    R = 0.2f, G = 0.7f, B = 0.65f, Height = 10 });
+            }
+        }
         for (int s = 0; s < world.Statues.Length; s++)
             if (Visible(world.Statues[s].X, world.Statues[s].Y))
                 _lights.Add(world.StatueActive[s]
@@ -341,11 +372,15 @@ internal sealed class RunView : IDisposable
 
         if (menuSelection >= 0) _hud.DrawMenu(_renderer, world.Content, menuSelection);
         else _hud.Draw(_renderer, world, hero, frameDt, paused, online, interruption, canReconnect);
+        coopHud?.Draw(_renderer, world, _displayPlayers);
         overlay?.Invoke(_renderer);
         _renderer.Finish();
     }
 
     private readonly int[] _order = new int[4096];
+    private readonly Vector2[] _displayPlayers = new Vector2[4];
+    private readonly bool[] _displayActive = new bool[4];
+    private RunWorld? _displayWorld;
     private readonly float[] _depth = new float[4096];
 
     private void DrawTerrain(RunWorld world, int ox, int oy, int width, int height)
