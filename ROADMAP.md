@@ -90,7 +90,7 @@ Depends on P2. The owner's [Google Sheet](https://docs.google.com/spreadsheets/d
 - [ ] 5.3 Enemies and bosses based on run time: 23 owner enemies, including five bosses, in tiers E1–E5 (see the content roadmap).
 - [ ] 5.4 Balance using local run logs under .tmp/.
 - [ ] 5.5 Metaprogression pending owner decision.
-- [ ] 5.6 Projectile splash: bolts damage the nearest enemies within a 30 px radius of the impact instead of only the primary target. Acceptance: a bolt landing in a cluster damages every enemy within 30 px, damage falls off with distance, and a test covers the radius and the falloff.
+- [x] 5.6 Projectile splash: bolts damage the nearest enemies within a 30 px radius of the impact instead of only the primary target. Acceptance: a bolt landing in a cluster damages every enemy within 30 px, damage falls off with distance, and a test covers the radius and the falloff. Implemented as `RunWorld.SplashRadius` with linear falloff from full damage at the impact point to 50% at the rim, matching the blast falloff floor. The primary target and earlier pierce hits are excluded through the projectile hit memory, so no enemy takes the bolt twice. `BoltSplashDamagesNearbyEnemiesWithFalloff` covers the radius boundary, the falloff ordering, and the no-double-dip rule.
 
 ## P6. Polish and release
 
