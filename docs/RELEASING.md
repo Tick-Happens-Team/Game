@@ -1,6 +1,6 @@
 # Repositories, releases, and launcher
 
-TickHappens is distributed free of charge through GitHub Releases. The public Tick-Happens-Team organization contains Game, Assets, and Mods. Game code and Mods catalog code use MIT. Original Assets media uses CC BY 4.0. Third-party content retains its separate license terms.
+TickHappens is distributed free of charge through GitHub Releases. The public Tick-Happens-Team organization contains Game, Assets, and Mods. Game code and Mods catalog code use MIT. Original Assets media uses CC BY-NC 4.0. Third-party content retains its separate license terms.
 
 - Game contains the game, C# engine, launcher, AssetTool, shaders, schemas, core gameplay data, and GitHub Actions.
 - Assets contains palettes, recipes, indexed sprites, animations, music, sound, licenses, and provenance. GitHub Releases will hold runtime art and audio ZIPs.
