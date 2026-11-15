@@ -105,6 +105,7 @@ double last = clock.Elapsed.TotalSeconds, fpsTimer = 0;
 int fpsFrames = 0;
 using var online = new OnlineGame(content);
 var onlineMenu = new OnlineMenu(online);
+var coopHud = new CoopHud(online);
 bool wasOnlinePlaying = false;
 
 for (int frame = 1; !window.QuitRequested; frame++)
@@ -117,16 +118,20 @@ for (int frame = 1; !window.QuitRequested; frame++)
 
     bool escapeHandled = inMenu && (onlineMenu.IsOpen || online.Playing);
     bool onlineMenuWasOpen = onlineMenu.IsOpen;
-    if (inMenu && online.Playing && window.WasPressed(Key.Escape)) online.Leave();
+    if (inMenu && online.Playing && online.Interrupted && window.WasPressed(Key.Escape)) online.Leave();
+    else if (inMenu && online.Playing && !(online.CanReconnect && window.WasPressed(Key.F7)))
+        coopHud.Read(window, view.Renderer);
     else if (inMenu && online.CanReconnect && window.WasPressed(Key.F7)) online.Reconnect();
     else if (inMenu && !stayInMenu && !online.Playing)
         onlineMenu.Read(window, view.Renderer, content.Characters[selected].Id, seed);
     var netInput = new RunInput(Axis(Key.D, Key.Right, Key.A, Key.Left),
         Axis(Key.S, Key.Down, Key.W, Key.Up), window.IsDown(Key.Space) || window.WasPressed(Key.Space));
-    online.Update(frameDt, netInput);
+    online.Update(frameDt, coopHud.CapturesInput ? default : netInput);
     if (online.Playing != wasOnlinePlaying)
     {
         view.Reset();
+        coopHud.Reset();
+        onlineMenu.EndNicknameInput(window);
         wasOnlinePlaying = online.Playing;
     }
     if (inMenu && online.Playing)
@@ -134,8 +139,9 @@ for (int frame = 1; !window.QuitRequested; frame++)
         var onlineWorld = online.World!;
         view.Consume(onlineWorld);
         onlineWorld.ClearEvents();
-        view.Draw(window.Width, window.Height, onlineWorld, online.Alpha, false, frameDt, online: true,
-            interruption: online.Interrupted ? online.Status : null, canReconnect: online.CanReconnect, localAlpha: online.LocalAlpha);
+        view.Draw(window.Width, window.Height, onlineWorld, online.Alpha, online.Paused, frameDt, online: true,
+            interruption: online.Interrupted ? online.Status : null, canReconnect: online.CanReconnect,
+            localAlpha: online.LocalAlpha, localCorrection: online.ViewCorrection, coopHud: coopHud);
     }
     else if (inMenu && (onlineMenu.IsOpen || onlineMenuWasOpen))
     {

@@ -11,13 +11,13 @@ public interface ICoopTransport
 }
 
 /// <summary>Versioned host/client game protocol over authenticated room members.</summary>
-public sealed class CoopSession : IDisposable
+public sealed partial class CoopSession : IDisposable
 {
     public const int MaxPlayers = 4;
     // Fits LiteNetLib's initial 1024-byte MTU including its reliable header.
     public const int MaxPacketBytes = 1000;
     public const int MaxSnapshotBytes = 256 * 1024;
-    public const byte ProtocolVersion = 4;
+    public const byte ProtocolVersion = 5;
     private const int HeaderBytes = 2;
     public const int MaxEventBytes = MaxPacketBytes - HeaderBytes;
     private const int SnapshotHeaderBytes = 12;
@@ -27,7 +27,7 @@ public sealed class CoopSession : IDisposable
     private const int ResumeKeyBytes = 16;
     private const int ResumeSeconds = 60;
 
-    private enum Message : byte { Hello = 1, Welcome, Rejected, Inputs, Snapshot, Heartbeat, Events, Keyframe }
+    private enum Message : byte { Hello = 1, Welcome, Rejected, Inputs, Snapshot, Heartbeat, Events, Keyframe, Profile, Roster, Ping, Pong, Latency, Pause }
     private enum Rejection : byte { Incompatible = 1, Full, Started, ResumeExpired }
 
     private readonly ICoopTransport _transport;
@@ -49,7 +49,7 @@ public sealed class CoopSession : IDisposable
     private bool _joining, _disposed;
 
     public CoopSession(ICoopTransport transport, string contentSha256, string? hostPeerId = null,
-        TimeProvider? clock = null, Guid? resumeKey = null, bool resume = false)
+        TimeProvider? clock = null, Guid? resumeKey = null, bool resume = false, int characterCount = ushort.MaxValue + 1)
     {
         _digest = Convert.FromHexString(contentSha256);
         if (_digest.Length != DigestBytes) throw new ArgumentException("Content digest must be SHA-256.", nameof(contentSha256));
@@ -58,6 +58,7 @@ public sealed class CoopSession : IDisposable
         _hostPeerId = hostPeerId;
         _resumeKey = resumeKey ?? Guid.NewGuid();
         _resume = resume;
+        _characterCount = characterCount;
         LocalPlayerSlot = IsHost ? 0 : null;
         PlayerCount = IsHost ? 1 : 0;
         _transport.PacketReceived += Receive;
@@ -120,14 +121,15 @@ public sealed class CoopSession : IDisposable
             {
                 if (_peerSlots[slot] is not { } peer) continue;
                 if (now - _lastPeerActivity[slot] >= 15 * second) Disconnect(peer);
-                else if (sendHeartbeat) SendHeartbeat(peer);
+                else if (sendHeartbeat) SendPing(peer, slot, now);
             }
         }
         else if (LocalPlayerSlot.HasValue)
         {
             if (now - _lastHostActivity >= 15 * second) Disconnect(_hostPeerId!);
-            else if (sendHeartbeat) SendHeartbeat(_hostPeerId!);
+            else if (sendHeartbeat) SendPing(_hostPeerId!, 0, now);
         }
+        if (IsHost && sendHeartbeat) BroadcastLatency();
     }
 
     private void SendHello(long now)
@@ -201,6 +203,8 @@ public sealed class CoopSession : IDisposable
             if (slot > 0)
             {
                 if (message == Message.Inputs) ReceiveInputs(slot, packet);
+                if (message == Message.Profile) ReceiveProfile(slot, packet);
+                ReceivePing(peer, slot, message, packet);
                 if (message == Message.Heartbeat && packet.Length == HeaderBytes)
                     _lastPeerActivity[slot] = _clock.GetTimestamp();
             }
@@ -208,6 +212,7 @@ public sealed class CoopSession : IDisposable
         }
 
         if (peer != _hostPeerId) return;
+        if (LocalPlayerSlot.HasValue) ReceivePing(peer, 0, message, packet);
         switch (message)
         {
             case Message.Welcome when _joining && packet.Length == 3 && packet[2] is > 0 and < MaxPlayers:
@@ -215,6 +220,7 @@ public sealed class CoopSession : IDisposable
                 PlayerCount = 1;
                 _lastHostActivity = _clock.GetTimestamp();
                 _joining = false;
+                if (_localProfile is { } profile && !_resume) SendProfile(profile);
                 break;
             case Message.Rejected when _joining && packet.Length == 3:
                 JoinError = (Rejection)packet[2] switch
@@ -234,6 +240,15 @@ public sealed class CoopSession : IDisposable
                 break;
             case Message.Keyframe when LocalPlayerSlot.HasValue:
                 ReceiveSnapshot(packet, _keyframe, KeyframeReceived);
+                break;
+            case Message.Roster when LocalPlayerSlot.HasValue:
+                ReceiveRoster(packet);
+                break;
+            case Message.Latency when LocalPlayerSlot.HasValue:
+                ReceiveLatency(packet);
+                break;
+            case Message.Pause when LocalPlayerSlot.HasValue && packet.Length == 3 && packet[2] <= 1:
+                Paused = packet[2] != 0;
                 break;
             case Message.Heartbeat when LocalPlayerSlot.HasValue && packet.Length == HeaderBytes:
                 _lastHostActivity = _clock.GetTimestamp();
@@ -281,6 +296,7 @@ public sealed class CoopSession : IDisposable
                 return;
             }
             _peerSlots[slot] = peer;
+            _present[slot] = true;
             _slotKeys[slot] = key;
             _resumeDeadline[slot] = 0;
             PlayerCount++;
@@ -289,6 +305,8 @@ public sealed class CoopSession : IDisposable
         }
         _lastPeerActivity[slot] = now;
         SendResponse(peer, Message.Welcome, (byte)slot, ProtocolVersion);
+        if (Paused) SendResponse(peer, Message.Pause, 1, ProtocolVersion);
+        BroadcastRoster();
     }
 
     private void ReceiveInputs(int slot, ReadOnlySpan<byte> packet)
@@ -361,11 +379,17 @@ public sealed class CoopSession : IDisposable
             int slot = Array.IndexOf(_peerSlots, peer, 1);
             if (slot < 0) return;
             _peerSlots[slot] = null;
+            _present[slot] = false;
+            _pingId[slot] = 0;
+            _latency[slot] = 0;
+            _jitter[slot] = 0;
+            if (AcceptNewPlayers) _profiles[slot] = null;
             _lastInput[slot] = 0;
             if (AcceptNewPlayers) _slotKeys[slot] = Guid.Empty;
             else _resumeDeadline[slot] = _clock.GetTimestamp() + ResumeSeconds * _clock.TimestampFrequency;
             PlayerCount--;
             PeerLeft?.Invoke(slot);
+            BroadcastRoster();
         }
         else if (peer == _hostPeerId)
         {
@@ -381,13 +405,6 @@ public sealed class CoopSession : IDisposable
     {
         Span<byte> packet = [wireVersion, (byte)message, value];
         _transport.Send(peer, packet, reliable: true);
-    }
-
-    private void SendHeartbeat(string peer)
-    {
-        Span<byte> packet = stackalloc byte[HeaderBytes];
-        Header(packet, Message.Heartbeat);
-        _transport.Send(peer, packet, reliable: false);
     }
 
     private static void Header(Span<byte> packet, Message message)

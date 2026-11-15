@@ -244,6 +244,57 @@ public sealed class CoopSessionTests
         Assert.Equal(accepted ? 2 : 1, host.PlayerCount);
     }
 
+    [Fact]
+    public void HostSynchronizesProfilesAndPauseWithoutAllowingGuestPauseOrMidRunChanges()
+    {
+        var wire = new Loopback();
+        using var host = new CoopSession(wire.Connect("host"), Digest, characterCount: 3);
+        using var guest = new CoopSession(wire.Connect("guest"), Digest, "host", characterCount: 3);
+        host.SetProfile(0, "Host");
+        guest.SetProfile(2, "Ёж-2");
+        guest.Join();
+        wire.Flush();
+        Assert.True(host.ProfilesReady);
+        Assert.Equal(new CoopSession.PlayerProfile(2, "Ёж-2"), host.Profile(1));
+        Assert.Equal(host.Profile(1), guest.Profile(1));
+        Assert.Equal(host.Profile(0), guest.Profile(0));
+
+        guest.SetProfile(3, "WrongHero");
+        guest.SetProfile(0, "🙂");
+        host.AcceptNewPlayers = false;
+        guest.SetProfile(1, "TooLate");
+        guest.SetPaused(true);
+        wire.Flush();
+        Assert.Equal(new CoopSession.PlayerProfile(2, "Ёж-2"), host.Profile(1));
+        Assert.False(guest.Paused);
+
+        host.SetPaused(true);
+        wire.Flush();
+        Assert.True(guest.Paused);
+        host.SetPaused(false);
+        wire.Flush();
+        Assert.False(guest.Paused);
+    }
+
+    [Fact]
+    public void MeasuresRoundTripTimeAndClearsItWhenPeerDisconnects()
+    {
+        var clock = new ManualClock();
+        var wire = new Loopback();
+        using var host = new CoopSession(wire.Connect("host"), Digest, clock: clock);
+        using var guest = new CoopSession(wire.Connect("guest"), Digest, "host", clock);
+        guest.Join();
+        wire.Flush();
+        Assert.Null(host.Ping(1));
+        clock.Seconds = 2;
+        host.Poll();
+        clock.Seconds = 3;
+        wire.Flush();
+        Assert.Equal(1000, host.Ping(1));
+        wire.Drop("guest");
+        Assert.Null(host.Ping(1));
+    }
+
     private sealed class ManualClock : TimeProvider
     {
         public int Seconds { get; set; }

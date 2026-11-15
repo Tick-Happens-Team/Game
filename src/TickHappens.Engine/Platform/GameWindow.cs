@@ -1,5 +1,6 @@
 using SDL3;
 using Silk.NET.OpenGL;
+using System.Runtime.InteropServices;
 
 namespace TickHappens.Engine.Platform;
 
@@ -12,6 +13,8 @@ public sealed class GameWindow : IDisposable
     public int Height { get; private set; }
     public bool QuitRequested { get; private set; }
     public (float X, float Y)? LeftClick { get; private set; }
+    public string TextInput { get; private set; } = "";
+    public bool Vsync { get; private set; }
 
     private readonly nint _context;
     private readonly bool[] _down = new bool[512];
@@ -32,7 +35,7 @@ public sealed class GameWindow : IDisposable
         _context = SDL.GLCreateContext(Handle);
         if (_context == 0) throw new InvalidOperationException("OpenGL 4.3 core context unavailable: " + SDL.GetError());
         SDL.GLMakeCurrent(Handle, _context);
-        SDL.GLSetSwapInterval(vsync ? 1 : 0);
+        SetVsync(vsync);
         Gl = GL.GetApi(name => SDL.GLGetProcAddress(name));
         UpdateSize();
     }
@@ -41,6 +44,7 @@ public sealed class GameWindow : IDisposable
     {
         Array.Clear(_pressed);
         LeftClick = null;
+        TextInput = "";
         while (SDL.PollEvent(out var e))
         {
             switch ((SDL.EventType)e.Type)
@@ -69,6 +73,9 @@ public sealed class GameWindow : IDisposable
                     SDL.GetWindowSize(Handle, out int w, out int h);
                     LeftClick = (e.Button.X / Math.Max(w, 1), e.Button.Y / Math.Max(h, 1));
                     break;
+                case SDL.EventType.TextInput:
+                    TextInput += Marshal.PtrToStringUTF8(e.Text.Text);
+                    break;
             }
         }
         UpdateSize();
@@ -92,6 +99,16 @@ public sealed class GameWindow : IDisposable
     public void SetTitle(string title) => SDL.SetWindowTitle(Handle, title);
     public void Present() => SDL.GLSwapWindow(Handle);
     public void RequestQuit() => QuitRequested = true;
+    public void SetTextInput(bool enabled)
+    {
+        if (enabled) SDL.StartTextInput(Handle);
+        else SDL.StopTextInput(Handle);
+    }
+
+    public void SetVsync(bool enabled)
+    {
+        if (SDL.GLSetSwapInterval(enabled ? 1 : 0)) Vsync = enabled;
+    }
 
     public void Dispose()
     {

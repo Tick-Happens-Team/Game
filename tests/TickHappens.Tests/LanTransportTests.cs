@@ -7,6 +7,48 @@ namespace TickHappens.Tests;
 
 public sealed class LanTransportTests
 {
+    [Fact]
+    public async Task PreMatchHeroChoicesInitializeBothWorldsAndHostPauseStopsBothClocks()
+    {
+        var content = TestContent.LoadCore();
+        using var host = new OnlineGame(content, lanPort: 0);
+        using var guest = new OnlineGame(content);
+        host.ConnectLan(true, null, content.Characters[0].Id, 1);
+        guest.ConnectLan(false, new IPEndPoint(IPAddress.Loopback, host.LanPort!.Value), content.Characters[1].Id, 1);
+
+        async Task PumpUntil(Func<bool> done)
+        {
+            var timeout = Stopwatch.StartNew();
+            while (!done() && timeout.Elapsed < TimeSpan.FromSeconds(5))
+            {
+                host.Update(RunWorld.Dt, default);
+                guest.Update(RunWorld.Dt, default);
+                await Task.Delay(2);
+            }
+            Assert.True(done());
+        }
+
+        await PumpUntil(() => host.CanStart && guest.LocalSlot is not null);
+        guest.EditProfile(2, "Guest");
+        await PumpUntil(() => host.PlayerHero(1) == 2 && guest.PlayerHero(1) == 2);
+        Assert.Equal("Guest", guest.PlayerName(1));
+        host.Start();
+        await PumpUntil(() => guest.Playing);
+        Assert.Equal(content.Characters[0], guest.World!.Players[0].Character);
+        Assert.Equal(content.Characters[2], guest.World.Players[1].Character);
+
+        host.SetPaused(true);
+        await PumpUntil(() => guest.Paused);
+        int tick = host.World!.Tick;
+        host.Update(0.09f, default);
+        guest.Update(0.09f, default);
+        Assert.Equal(tick, host.World.Tick);
+        Assert.Equal(2, host.PlayerCount);
+
+        host.SetPaused(false);
+        await PumpUntil(() => !guest.Paused && guest.World.Tick > tick);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

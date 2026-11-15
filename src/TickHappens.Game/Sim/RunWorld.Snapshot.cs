@@ -99,20 +99,20 @@ public sealed partial class RunWorld
         catch (InvalidDataException) { return 0; }
     }
 
-    public bool TryApplySnapshot(ReadOnlySpan<byte> source)
+    public bool TryApplySnapshot(ReadOnlySpan<byte> source, float previousAlpha = 1)
     {
         if (source.Length > SnapshotCapacity) return false;
         try
         {
-            ReadSnapshot(source, apply: false);
-            ReadSnapshot(source, apply: true);
+            ReadSnapshot(source, apply: false, previousAlpha);
+            ReadSnapshot(source, apply: true, previousAlpha);
             return true;
         }
         catch (InvalidDataException) { return false; }
     }
 
     // A validation pass ensures a malformed packet leaves the visible world unchanged.
-    private void ReadSnapshot(ReadOnlySpan<byte> source, bool apply)
+    private void ReadSnapshot(ReadOnlySpan<byte> source, bool apply, float previousAlpha)
     {
         var r = new SnapshotReader(source);
         Require(r.Byte() == SnapshotVersion);
@@ -130,7 +130,7 @@ public sealed partial class RunWorld
             BonusSeconds = bonusSeconds;
             Phase = (RunPhase)phase;
         }
-        for (int i = 0; i < playerCount; i++) ReadPlayer(ref r, i, apply);
+        for (int i = 0; i < playerCount; i++) ReadPlayer(ref r, i, apply, previousAlpha);
         Require(r.Short() == Statues.Length);
         for (int i = 0; i < Statues.Length; i++)
         {
@@ -165,8 +165,9 @@ public sealed partial class RunWorld
             if (!apply) continue;
             _enemySnapshotSlots[j] = (ushort)slot;
             bool existing = EAlive[slot] && EUid[slot] == uid;
-            _prevX[slot] = existing ? EX[slot] : position.X;
-            _prevY[slot] = existing ? EY[slot] : position.Y;
+            Vector2 previous = existing ? EnemyPos(slot, previousAlpha) : position;
+            _prevX[slot] = previous.X;
+            _prevY[slot] = previous.Y;
             EX[slot] = position.X;
             EY[slot] = position.Y;
             EDef[slot] = (short)def;
@@ -222,7 +223,7 @@ public sealed partial class RunWorld
         if (apply) _replicaTick = tick;
     }
 
-    private void ReadPlayer(ref SnapshotReader r, int slot, bool apply)
+    private void ReadPlayer(ref SnapshotReader r, int slot, bool apply, float previousAlpha)
     {
         bool active = r.Flag();
         var p = _players[slot];
@@ -253,7 +254,9 @@ public sealed partial class RunWorld
                 p = CreatePlayer(Content.Characters[character], slot, false);
                 _players[slot] = p;
             }
-            p.Prev = p.Active && _replicaTick >= 0 ? p.Pos : position;
+            p.Prev = p.Active && _replicaTick >= 0
+                ? slot == _localPlayerId ? p.Pos : Vector2.Lerp(p.Prev, p.Pos, previousAlpha)
+                : position;
             p.Pos = position;
             p.Active = true;
             p.Facing = facing;

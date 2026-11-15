@@ -86,7 +86,7 @@ internal sealed class Hud
     private static string F(float v) => Localizer.Number(v, "0.##");
     private static string Pct(float v) => Localizer.Number(v, "0.##%");
 
-    private static string CharacterName(CharacterDef character) =>
+    internal static string CharacterName(CharacterDef character) =>
         Localizer.Content("characters", character.Id, "name", string.IsNullOrEmpty(character.Name) ? character.Id : character.Name);
 
     public static string ItemName(ItemDef item) =>

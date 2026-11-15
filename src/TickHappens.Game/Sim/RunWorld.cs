@@ -144,6 +144,13 @@ public sealed partial class RunWorld
         player.PrevDash = false;
     }
 
+    internal void SetStartingHero(int slot, int hero)
+    {
+        if (Tick != 0) throw new InvalidOperationException("Hero selection is closed after the run starts.");
+        var player = _players[slot];
+        _players[slot] = CreatePlayer(Content.Characters[hero], slot, player.Active);
+    }
+
     private int NearestLivingPlayer(Vector2 point)
     {
         int best = -1;
@@ -178,7 +185,7 @@ public sealed partial class RunWorld
 
     /// <summary>Final max HP: (maxHp from table and items) × hpMultiplier.</summary>
     public float MaxHealth => MaxHealthFor(Player);
-    private static float MaxHealthFor(PlayerState p) => p.Stats[Stat.MaxHp] * p.Stats[Stat.HpMultiplier];
+    internal static float MaxHealthFor(PlayerState p) => p.Stats[Stat.MaxHp] * p.Stats[Stat.HpMultiplier];
     public float MoveSpeedPx => Player.Stats[Stat.MoveSpeed] * Rules.Units.MoveSpeedScale;
     public float AttacksPerSecond => Player.Stats[Stat.AttackSpeed] * Rules.Units.AttacksPerUnit;
 
