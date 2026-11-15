@@ -20,7 +20,7 @@ Veldrid was dropped over maintenance concerns. raylib-cs offered insufficient co
 
 Both applications persist the selected language in `%LOCALAPPDATA%/TickHappens/language.txt`. For a capture or development run, set `TICKHAPPENS_LANGUAGE=en` or `TICKHAPPENS_LANGUAGE=ru`. Each application can change the selection on its own interface.
 
-The Windows launcher uses the .NET Windows Forms desktop runtime for its controls. It is published self-contained and keeps the Windows UI outside the portable game and engine projects.
+The launcher uses the engine's SDL3 window and OpenGL 4.3 context. It draws its UI on the CPU into a 640×360 pixel layer with the built-in pixel font, so it needs no Assets pack or shader directory before the first install. A small embedded blit program shows that layer at an integer scale. The banner scene is procedural. The launcher is published self-contained and adds no dependencies beyond the engine's.
 
 - `TickHappens.Engine` owns SDL3, OpenGL resources, SpriteBatch, PixelRenderer, GPU particles, VFX, images, palettes, atlases, and SpatialGrid.
 - `TickHappens.Game` runs the single-player game.

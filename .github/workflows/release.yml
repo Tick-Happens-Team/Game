@@ -1,0 +1,178 @@
+name: Release
+
+# Builds, signs and publishes the Windows game, launcher and assets packages to GitHub Releases.
+# Runs only by hand from stable, inside the protected release environment.
+on:
+  workflow_dispatch:
+    inputs:
+      game_version:
+        description: Game version (major.minor.patch); the release tag is v<game_version>
+        required: true
+      launcher_version:
+        description: Launcher version (major.minor.patch)
+        required: true
+      assets_version:
+        description: Assets pack version (major.minor.patch)
+        required: true
+      assets_commit:
+        description: Full Assets commit SHA from Assets/stable
+        required: true
+      sequence:
+        description: Release sequence, larger than the current latest release
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/stable'
+    runs-on: windows-latest
+    environment: release
+    permissions:
+      contents: write
+    env:
+      GAME_VERSION: ${{ inputs.game_version }}
+      LAUNCHER_VERSION: ${{ inputs.launcher_version }}
+      ASSETS_VERSION: ${{ inputs.assets_version }}
+      ASSETS_COMMIT: ${{ inputs.assets_commit }}
+      SEQUENCE: ${{ inputs.sequence }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Validate inputs
+        run: |
+          foreach ($name in 'GAME_VERSION', 'LAUNCHER_VERSION', 'ASSETS_VERSION') {
+            if ((Get-Item "env:$name").Value -cnotmatch '^\d+\.\d+\.\d+$') { throw "$name must be major.minor.patch." }
+          }
+          if ($env:ASSETS_COMMIT -cnotmatch '^[0-9a-f]{40}$') { throw 'assets_commit must be a full lowercase commit SHA.' }
+          if ($env:SEQUENCE -notmatch '^[1-9]\d*$') { throw 'sequence must be a positive integer.' }
+
+      - name: Reject stale sequence
+        run: |
+          $latest = gh release view --repo $env:GITHUB_REPOSITORY --json tagName --jq .tagName 2>$null
+          if ($LASTEXITCODE -eq 0 -and $latest) {
+            gh release download $latest --repo $env:GITHUB_REPOSITORY --pattern channel.json --dir $env:RUNNER_TEMP/latest
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            $current = (Get-Content -Raw "$env:RUNNER_TEMP/latest/channel.json" | ConvertFrom-Json).sequence
+            if ([long]$env:SEQUENCE -le [long]$current) { throw "Sequence $env:SEQUENCE must exceed the latest release sequence $current." }
+          }
+          $global:LASTEXITCODE = 0
+
+      - name: Check out Game
+        uses: actions/checkout@v5
+        with:
+          path: Game
+          persist-credentials: false
+
+      - name: Check out Assets
+        uses: actions/checkout@v5
+        with:
+          repository: Tick-Happens-Team/Assets
+          ref: ${{ inputs.assets_commit }}
+          path: Assets
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Require the Assets commit on stable
+        working-directory: Assets
+        run: |
+          git merge-base --is-ancestor $env:ASSETS_COMMIT origin/stable
+          if ($LASTEXITCODE -ne 0) { throw 'assets_commit is not part of Assets/stable.' }
+
+      - name: Check out the EOS SDK build subset
+        uses: actions/checkout@v5
+        with:
+          repository: Tick-Happens-Team/eos-sdk
+          ssh-key: ${{ secrets.EOS_SDK_DEPLOY_KEY }}
+          path: eos-sdk
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build and test
+        working-directory: Game
+        run: |
+          dotnet build TickHappens.sln --configuration Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet test TickHappens.sln --configuration Release --no-build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Generate and lint the atlas
+        working-directory: Game
+        run: dotnet run --project tools/TickHappens.AssetTool --configuration Release --no-build -- build
+
+      - name: Package and sign
+        working-directory: Game
+        env:
+          TICKHAPPENS_RELEASE_PRIVATE_KEY: ${{ secrets.TICKHAPPENS_RELEASE_PRIVATE_KEY }}
+          EOS_CONFIG_JSON: ${{ secrets.EOS_CONFIG_JSON }}
+        run: |
+          $eosConfig = Join-Path $env:RUNNER_TEMP eos.json
+          [IO.File]::WriteAllText($eosConfig, $env:EOS_CONFIG_JSON)
+          try {
+            ./tools/Pack-LauncherRelease.ps1 -GameVersion $env:GAME_VERSION -LauncherVersion $env:LAUNCHER_VERSION `
+              -AssetsVersion $env:ASSETS_VERSION -Sequence $env:SEQUENCE -PublicKey tools/release-public.pem `
+              -AssetsRoot ../Assets -DownloadBase "https://github.com/$env:GITHUB_REPOSITORY/releases/download/v$env:GAME_VERSION" `
+              -Output .tmp/release -EosSdkArchive ../eos-sdk/eos-sdk-csharp-1.19.2.1-win64.zip -EosConfig $eosConfig
+          }
+          finally { Remove-Item -LiteralPath $eosConfig -Force }
+          $files = 'launcher-win-x64.zip', 'game-win-x64.zip', 'assets.zip', 'channel.json', 'channel.json.sig'
+          foreach ($file in $files) {
+            if (!(Test-Path -LiteralPath ".tmp/release/release/$file" -PathType Leaf)) { throw "Missing release file $file." }
+          }
+
+      - name: Stage draft release
+        working-directory: Game/.tmp/release/release
+        run: |
+          $tag = "v$env:GAME_VERSION"
+          $files = 'launcher-win-x64.zip', 'game-win-x64.zip', 'assets.zip', 'channel.json', 'channel.json.sig'
+          $existing = gh release view $tag --repo $env:GITHUB_REPOSITORY --json isDraft --jq .isDraft 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            # Corrections use a new tag; only an interrupted draft may be resumed.
+            if ($existing -ne 'true') { throw "Release $tag is already published. Use a new version." }
+            gh release upload $tag @files --repo $env:GITHUB_REPOSITORY --clobber
+          } else {
+            gh release create $tag @files --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --draft `
+              --title "TickHappens $env:GAME_VERSION" --notes "Game $env:GAME_VERSION, launcher $env:LAUNCHER_VERSION, assets $env:ASSETS_VERSION (Assets $env:ASSETS_COMMIT). Release sequence $env:SEQUENCE."
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Publish without promoting
+        run: |
+          gh release edit "v$env:GAME_VERSION" --repo $env:GITHUB_REPOSITORY --draft=false --latest=false
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify public downloads
+        working-directory: Game/.tmp/release/release
+        run: |
+          $base = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/v$env:GAME_VERSION"
+          $check = Join-Path $env:RUNNER_TEMP check
+          New-Item -ItemType Directory -Path $check | Out-Null
+          foreach ($file in 'launcher-win-x64.zip', 'game-win-x64.zip', 'assets.zip', 'channel.json', 'channel.json.sig') {
+            $target = Join-Path $check $file
+            for ($attempt = 1; ; $attempt++) {
+              try { Invoke-WebRequest "$base/$file" -OutFile $target; break }
+              catch { if ($attempt -ge 5) { throw }; Start-Sleep -Seconds (10 * $attempt) }
+            }
+            if ((Get-FileHash $target).Hash -ne (Get-FileHash $file).Hash) { throw "Published $file differs from the signed build." }
+          }
+
+      - name: Promote to latest
+        run: |
+          # Re-check under the concurrency lock so an older run never replaces a newer latest release.
+          $latest = gh release view --repo $env:GITHUB_REPOSITORY --json tagName --jq .tagName 2>$null
+          if ($LASTEXITCODE -eq 0 -and $latest -and $latest -ne "v$env:GAME_VERSION") {
+            $dir = Join-Path $env:RUNNER_TEMP promote
+            gh release download $latest --repo $env:GITHUB_REPOSITORY --pattern channel.json --dir $dir
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            $current = (Get-Content -Raw "$dir/channel.json" | ConvertFrom-Json).sequence
+            if ([long]$env:SEQUENCE -le [long]$current) { throw "A newer release ($latest) is already latest." }
+          }
+          gh release edit "v$env:GAME_VERSION" --repo $env:GITHUB_REPOSITORY --latest
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

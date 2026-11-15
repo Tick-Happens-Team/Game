@@ -8,7 +8,8 @@ param(
     [Parameter(Mandatory)][string]$AssetsRoot,
     [Parameter(Mandatory)][string]$DownloadBase,
     [Parameter(Mandatory)][string]$Output,
-    [string]$EosSdkArchive
+    [string]$EosSdkArchive,
+    [string]$EosConfig
 )
 
 $ErrorActionPreference = 'Stop'
@@ -22,9 +23,22 @@ $outputRoot = [IO.Path]::GetFullPath($Output)
 if (Test-Path -LiteralPath $outputRoot) { throw 'Choose a new output directory.' }
 if ($EosSdkArchive) {
     $archivePath = (Resolve-Path -LiteralPath $EosSdkArchive).Path
-    $expectedHash = 'A4CA3F44FA08DDFCEAFCD0009585AAAC4C7728E6E195E5035863B9613E8976CD'
-    if ((Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash -cne $expectedHash) {
+    # The official archive, or the build subset (Source/Core, Generated, Overrides, the Win64 shipping DLL and the
+    # notices) that release CI fetches from the private eos-sdk repository.
+    $expectedHashes = @(
+        'A4CA3F44FA08DDFCEAFCD0009585AAAC4C7728E6E195E5035863B9613E8976CD',
+        '7A31A4F3E55ADE779D267B01A4B55FACF1123775854F84A3871B94D32F9655D5'
+    )
+    if ((Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash -notin $expectedHashes) {
         throw 'Expected the pinned EOS C# SDK 1.19.2.1 archive.'
+    }
+}
+if ($EosConfig) {
+    if (!$EosSdkArchive) { throw 'EosConfig requires EosSdkArchive.' }
+    $eosConfigPath = (Resolve-Path -LiteralPath $EosConfig).Path
+    $eosFields = Get-Content -LiteralPath $eosConfigPath -Raw | ConvertFrom-Json
+    foreach ($field in 'ProductId', 'SandboxId', 'DeploymentId', 'ClientId', 'ClientSecret') {
+        if ([string]::IsNullOrWhiteSpace($eosFields.$field)) { throw "EOS configuration field $field is required." }
     }
 }
 $gameCommit = git -C $gameRoot rev-parse HEAD
@@ -52,6 +66,7 @@ if ($EosSdkArchive) {
             throw "EOS build did not publish $name."
         }
     }
+    if ($EosConfig) { Copy-Item -LiteralPath $eosConfigPath -Destination (Join-Path $game eos.json) }
 }
 dotnet publish "$gameRoot/src/TickHappens.Launcher" -c Release -r win-x64 --self-contained true -o $launcher "-p:ReleasePublicKey=$key" "-p:Version=$LauncherVersion"
 Copy-Item -LiteralPath "$gameRoot/LICENSE" -Destination "$game/LICENSE-Game"
