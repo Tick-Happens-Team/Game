@@ -53,6 +53,8 @@ Mods compose parameterized engine behaviors; new behaviors arrive as engine syst
 
 ### Combat effect parameters
 
+Item weapons fire automatically on their own cooldown. The `count` parameter sets the base number of projectiles, chain targets, or blasts. Each extra item copy and each point of `amount` adds one to this count. For `pulse`, count (with a minimum of one) multiplies the damage of the single area hit. A `blast` centers on the in-range enemy with the most enemies inside the blast radius, preferring the nearer center when densities match.
+
 The prototype measures distances in world pixels between ground pivots. Circle and cone boundaries are inclusive. Cone angle is the full opening angle and facing follows the last movement direction. Linear radial falloff goes from full strength at the center to zero at the edge. Use the resolved radius multiplier for item and weapon areas. Chest reach and gold pickup use separate distances. The balance sheet values remain design inputs until the playable scale is confirmed.
 
 | Design examples | Runtime parameters and behavior |
@@ -64,7 +66,6 @@ The prototype measures distances in world pixels between ground pivots. Circle a
 | Rocket, Finisher, Shield, Nettle, Shared Heart, Star of David | Typed hit, kill, received damage, heal, and gold-spend events. Give secondary effects explicit proc and reflection rules to prevent loops. |
 | Garden Gnome, Death Eagle, Bait | Summon owner, lifetime, and attack cadence. Keep owner credit on the final hit for enemy gold. |
 | Jetpack, Jar of Wind, Snack Bar, Whoopee Cushion | Dash duration, charges, cooldown, and dash-triggered passive effects. |
-| Scope | A key enables cursor targeting for supported effects. Effect timing remains automatic. Key binding and activation lifetime are pending. |
 
 The current code supplies area geometry, directional facing, resolved radius and typed damage multipliers, and hit attribution. The remaining behaviors in the table are requirements for the content loader and combat systems. Quantize authored durations to simulation ticks and use seeded rolls for random targets and proc chances.
 

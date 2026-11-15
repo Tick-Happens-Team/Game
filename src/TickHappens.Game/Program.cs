@@ -9,6 +9,20 @@ using TickHappens.Localization;
 using TickHappens.Game.Online;
 #endif
 
+if (args is ["--sim-bench", var reportPath])
+{
+    try
+    {
+        SimulationBenchmark.Run(ContentLoader.Load(ContentLoader.FindCore()), reportPath);
+        return 0;
+    }
+    catch (Exception error) when (error is IOException or UnauthorizedAccessException or ContentException)
+    {
+        Console.Error.WriteLine(error.Message);
+        return 3;
+    }
+}
+
 Localizer.Initialize();
 
 #if TICKHAPPENS_EOS
@@ -37,7 +51,7 @@ for (int i = 0; i < args.Length; i++)
         case "--screenshot" when i + 1 < args.Length: screenshot = args[++i]; break;
         case "--seed" when i + 1 < args.Length && uint.TryParse(args[i + 1], out seed): i++; break;
         default:
-            Console.Error.WriteLine("Usage: TickHappens.Game [--demo] [--character ID] [--menu] [--seed S] [--no-vsync] [--frames N [--screenshot PATH]]");
+            Console.Error.WriteLine("Usage: TickHappens.Game [--demo] [--character ID] [--menu] [--seed S] [--no-vsync] [--frames N [--screenshot PATH]] | --sim-bench CSV");
             return 2;
     }
 }

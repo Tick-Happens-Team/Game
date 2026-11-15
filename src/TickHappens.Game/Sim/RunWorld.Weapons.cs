@@ -49,7 +49,7 @@ public sealed partial class RunWorld
             switch (w.Kind)
             {
                 case "bolt": FireBolts(w.Damage, kind, src, count, w.Speed, w.Range, w.Pierce); break;
-                case "pulse": FirePulse(w.Damage, kind, src, area); break;
+                case "pulse": FirePulse(w.Damage * Math.Max(1, count), kind, src, area); break;
                 case "chain": FireChain(w.Damage, kind, src, count, w.Range, area); break;
                 case "blast": FireBlasts(w.Damage, kind, src, count, w.Range, area); break;
             }
@@ -188,14 +188,14 @@ public sealed partial class RunWorld
         for (int k = 0; k < n; k++) DamageEnemy(chain[k], damage, kind, src, EX[chain[k]], EY[chain[k]] - 1, 10);
     }
 
-    private struct CountNear(RunWorld w, float x, float y, float r) : Engine.Spatial.IGridVisitor
+    private struct CountNear(RunWorld w, float x, float y, float radiusSquared) : Engine.Spatial.IGridVisitor
     {
         public int Count;
         public void Visit(int j)
         {
             if (!w.EAlive[j]) return;
             float dx = w.EX[j] - x, dy = w.EY[j] - y;
-            if (dx * dx + dy * dy <= r * r) Count++;
+            if (dx * dx + dy * dy < radiusSquared) Count++;
         }
     }
 
@@ -204,15 +204,18 @@ public sealed partial class RunWorld
         var p = _players[src.PlayerId].Pos;
         for (int b = 0; b < Math.Min(count, 8); b++)
         {
-            // Sample a few candidates in range and pick the densest spot.
+            // Consider every in-range enemy as a center. Equal densities favor the nearer center.
             int best = -1, bestCount = 0;
-            for (int s = 0; s < 8; s++)
+            float bestDistance = float.PositiveInfinity;
+            for (int i = 0; i < _enemyHigh; i++)
             {
-                int i = SampleAliveNear(p, range);
-                if (i < 0) break;
-                var c = new CountNear(this, EX[i], EY[i], area);
-                _grid.Query(EX[i], EY[i], area, ref c);
-                if (c.Count > bestCount) { bestCount = c.Count; best = i; }
+                if (!EAlive[i]) continue;
+                float distance = Vector2.DistanceSquared(p, new Vector2(EX[i], EY[i]));
+                if (distance > range * range) continue;
+                var nearby = new CountNear(this, EX[i], EY[i], area * area);
+                _grid.Query(EX[i], EY[i], area, ref nearby);
+                if (nearby.Count < bestCount || (nearby.Count == bestCount && distance >= bestDistance)) continue;
+                (best, bestCount, bestDistance) = (i, nearby.Count, distance);
             }
             if (best < 0) return;
             float cx = EX[best], cy = EY[best];
@@ -225,18 +228,5 @@ public sealed partial class RunWorld
             }
             Emit(EventKind.Blast, cx, cy, area);
         }
-    }
-
-    private int SampleAliveNear(Vector2 p, float range)
-    {
-        if (AliveEnemies == 0) return -1;
-        for (int tries = 0; tries < 24; tries++)
-        {
-            int i = _rng.Int(Math.Max(1, _enemyHigh));
-            if (!EAlive[i]) continue;
-            float dx = EX[i] - p.X, dy = EY[i] - p.Y;
-            if (dx * dx + dy * dy <= range * range) return i;
-        }
-        return Nearest(p, range, []);
     }
 }

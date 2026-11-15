@@ -46,6 +46,10 @@ public static class ContentLoader
             LoadItemMods(set, modsRoot, profilePath, errors);
         Validate(set, errors);
         if (errors.Count > 0) throw new ContentException(errors);
+        // OrderBy is stable so simultaneous elite waves keep their authored spawn order.
+        var elites = set.Waves.Elites.OrderBy(e => e.At).ToArray();
+        set.Waves.Elites.Clear();
+        set.Waves.Elites.AddRange(elites);
         return set;
     }
 
@@ -138,7 +142,8 @@ public static class ContentLoader
                 if (!WeaponKinds.Contains(wp.Kind)) e.Add($"{w}: weapon kind '{wp.Kind}' must be one of {string.Join("/", WeaponKinds)}");
                 CheckDamage(w, wp.DamageType);
                 if (wp.Damage <= 0 || wp.Cooldown <= 0.05f || wp.Count < 1) e.Add($"{w}: weapon needs damage > 0, cooldown > 0.05, count >= 1");
-                if (wp.Kind == "bolt" && wp.Speed <= 0) e.Add($"{w}: bolt needs speed > 0");
+                if (wp.Kind == "bolt" && (wp.Speed <= 0 || wp.Pierce < 1)) e.Add($"{w}: bolt needs speed > 0 and pierce >= 1");
+                if (wp.Kind is "bolt" or "chain" or "blast" && wp.Range <= 0) e.Add($"{w}: {wp.Kind} needs range > 0");
                 if (wp.Kind is "pulse" or "blast" or "chain" && wp.Area <= 0) e.Add($"{w}: {wp.Kind} needs area > 0");
             }
         }
@@ -162,7 +167,11 @@ public static class ContentLoader
             prevTo = wv.To;
         }
         if (c.Waves.Waves.Count == 0) e.Add("waves.json: no waves");
-        foreach (var el in c.Waves.Elites) if (c.EnemyIndex(el.Enemy) < 0) e.Add($"waves.json elite at {el.At}: unknown enemy '{el.Enemy}'");
+        foreach (var el in c.Waves.Elites)
+        {
+            if (c.EnemyIndex(el.Enemy) < 0) e.Add($"waves.json elite at {el.At}: unknown enemy '{el.Enemy}'");
+            if (el.At < 0 || el.Count < 1) e.Add($"waves.json elite at {el.At}: needs at >= 0 and count >= 1");
+        }
         var r = c.Rules;
         if (r.ArenaSize < 512) e.Add("rules.json: arenaSize must be >= 512");
         if (r.Chests.PriceGrowth != 1.5m) e.Add("rules.json: chests.priceGrowth is fixed at 1.5 by the game design");

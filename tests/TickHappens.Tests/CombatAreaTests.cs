@@ -59,13 +59,14 @@ public sealed class CombatAreaTests
             TestWorld.Close(baseArea, pulse.Value);
             Assert.Equal(hp, world.EHp[enemy]); // just outside the base radius
 
+            world.GiveItem(item);
             world.Player.Stats.Apply(Stat.Area, 0, 0.5f);
             world.Player.ItemTimers[item] = 0;
             world.ClearEvents();
             world.Step(default);
             var wider = Assert.Single(world.Events, e => e.Kind == EventKind.Pulse);
             TestWorld.Close(baseArea * 1.5f, wider.Value);
-            Assert.Contains(world.Events, e => e.Kind == EventKind.Hit && e.Value == 5f);
+            Assert.Contains(world.Events, e => e.Kind == EventKind.Hit && e.Value == 10f);
         }
         finally
         {
