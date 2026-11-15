@@ -17,20 +17,27 @@ public sealed class CoopSession : IDisposable
     // Fits LiteNetLib's initial 1024-byte MTU including its reliable header.
     public const int MaxPacketBytes = 1000;
     public const int MaxSnapshotBytes = 256 * 1024;
-    public const byte ProtocolVersion = 2;
+    public const byte ProtocolVersion = 3;
     private const int HeaderBytes = 2;
     public const int MaxEventBytes = MaxPacketBytes - HeaderBytes;
     private const int SnapshotHeaderBytes = 12;
     private const int FragmentBytes = MaxPacketBytes - SnapshotHeaderBytes;
     private const int RedundantInputs = 3;
+    private const int DigestBytes = 32;
+    private const int ResumeKeyBytes = 16;
+    private const int ResumeSeconds = 60;
 
     private enum Message : byte { Hello = 1, Welcome, Rejected, Inputs, Snapshot, Heartbeat, Events }
-    private enum Rejection : byte { Incompatible = 1, Full, Started }
+    private enum Rejection : byte { Incompatible = 1, Full, Started, ResumeExpired }
 
     private readonly ICoopTransport _transport;
     private readonly TimeProvider _clock;
     private readonly string? _hostPeerId;
     private readonly byte[] _digest;
+    private readonly Guid _resumeKey;
+    private readonly bool _resume;
+    private readonly Guid[] _slotKeys = new Guid[MaxPlayers];
+    private readonly long[] _resumeDeadline = new long[MaxPlayers];
     private readonly string?[] _peerSlots = new string?[MaxPlayers];
     private readonly int[] _lastInput = new int[MaxPlayers];
     private readonly long[] _lastPeerActivity = new long[MaxPlayers];
@@ -42,13 +49,16 @@ public sealed class CoopSession : IDisposable
     private long _joinStarted, _lastHello, _lastHeartbeat, _lastHostActivity;
     private bool _joining, _disposed;
 
-    public CoopSession(ICoopTransport transport, string contentSha256, string? hostPeerId = null, TimeProvider? clock = null)
+    public CoopSession(ICoopTransport transport, string contentSha256, string? hostPeerId = null,
+        TimeProvider? clock = null, Guid? resumeKey = null, bool resume = false)
     {
         _digest = Convert.FromHexString(contentSha256);
-        if (_digest.Length != 32) throw new ArgumentException("Content digest must be SHA-256.", nameof(contentSha256));
+        if (_digest.Length != DigestBytes) throw new ArgumentException("Content digest must be SHA-256.", nameof(contentSha256));
         _transport = transport;
         _clock = clock ?? TimeProvider.System;
         _hostPeerId = hostPeerId;
+        _resumeKey = resumeKey ?? Guid.NewGuid();
+        _resume = resume;
         LocalPlayerSlot = IsHost ? 0 : null;
         PlayerCount = IsHost ? 1 : 0;
         _transport.PacketReceived += Receive;
@@ -61,6 +71,7 @@ public sealed class CoopSession : IDisposable
     public bool AcceptNewPlayers { get; set; } = true;
     public string? JoinError { get; private set; }
     public event Action<int>? PeerJoined;
+    public event Action<int>? PeerResumed;
     public event Action<int>? PeerLeft;
     public event Action? HostDisconnected;
     public event Action<int, int, RunInput>? InputReceived;
@@ -122,9 +133,11 @@ public sealed class CoopSession : IDisposable
     private void SendHello(long now)
     {
         _lastHello = now;
-        Span<byte> packet = stackalloc byte[HeaderBytes + 32];
+        Span<byte> packet = stackalloc byte[HeaderBytes + DigestBytes + ResumeKeyBytes + 1];
         Header(packet, Message.Hello);
         _digest.CopyTo(packet[HeaderBytes..]);
+        _resumeKey.TryWriteBytes(packet[(HeaderBytes + DigestBytes)..^1]);
+        packet[^1] = _resume ? (byte)1 : (byte)0;
         _transport.Send(_hostPeerId!, packet, reliable: true);
     }
 
@@ -201,6 +214,7 @@ public sealed class CoopSession : IDisposable
                 {
                     Rejection.Full => "online.full",
                     Rejection.Started => "online.started",
+                    Rejection.ResumeExpired => "online.resumeExpired",
                     _ => "online.incompatible",
                 };
                 _joining = false;
@@ -219,31 +233,51 @@ public sealed class CoopSession : IDisposable
 
     private void ReceiveHello(string peer, ReadOnlySpan<byte> packet)
     {
-        if (packet.Length != HeaderBytes + _digest.Length) return;
-        if (packet[0] != ProtocolVersion || !_digest.AsSpan().SequenceEqual(packet[HeaderBytes..]))
+        if (packet.Length < HeaderBytes + DigestBytes) return;
+        if (packet[0] != ProtocolVersion || !_digest.AsSpan().SequenceEqual(packet.Slice(HeaderBytes, DigestBytes)))
         {
             SendResponse(peer, Message.Rejected, (byte)Rejection.Incompatible, packet[0]);
             return;
         }
+        if (packet.Length != HeaderBytes + DigestBytes + ResumeKeyBytes + 1 || packet[^1] > 1) return;
+        var key = new Guid(packet[(HeaderBytes + DigestBytes)..^1]);
+        bool requestedResume = packet[^1] == 1;
+        if (key == Guid.Empty) return;
+        long now = _clock.GetTimestamp();
         int slot = Array.IndexOf(_peerSlots, peer, 1);
-        if (slot < 0)
+        if (slot >= 0)
         {
-            if (!AcceptNewPlayers)
+            if (_slotKeys[slot] != key) return;
+        }
+        else
+        {
+            int reserved = Array.IndexOf(_slotKeys, key, 1);
+            bool resume = requestedResume && reserved > 0 && _peerSlots[reserved] is null && now < _resumeDeadline[reserved];
+            if (requestedResume && !resume)
+            {
+                SendResponse(peer, Message.Rejected, (byte)Rejection.ResumeExpired, ProtocolVersion);
+                return;
+            }
+            if (!resume && (reserved > 0 || !AcceptNewPlayers))
             {
                 SendResponse(peer, Message.Rejected, (byte)Rejection.Started, ProtocolVersion);
                 return;
             }
-            slot = Array.IndexOf(_peerSlots, null, 1);
+
+            slot = resume ? reserved : Array.IndexOf(_peerSlots, null, 1);
             if (slot < 0)
             {
                 SendResponse(peer, Message.Rejected, (byte)Rejection.Full, ProtocolVersion);
                 return;
             }
             _peerSlots[slot] = peer;
+            _slotKeys[slot] = key;
+            _resumeDeadline[slot] = 0;
             PlayerCount++;
-            PeerJoined?.Invoke(slot);
+            if (resume) PeerResumed?.Invoke(slot);
+            else PeerJoined?.Invoke(slot);
         }
-        _lastPeerActivity[slot] = _clock.GetTimestamp();
+        _lastPeerActivity[slot] = now;
         SendResponse(peer, Message.Welcome, (byte)slot, ProtocolVersion);
     }
 
@@ -303,6 +337,8 @@ public sealed class CoopSession : IDisposable
             if (slot < 0) return;
             _peerSlots[slot] = null;
             _lastInput[slot] = 0;
+            if (AcceptNewPlayers) _slotKeys[slot] = Guid.Empty;
+            else _resumeDeadline[slot] = _clock.GetTimestamp() + ResumeSeconds * _clock.TimestampFrequency;
             PlayerCount--;
             PeerLeft?.Invoke(slot);
         }

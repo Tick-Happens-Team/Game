@@ -135,6 +135,15 @@ public sealed partial class RunWorld
             if (PAlive[i] && _pOwner[i] == id) PAlive[i] = false;
     }
 
+    internal void RestoreCoopPlayer(int id)
+    {
+        var player = _players[id];
+        player.Active = true;
+        player.Prev = player.Pos;
+        player.Walking = false;
+        player.PrevDash = false;
+    }
+
     private int NearestLivingPlayer(Vector2 point)
     {
         int best = -1;

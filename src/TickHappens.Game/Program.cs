@@ -104,6 +104,7 @@ for (int frame = 1; !window.QuitRequested; frame++)
     bool escapeHandled = inMenu && (onlineMenu.IsOpen || online.Playing);
     bool onlineMenuWasOpen = onlineMenu.IsOpen;
     if (inMenu && online.Playing && window.WasPressed(Key.Escape)) online.Leave();
+    else if (inMenu && online.CanReconnect && window.WasPressed(Key.F7)) online.Reconnect();
     else if (inMenu && !stayInMenu && !online.Playing)
         onlineMenu.Read(window, view.Renderer, content.Characters[selected].Id, seed);
     var netInput = new RunInput(Axis(Key.D, Key.Right, Key.A, Key.Left),
@@ -119,7 +120,8 @@ for (int frame = 1; !window.QuitRequested; frame++)
         var onlineWorld = online.World!;
         view.Consume(onlineWorld);
         onlineWorld.ClearEvents();
-        view.Draw(window.Width, window.Height, onlineWorld, online.Alpha, false, frameDt, online: true, interrupted: online.Interrupted);
+        view.Draw(window.Width, window.Height, onlineWorld, online.Alpha, false, frameDt, online: true,
+            interruption: online.Interrupted ? online.Status : null, canReconnect: online.CanReconnect);
     }
     else if (inMenu && (onlineMenu.IsOpen || onlineMenuWasOpen))
     {

@@ -193,6 +193,33 @@ public sealed class CoopSessionTests
         Assert.Equal(1, host.PlayerCount);
     }
 
+    [Theory]
+    [InlineData(59, true, true)]
+    [InlineData(60, true, false)]
+    [InlineData(1, false, false)]
+    public void ResumeRequiresMatchingUnexpiredSlotKey(int elapsed, bool sameKey, bool accepted)
+    {
+        var clock = new ManualClock();
+        var wire = new Loopback();
+        using var host = new CoopSession(wire.Connect("host"), Digest, clock: clock);
+        Guid key = Guid.NewGuid();
+        using var client = new CoopSession(wire.Connect("client"), Digest, "host", clock, resumeKey: key);
+        client.Join();
+        wire.Flush();
+        Assert.Equal(1, client.LocalPlayerSlot);
+
+        host.AcceptNewPlayers = false;
+        wire.Drop("client");
+        clock.Seconds = elapsed;
+        using var resumed = new CoopSession(wire.Connect("new-endpoint"), Digest, "host", clock,
+            resumeKey: sameKey ? key : Guid.NewGuid(), resume: true);
+        resumed.Join();
+        wire.Flush();
+        Assert.Equal(accepted ? 1 : null, resumed.LocalPlayerSlot);
+        Assert.Equal(accepted ? null : "online.resumeExpired", resumed.JoinError);
+        Assert.Equal(accepted ? 2 : 1, host.PlayerCount);
+    }
+
     private sealed class ManualClock : TimeProvider
     {
         public int Seconds { get; set; }

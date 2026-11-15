@@ -108,6 +108,6 @@ public enum Key
     D1 = 30, D2 = 31, D3 = 32, D4 = 33, D5 = 34, D6 = 35, D7 = 36, D8 = 37, D9 = 38, D0 = 39,
     Return = 40, Escape = 41, Backspace = 42, Tab = 43, Space = 44,
     Semicolon = 51, Period = 55,
-    F1 = 58, F2 = 59, F3 = 60, F4 = 61, F5 = 62, F6 = 63, F12 = 69,
+    F1 = 58, F2 = 59, F3 = 60, F4 = 61, F5 = 62, F6 = 63, F7 = 64, F12 = 69,
     Right = 79, Left = 80, Down = 81, Up = 82,
 }
