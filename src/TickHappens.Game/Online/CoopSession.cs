@@ -17,7 +17,7 @@ public sealed class CoopSession : IDisposable
     // Fits LiteNetLib's initial 1024-byte MTU including its reliable header.
     public const int MaxPacketBytes = 1000;
     public const int MaxSnapshotBytes = 256 * 1024;
-    public const byte ProtocolVersion = 3;
+    public const byte ProtocolVersion = 4;
     private const int HeaderBytes = 2;
     public const int MaxEventBytes = MaxPacketBytes - HeaderBytes;
     private const int SnapshotHeaderBytes = 12;
@@ -27,7 +27,7 @@ public sealed class CoopSession : IDisposable
     private const int ResumeKeyBytes = 16;
     private const int ResumeSeconds = 60;
 
-    private enum Message : byte { Hello = 1, Welcome, Rejected, Inputs, Snapshot, Heartbeat, Events }
+    private enum Message : byte { Hello = 1, Welcome, Rejected, Inputs, Snapshot, Heartbeat, Events, Keyframe }
     private enum Rejection : byte { Incompatible = 1, Full, Started, ResumeExpired }
 
     private readonly ICoopTransport _transport;
@@ -42,10 +42,9 @@ public sealed class CoopSession : IDisposable
     private readonly int[] _lastInput = new int[MaxPlayers];
     private readonly long[] _lastPeerActivity = new long[MaxPlayers];
     private readonly byte[] _inputHistory = new byte[RedundantInputs];
-    private readonly byte[] _assembly = new byte[MaxSnapshotBytes];
-    private readonly bool[] _received = new bool[(MaxSnapshotBytes + FragmentBytes - 1) / FragmentBytes];
+    private readonly SnapshotAssembly _snapshot = new();
+    private readonly SnapshotAssembly _keyframe = new();
     private int _inputSequence;
-    private int _snapshotTick = -1, _snapshotLength, _receivedCount, _deliveredTick = -1;
     private long _joinStarted, _lastHello, _lastHeartbeat, _lastHostActivity;
     private bool _joining, _disposed;
 
@@ -78,6 +77,7 @@ public sealed class CoopSession : IDisposable
 
     /// <summary>The snapshot buffer remains valid until the next snapshot starts arriving.</summary>
     public event Action<int, ReadOnlyMemory<byte>>? SnapshotReceived;
+    public event Action<int, ReadOnlyMemory<byte>>? KeyframeReceived;
     public event Action<ReadOnlyMemory<byte>>? EventsReceived;
 
     public void BroadcastEvents(ReadOnlySpan<byte> events)
@@ -141,9 +141,9 @@ public sealed class CoopSession : IDisposable
         _transport.Send(_hostPeerId!, packet, reliable: true);
     }
 
-    public void SubmitInput(RunInput input)
+    public int SubmitInput(RunInput input)
     {
-        if (_disposed || IsHost || !LocalPlayerSlot.HasValue) return;
+        if (_disposed || IsHost || !LocalPlayerSlot.HasValue) return 0;
         int sequence = ++_inputSequence;
         int count = Math.Min(sequence, RedundantInputs);
         _inputHistory[sequence % RedundantInputs] = Pack(input);
@@ -153,9 +153,16 @@ public sealed class CoopSession : IDisposable
         for (int i = 0; i < count; i++)
             packet[6 + i] = _inputHistory[(sequence - count + 1 + i) % RedundantInputs];
         _transport.Send(_hostPeerId!, packet[..(6 + count)], reliable: false);
+        return sequence;
     }
 
-    public void BroadcastSnapshot(int tick, ReadOnlySpan<byte> snapshot, bool reliable = false)
+    public void BroadcastSnapshot(int tick, ReadOnlySpan<byte> snapshot, bool reliable = false) =>
+        BroadcastState(Message.Snapshot, tick, snapshot, reliable);
+
+    public void BroadcastKeyframe(int tick, ReadOnlySpan<byte> snapshot) =>
+        BroadcastState(Message.Keyframe, tick, snapshot, reliable: true);
+
+    private void BroadcastState(Message kind, int tick, ReadOnlySpan<byte> snapshot, bool reliable)
     {
         if (_disposed || !IsHost) return;
         if (tick < 0) throw new ArgumentOutOfRangeException(nameof(tick));
@@ -163,7 +170,7 @@ public sealed class CoopSession : IDisposable
             throw new ArgumentOutOfRangeException(nameof(snapshot));
 
         Span<byte> packet = stackalloc byte[MaxPacketBytes];
-        Header(packet, Message.Snapshot);
+        Header(packet, kind);
         BinaryPrimitives.WriteInt32LittleEndian(packet[2..], tick);
         BinaryPrimitives.WriteInt32LittleEndian(packet[6..], snapshot.Length);
         for (int offset = 0; offset < snapshot.Length; offset += FragmentBytes)
@@ -223,7 +230,10 @@ public sealed class CoopSession : IDisposable
                 EventsReceived?.Invoke(memory[HeaderBytes..]);
                 break;
             case Message.Snapshot when LocalPlayerSlot.HasValue:
-                ReceiveSnapshot(packet);
+                ReceiveSnapshot(packet, _snapshot, SnapshotReceived);
+                break;
+            case Message.Keyframe when LocalPlayerSlot.HasValue:
+                ReceiveSnapshot(packet, _keyframe, KeyframeReceived);
                 break;
             case Message.Heartbeat when LocalPlayerSlot.HasValue && packet.Length == HeaderBytes:
                 _lastHostActivity = _clock.GetTimestamp();
@@ -302,30 +312,45 @@ public sealed class CoopSession : IDisposable
         }
     }
 
-    private void ReceiveSnapshot(ReadOnlySpan<byte> packet)
+    private void ReceiveSnapshot(ReadOnlySpan<byte> packet, SnapshotAssembly assembly,
+        Action<int, ReadOnlyMemory<byte>>? completed)
     {
-        if (packet.Length <= SnapshotHeaderBytes) return;
-        int tick = BinaryPrimitives.ReadInt32LittleEndian(packet[2..]);
-        int total = BinaryPrimitives.ReadInt32LittleEndian(packet[6..]);
-        int index = BinaryPrimitives.ReadUInt16LittleEndian(packet[10..]);
-        if (tick < 0 || tick <= _deliveredTick || tick < _snapshotTick || total is <= 0 or > MaxSnapshotBytes) return;
-        int offset = index * FragmentBytes;
-        if (offset >= total || packet.Length != SnapshotHeaderBytes + Math.Min(FragmentBytes, total - offset)) return;
-        _lastHostActivity = _clock.GetTimestamp();
-        if (tick != _snapshotTick)
+        if (assembly.Receive(packet, completed))
+            _lastHostActivity = _clock.GetTimestamp();
+    }
+
+    // Reliable keyframes and ordinary snapshots use independent fragment assembly.
+    private sealed class SnapshotAssembly
+    {
+        private readonly byte[] _buffer = new byte[MaxSnapshotBytes];
+        private readonly bool[] _received = new bool[(MaxSnapshotBytes + FragmentBytes - 1) / FragmentBytes];
+        private int _tick = -1, _deliveredTick = -1, _length, _count;
+
+        public bool Receive(ReadOnlySpan<byte> packet, Action<int, ReadOnlyMemory<byte>>? completed)
         {
-            _snapshotTick = tick;
-            _snapshotLength = total;
-            _receivedCount = 0;
-            Array.Clear(_received);
-        }
-        if (total != _snapshotLength || _received[index]) return;
-        packet[SnapshotHeaderBytes..].CopyTo(_assembly.AsSpan(offset));
-        _received[index] = true;
-        if (++_receivedCount == (total + FragmentBytes - 1) / FragmentBytes)
-        {
-            _deliveredTick = tick;
-            SnapshotReceived?.Invoke(tick, _assembly.AsMemory(0, total));
+            if (packet.Length <= SnapshotHeaderBytes) return false;
+            int tick = BinaryPrimitives.ReadInt32LittleEndian(packet[2..]);
+            int total = BinaryPrimitives.ReadInt32LittleEndian(packet[6..]);
+            int index = BinaryPrimitives.ReadUInt16LittleEndian(packet[10..]);
+            if (tick <= _deliveredTick || tick < _tick || total is <= 0 or > MaxSnapshotBytes) return false;
+            int offset = index * FragmentBytes;
+            if (offset >= total || packet.Length != SnapshotHeaderBytes + Math.Min(FragmentBytes, total - offset)) return false;
+            if (tick != _tick)
+            {
+                _tick = tick;
+                _length = total;
+                _count = 0;
+                Array.Clear(_received);
+            }
+            if (total != _length || _received[index]) return false;
+            packet[SnapshotHeaderBytes..].CopyTo(_buffer.AsSpan(offset));
+            _received[index] = true;
+            if (++_count == (total + FragmentBytes - 1) / FragmentBytes)
+            {
+                _deliveredTick = tick;
+                completed?.Invoke(tick, _buffer.AsMemory(0, total));
+            }
+            return true;
         }
     }
 

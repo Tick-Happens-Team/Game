@@ -7,6 +7,20 @@ using TickHappens.Game.Sim;
 using TickHappens.Localization;
 using TickHappens.Game.Online;
 
+if (args is ["--net-bench", var networkReport])
+{
+    try
+    {
+        NetworkBenchmark.Run(ContentLoader.Load(ContentLoader.FindCore()), networkReport);
+        return 0;
+    }
+    catch (Exception error) when (error is IOException or UnauthorizedAccessException or ContentException or InvalidOperationException)
+    {
+        Console.Error.WriteLine(error.Message);
+        return 3;
+    }
+}
+
 if (args is ["--sim-bench", var reportPath])
 {
     try
@@ -49,7 +63,7 @@ for (int i = 0; i < args.Length; i++)
         case "--screenshot" when i + 1 < args.Length: screenshot = args[++i]; break;
         case "--seed" when i + 1 < args.Length && uint.TryParse(args[i + 1], out seed): i++; break;
         default:
-            Console.Error.WriteLine("Usage: TickHappens.Game [--demo] [--character ID] [--menu] [--seed S] [--no-vsync] [--frames N [--screenshot PATH]] | --sim-bench CSV");
+            Console.Error.WriteLine("Usage: TickHappens.Game [--demo] [--character ID] [--menu] [--seed S] [--no-vsync] [--frames N [--screenshot PATH]] | --sim-bench CSV | --net-bench CSV");
             return 2;
     }
 }
@@ -121,7 +135,7 @@ for (int frame = 1; !window.QuitRequested; frame++)
         view.Consume(onlineWorld);
         onlineWorld.ClearEvents();
         view.Draw(window.Width, window.Height, onlineWorld, online.Alpha, false, frameDt, online: true,
-            interruption: online.Interrupted ? online.Status : null, canReconnect: online.CanReconnect);
+            interruption: online.Interrupted ? online.Status : null, canReconnect: online.CanReconnect, localAlpha: online.LocalAlpha);
     }
     else if (inMenu && (onlineMenu.IsOpen || onlineMenuWasOpen))
     {

@@ -7,16 +7,24 @@ using TickHappens.Game.Sim;
 
 namespace TickHappens.Game.Online;
 
-internal sealed class OnlineGame(ContentSet content) : IDisposable
+internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.DefaultPort, bool collectStatistics = false) : IDisposable
 {
     private const int SnapshotTicks = 3;
+    private const int KeyframeTicks = RunWorld.TicksPerSecond;
+    private const int InputHistoryLength = 128;
     private sealed record ReconnectTarget(IPEndPoint? LanAddress, string? EosCode, string Character, uint Seed, Guid Key);
     private ReconnectTarget? _reconnect;
     private bool _resuming;
     private readonly byte[] _eventPacket = new byte[CoopSession.MaxEventBytes];
     private readonly byte[] _snapshot = new byte[RunWorld.SnapshotCapacity];
+    private readonly byte[] _encodedSnapshot = new byte[RunWorld.SnapshotCapacity + SnapshotDelta.MaxHeaderBytes];
+    private readonly byte[] _baseline = new byte[RunWorld.SnapshotCapacity];
+    private int _baselineTick = -1, _baselineBytes;
+    private readonly RunInput[] _inputHistory = new RunInput[InputHistoryLength];
+    private int _lastSubmittedInput;
     private readonly RunInput[] _inputs = new RunInput[4];
     private readonly int[] _lastInput = new int[4];
+    private readonly int[] _receivedInputSequence = new int[4];
     private LanTransport? _lan;
 #if TICKHAPPENS_EOS
     private EosTransport? _transport;
@@ -46,11 +54,18 @@ internal sealed class OnlineGame(ContentSet content) : IDisposable
     public bool InRoom => _session is not null;
     public bool IsHost => _session?.IsHost == true;
     public int? LanPort => IsHost ? _lan?.Port : null;
+    internal long SentLanBytes => _lan?.SentBytes ?? 0;
+    internal int LastSubmittedInput => _lastSubmittedInput;
     public int PlayerCount => _session?.PlayerCount ?? 0;
     public bool Interrupted { get; private set; }
     public bool CanReconnect => Interrupted && !Busy && !InRoom && _reconnect is not null;
     public bool Playing => _started && World is not null;
-    public float Alpha => Math.Clamp((float)(_accumulator / (RunWorld.Dt * (IsHost ? 1 : SnapshotTicks))), 0, 1);
+    public float Alpha => Interrupted || World?.Phase == RunPhase.Dead
+        ? 1
+        : Math.Clamp((float)(_accumulator / (RunWorld.Dt * (IsHost ? 1 : SnapshotTicks))), 0, 1);
+    public float LocalAlpha => IsHost || Interrupted || World?.Phase == RunPhase.Dead
+        ? Alpha
+        : Math.Clamp((float)(_inputTime / RunWorld.Dt), 0, 1);
 
     public void Reconnect()
     {
@@ -71,7 +86,7 @@ internal sealed class OnlineGame(ContentSet content) : IDisposable
         {
             _character = character;
             _seed = seed;
-            _lan = new LanTransport(host);
+            _lan = new LanTransport(host, lanPort, collectStatistics);
             if (host) OpenSession(_lan, null);
             else
             {
@@ -204,12 +219,14 @@ internal sealed class OnlineGame(ContentSet content) : IDisposable
             session.PeerLeft += slot =>
             {
                 _inputs[slot] = default;
+                _receivedInputSequence[slot] = 0;
                 World.SetPlayerActive(slot, false);
             };
-            session.InputReceived += (slot, _, input) =>
+            session.InputReceived += (slot, sequence, input) =>
             {
                 _inputs[slot] = input with { Dash = _inputs[slot].Dash || input.Dash };
                 _lastInput[slot] = World.Tick;
+                _receivedInputSequence[slot] = sequence;
             };
             Status = Localizer.Get("online.waitingPlayers");
         }
@@ -228,15 +245,33 @@ internal sealed class OnlineGame(ContentSet content) : IDisposable
             {
                 if (session.LocalPlayerSlot is int slot) Replica(slot).TryApplyEvents(packet.Span);
             };
-            session.SnapshotReceived += (_, packet) =>
+            void Apply(ReadOnlySpan<byte> snapshot)
             {
                 if (session.LocalPlayerSlot is not int slot) return;
                 var world = Replica(slot);
-                if (!world.TryApplySnapshot(packet.Span)) return;
+                if (!world.TryApplySnapshot(snapshot)) return;
                 World = world;
                 _resuming = Interrupted = false;
                 _started = true;
                 _accumulator = 0;
+
+                int firstPending = Math.Max(world.Player.LastAppliedInput + 1, _lastSubmittedInput - InputHistoryLength + 1);
+                for (int sequence = firstPending; sequence <= _lastSubmittedInput; sequence++)
+                    world.PredictLocalMovement(_inputHistory[sequence % InputHistoryLength]);
+            }
+
+            session.KeyframeReceived += (tick, packet) =>
+            {
+                if (packet.Length > _baseline.Length) return;
+                packet.Span.CopyTo(_baseline);
+                _baselineTick = tick;
+                _baselineBytes = packet.Length;
+                Apply(packet.Span);
+            };
+            session.SnapshotReceived += (_, packet) =>
+            {
+                int size = SnapshotDelta.Decode(_baselineTick, _baseline.AsSpan(0, _baselineBytes), packet.Span, _snapshot);
+                if (size > 0) Apply(_snapshot.AsSpan(0, size));
             };
             session.Join();
             Status = Localizer.Get("online.waitingHost");
@@ -278,15 +313,16 @@ internal sealed class OnlineGame(ContentSet content) : IDisposable
                 while (_accumulator + 1e-8 >= RunWorld.Dt)
                 {
                     for (int slot = 1; slot < _inputs.Length; slot++)
-                        if (World!.Tick - _lastInput[slot] > RunWorld.TicksPerSecond / 3) _inputs[slot] = default;
-                    World!.StepCoop(_inputs);
+                    {
+                        if (World.Tick - _lastInput[slot] > RunWorld.TicksPerSecond / 3) _inputs[slot] = default;
+                        World.Players[slot].LastAppliedInput = _receivedInputSequence[slot];
+                    }
+                    World.StepCoop(_inputs);
                     for (int slot = 0; slot < _inputs.Length; slot++) _inputs[slot] = _inputs[slot] with { Dash = false };
                     bool ended = World.Phase == RunPhase.Dead;
                     if (_sendResumeSnapshot || (!ended && World.Tick % SnapshotTicks == 0) || (ended && !_sentFinal))
                     {
-                        int size = World.WriteSnapshot(_snapshot);
-                        if (size > 0)
-                            _session.BroadcastSnapshot(World.Tick, _snapshot.AsSpan(0, size), reliable: ended || _sendResumeSnapshot);
+                        SendSnapshot(_session, World, forceKeyframe: ended || _sendResumeSnapshot);
                         _sendResumeSnapshot = false;
                         _sentFinal = ended;
                     }
@@ -306,7 +342,14 @@ internal sealed class OnlineGame(ContentSet content) : IDisposable
                 while (_inputTime + 1e-8 >= RunWorld.Dt)
                 {
                     _inputTime = Math.Max(0, _inputTime - RunWorld.Dt);
-                    _session.SubmitInput(input with { Dash = _dashQueued });
+                    var sample = input with { Dash = _dashQueued };
+                    int sequence = _session.SubmitInput(sample);
+                    if (sequence > 0)
+                    {
+                        _lastSubmittedInput = sequence;
+                        _inputHistory[sequence % InputHistoryLength] = sample;
+                        World!.PredictLocalMovement(sample);
+                    }
                     _dashQueued = false;
                 }
             }
@@ -316,6 +359,24 @@ internal sealed class OnlineGame(ContentSet content) : IDisposable
             CloseRoom(Interrupted);
             SetError(error);
         }
+    }
+
+    private void SendSnapshot(CoopSession session, RunWorld world, bool forceKeyframe)
+    {
+        int size = world.WriteSnapshot(_snapshot);
+        if (size == 0) return;
+        var snapshot = _snapshot.AsSpan(0, size);
+        if (forceKeyframe || _baselineTick < 0 || world.Tick - _baselineTick >= KeyframeTicks)
+        {
+            session.BroadcastKeyframe(world.Tick, snapshot);
+            snapshot.CopyTo(_baseline);
+            _baselineTick = world.Tick;
+            _baselineBytes = size;
+            return;
+        }
+
+        int bytes = SnapshotDelta.Encode(_baselineTick, _baseline.AsSpan(0, _baselineBytes), snapshot, _encodedSnapshot);
+        session.BroadcastSnapshot(world.Tick, _encodedSnapshot.AsSpan(0, bytes));
     }
 
     private double _inputTime;
@@ -341,8 +402,11 @@ internal sealed class OnlineGame(ContentSet content) : IDisposable
         RoomCode = null;
         _dashQueued = _sentFinal = _sendResumeSnapshot = _hostEnded = _resuming = false;
         _accumulator = _inputTime = 0;
+        _lastSubmittedInput = _baselineBytes = 0;
+        _baselineTick = -1;
         Array.Clear(_inputs);
         Array.Clear(_lastInput);
+        Array.Clear(_receivedInputSequence);
         Status = Localizer.Get("online.closed");
         if (_lan is not null)
         {

@@ -196,11 +196,12 @@ internal sealed class RunView : IDisposable
 
     /// <summary>Draws a frame; with <paramref name="menuSelection"/> ≥ 0 the character select screen is drawn over the scene.</summary>
     public void Draw(int width, int height, RunWorld world, float alpha, bool paused, float frameDt,
-        int menuSelection = -1, Action<PixelRenderer>? overlay = null, bool online = false, string? interruption = null, bool canReconnect = false)
+        int menuSelection = -1, Action<PixelRenderer>? overlay = null, bool online = false, string? interruption = null, bool canReconnect = false,
+        float? localAlpha = null)
     {
         _time += paused ? 0 : frameDt;
         var p = world.Player;
-        var hero = Vector2.Lerp(p.Prev, p.Pos, alpha);
+        var hero = Vector2.Lerp(p.Prev, p.Pos, localAlpha ?? alpha);
         _shake = MathF.Max(0, _shake - frameDt * 2.2f);
         float sx = (_cosmetic.NextSingle() - 0.5f) * _shake * _shake * 8, sy = (_cosmetic.NextSingle() - 0.5f) * _shake * _shake * 8;
         // Keep the camera inside the arena so the void beyond the edge never shows.
@@ -255,7 +256,7 @@ internal sealed class RunView : IDisposable
                 var sprite = _heroSprites[world.Content.CharacterIndex(player.Character.Id)];
                 var anim = sprite.Anims[player.Walking && sprite.Anims.ContainsKey("walk") ? "walk" : "idle"];
                 int frame = anim.Frames[(int)(_time * anim.Fps) % anim.Frames.Count];
-                var position = Vector2.Lerp(player.Prev, player.Pos, alpha);
+                var position = ReferenceEquals(player, p) ? hero : Vector2.Lerp(player.Prev, player.Pos, alpha);
                 _batch.Draw(sprite, frame, position.X - ox, position.Y - oy, player.FacingLeft,
                     tint: ReferenceEquals(player, p) ? 0xFFFFFFFFu : 0xFFE6F4BCu);
             }

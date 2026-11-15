@@ -20,7 +20,7 @@ public struct GameEvent
     public float X, Y, X2, Y2, Value;
     /// <summary>Chain: start index into <see cref="RunWorld.ChainPoints"/>; Hit: damage kind; Chest: item index; otherwise kind-specific.</summary>
     public int A, B;
-    /// <summary>Deterministic per-event seed for cosmetic randomness.</summary>
+    /// <summary>Gold drop RNG state for a kill. Cosmetic seed for other events.</summary>
     public uint Seed;
 }
 
@@ -28,6 +28,8 @@ public struct GameEvent
 public struct SimRng(uint seed)
 {
     private uint _s = seed == 0 ? 0x9E3779B9u : seed;
+
+    internal uint State => _s;
 
     public uint NextU()
     {
@@ -76,4 +78,5 @@ public sealed class PlayerState
     public int Kills;
     public int HurtTick = -100;
     public bool PrevDash;
+    public int LastAppliedInput;
 }
