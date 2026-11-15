@@ -23,7 +23,7 @@ public sealed partial class RunWorld
     public ReadOnlySpan<EnemyCloud> EnemyClouds => _enemyClouds.AsSpan(0, _enemyCloudCount);
     public int EnemyWindup(int slot) => _enemyAttackTicks[slot];
 
-    private void StepEnemyAttack(int slot, EnemyDef def, PlayerState target, bool stunned, float lifestealCap)
+    private void StepEnemyAttack(int slot, EnemyDef def, PlayerState target, PlayerState? decoy, Vector2 targetPosition, bool stunned, float lifestealCap)
     {
         if (stunned)
         {
@@ -32,7 +32,7 @@ public sealed partial class RunWorld
         }
 
         var pos = new Vector2(EX[slot], EY[slot]);
-        var aim = target.Pos - pos;
+        var aim = targetPosition - pos;
         float distance = aim.Length();
         float range = def.DetonateRange > 0 ? def.DetonateRange :
             def.ShotRange > 0 ? def.ShotRange : def.Radius + PlayerRadius;
@@ -64,11 +64,22 @@ public sealed partial class RunWorld
             return;
         }
 
-        HitPlayerWithEnemy(slot, def, target, lifestealCap);
+        HitPlayerWithEnemy(slot, def, target, decoy, lifestealCap);
     }
 
-    private void HitPlayerWithEnemy(int slot, EnemyDef def, PlayerState target, float lifestealCap)
+    private void HitPlayerWithEnemy(int slot, EnemyDef def, PlayerState target, PlayerState? decoy, float lifestealCap)
     {
+        if (decoy != null)
+        {
+            if (Tick >= decoy.IllusionHurtTick)
+            {
+                decoy.IllusionHurtTick = Tick + TicksPerSecond / 2;
+                decoy.IllusionHealth -= EDamage[slot];
+                if (decoy.IllusionHealth <= 0) decoy.IllusionUntilTick = 0;
+            }
+            return;
+        }
+
         float damage = HurtPlayer(target, EDamage[slot], _enemyKind[EDef[slot]], EX[slot], EY[slot], slot);
         if (!EAlive[slot] || damage <= 0) return;
         if (def.Lifesteal > 0)

@@ -193,8 +193,10 @@ for (int frame = 1; !window.QuitRequested; frame++)
         }
         int delta = (window.WasPressed(Key.S) || window.WasPressed(Key.Down) || window.WasPressed(Key.Right) ? 1 : 0)
                   - (window.WasPressed(Key.W) || window.WasPressed(Key.Up) || window.WasPressed(Key.Left) ? 1 : 0);
-        int clicked = Hud.MenuRowAt(view.Renderer, window.LeftClick, content.Characters.Count);
-        if (clicked >= 0 && clicked != selected) delta = clicked - selected;
+        int clicked = Hud.MenuRowAt(view.Renderer, window.LeftClick, content.Characters.Count, selected);
+        int page = Hud.MenuPageAt(view.Renderer, window.LeftClick, content.Characters.Count, selected);
+        if (clicked >= 0) delta = clicked - selected;
+        if (page >= 0) delta = page - selected;
         if (delta != 0)
         {
             audio.Play("ui_move", 0.5f, 0, 0, 2);

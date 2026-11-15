@@ -15,7 +15,7 @@ public sealed partial class RunWorld
         {
             if (!p.Active || p.Hp <= 0) continue;
             UpdateDynamicStats(p);
-            p.AuraBlockChance = p.PhysicalAuraBonus = 0;
+            p.AuraBlockChance = p.PhysicalAuraBonus = p.PuppeteerDamageBonus = 0;
         }
         foreach (var source in _players)
         {
@@ -42,6 +42,16 @@ public sealed partial class RunWorld
                     target.Stats.ApplyDynamic(stat.Value, percent ? 0 : value, percent ? value : 0);
                     if (stat == Stat.Armor) target.AuraBlockChance += effect.Chance * source.ItemStacks[item];
                     if (stat == Stat.PhysicalDamage) target.PhysicalAuraBonus += value;
+                }
+            }
+            float boost = PuppeteerBonus(source);
+            if (boost > 0)
+            {
+                foreach (var target in _players)
+                {
+                    if (target == source || !target.Active || target.Hp <= 0) continue;
+                    target.PuppeteerDamageBonus += boost;
+                    target.Stats.ApplyDynamic(Stat.AttackSpeed, 0, boost);
                 }
             }
             if (source.Character.Aura is not { } aura) continue;
@@ -151,7 +161,7 @@ public sealed partial class RunWorld
 
     private void RestorePlayer(PlayerState p, float amount, bool share = true)
     {
-        if (p.Hp <= 0 || amount <= 0) return;
+        if (p.Hp <= 0 || amount <= 0 || p.GhostUntilTick > Tick) return;
         float restored = Math.Min(amount, Math.Max(0, MaxHealthFor(p) - p.Hp));
         p.Hp += restored;
         if (share && restored > 0) ShareHealing(p.Id, restored, summon: false);
@@ -175,11 +185,15 @@ public sealed partial class RunWorld
     private void UpdateCompanionAuras(ref Companion ally)
     {
         ally.Armor = ally.BlockChance = ally.AttackSpeed = ally.PhysicalDamage = ally.Lifesteal = ally.DamageReduction = 0;
+        ally.DamageBonus = ally.AttackSpeedBonus = 0;
         float capacity = ally.MaxHealth;
         float regen = 0;
         foreach (var source in _players)
         {
             if (!source.Active || source.Hp <= 0) continue;
+            float boost = PuppeteerBonus(source);
+            ally.DamageBonus += boost;
+            ally.AttackSpeedBonus += boost;
             if (source.Character.Aura is { } aura)
             {
                 float auraRange = CharacterAuraRadius(source, aura);
@@ -264,7 +278,7 @@ public sealed partial class RunWorld
             if (effect.Kind is not ("icicle" or "illusion") || !RollChance(effect.Chance * player.ItemStacks[item])) continue;
             if (effect.Kind == "illusion")
             {
-                if (Tick >= player.IllusionUntilTick)
+                if (player.Character.Id != "illusionist" && Tick >= player.IllusionUntilTick)
                 {
                     player.IllusionPosition = pos;
                     player.IllusionUntilTick = Tick + (int)MathF.Ceiling(effect.Duration * TicksPerSecond);
@@ -282,6 +296,14 @@ public sealed partial class RunWorld
     private void FireIllusion(PlayerState player)
     {
         if (player.IllusionUntilTick <= Tick) return;
+        if (player.Character.Id == "illusionist")
+        {
+            var attack = player.Attack;
+            FireBolts(player.Stats[Stat.Damage] * (0.25f + 0.0025f * (player.Level - 1)), Kind(attack.DamageType),
+                new DamageSourceRef(player.Id), attack.Count + (int)player.Stats[Stat.Amount], attack.Speed, attack.Range,
+                attack.Pierce, player.IllusionPosition, ProjectileStyle.Phantom);
+            return;
+        }
         foreach (int item in player.EffectItems)
         {
             var effect = Content.Items[item].Effect!;

@@ -5,7 +5,8 @@ namespace TickHappens.Tests;
 public sealed class ContentLoaderTests
 {
     private static readonly string[] CharacterIds =
-        ["octarine", "swordsman", "smith", "goflin", "celestial_mage", "watchman", "nekochan"];
+        ["octarine", "swordsman", "smith", "goflin", "celestial_mage", "watchman", "nekochan",
+        "pig", "miner", "necromancer", "vampire", "puppeteer", "cybernetic_cube", "masochist", "diver", "skater", "illusionist"];
 
     [Fact]
     public void CoreContentLoadsWithExpectedShape()

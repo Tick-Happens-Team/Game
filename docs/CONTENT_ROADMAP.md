@@ -80,27 +80,29 @@ Stats are copied from the owner's table. Growth means the per-level value of the
 
 | # | Character | HP | Regen (HP/s) | Move speed | Attack speed | Armor | Magic resist | Damage | Passive → implementation | Growth | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 7 | Vampire | 175/+5 | 2 | 35 | 30 | 5% | 0% | 15/+1.5 | 10% lifesteal from damage dealt → S4 | 1.05% | [ ] |
-| 8 | Miner | 300/+3 | 4.75 | 25 | 20 | 6% | 4% | 10/+1 | after taking 50 damage, explodes for 5 in radius 50 → `onDamageTaken` accumulator plus blast VFX | +2.5 damage and +2.5 radius | [ ] |
-| 9 | Cybernetic Cube | 150/+5 | 2 | 25 | 30 | 10% | 10% | 0/+0.1 | each level: a random stat +1..5, and damage the same way → seeded roll on `onLevelUp` | roll min/max +0.25..2.5 per level | [ ] |
-| 10 | Masochist | 190/+4 | 0.5 | 20 | 35 | 1% | 1% | 13.5/+2.15 | lower HP gives more regen, move speed, attack speed and damage → stats computed from missing HP | conversion +0.15% per level | [ ] |
+| 7 | Vampire | 175/+5 | 2 | 35 | 30 | 5% | 0% | 15/+1.5 | 10% lifesteal from damage dealt → S4 | 1.05% | [x] |
+| 8 | Miner | 300/+3 | 4.75 | 25 | 20 | 6% | 4% | 10/+1 | after taking 50 damage, explodes for 5 in radius 50 → `onDamageTaken` accumulator plus blast VFX | +2.5 damage and +2.5 radius | [x] |
+| 9 | Cybernetic Cube | 150/+5 | 2 | 25 | 30 | 10% | 10% | 0/+0.1 | each level: a random stat +1..5, and damage the same way → seeded roll on `onLevelUp` | roll min/max +0.25..2.5 per level | [x] |
+| 10 | Masochist | 190/+4 | 0.5 | 20 | 35 | 1% | 1% | 13.5/+2.15 | lower HP gives more regen, move speed, attack speed and damage → stats computed from missing HP | conversion +0.15% per level | [x] |
 
 ### Tier C3: new world mechanics (S6, S8, S9, death override)
 
 | # | Character | HP | Regen (HP/s) | Move speed | Attack speed | Armor | Magic resist | Damage | Passive → implementation | Growth | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 11 | Skater | 200/+3 | 2 | 25 | 25 | 5% | 5% | 20/+1 | +25% move speed; leaves a fire trail (5 dps, lasts 3 s) → S8 trail hazard | +1% move speed, +3 trail dps | [ ] |
-| 12 | Diver | 200/+5.5 | 7 | 10 | 15 | 7% | 7% | 25/+1 | low base move speed that cannot be increased; armor grows with distance travelled; reflection grows per level → move-speed lock, odometer stat, S9 reflect | 0.25% | [ ] |
-| 13 | Pig | 200/+4 | 1.75 | 30 | 20 | 7.5% | 8% | 5/+8.25 | becomes a ghost for 5 s after death → death-override state (Q7) | +0.25 s | [ ] |
+| 11 | Skater | 200/+3 | 2 | 25 | 25 | 5% | 5% | 20/+1 | +25% move speed; leaves a fire trail (5 dps, lasts 3 s) → S8 trail hazard | +1% move speed, +3 trail dps | [x] |
+| 12 | Diver | 200/+5.5 | 7 | 10 | 15 | 7% | 7% | 25/+1 | low base move speed that cannot be increased; armor grows with distance travelled; reflection grows per level → move-speed lock, odometer stat, S9 reflect | 0.25% | [x] |
+| 13 | Pig | 200/+4 | 1.75 | 30 | 20 | 7.5% | 8% | 5/+8.25 | becomes a ghost for 5 s after death → death-override state (Q7) | +0.25 s | [x] |
 
 ### Tier C4: allies and summons (S11, S12; co-op for full value)
 
 | # | Character | HP | Regen (HP/s) | Move speed | Attack speed | Armor | Magic resist | Damage | Passive → implementation | Growth | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 14 | Nekotyan | 175/+3.5 | 0.15 | 45 | 35 | 2.5% | 2.5% | 15/+1.5 | allies take −8% damage and heal 1.75 HP within radius 200; self bonuses ×1.75 → ally aura (S12) | −0.3 percentage points damage taken, +1.25 radius, +0.25 regen per level | [x] |
-| 15 | Puppeteer | 200/+3 | 1 | 30 | 20 | 5% | 5% | 20/+1 | +10% damage and attack speed for allies and allied creatures → ally buff (S12); needs summons from items to matter in solo | 1% | [ ] |
-| 16 | Necromancer | 200/+5 | 1 | 30 | 25 | 0% | 15% | 15/+1 | killed enemies leave souls; every 30 s spends them: 1–20 souls → healing ghost, 21–50 → warrior ghost (HP and damage = souls), 51+ → big area ghost (HP and damage = souls); during the cooldown each soul adds +0.5% damage → soul counter (`onKill`), three summon AIs (S11), ally heal (S12) | +0.1% damage per soul per level | [ ] |
-| 17 | Иллюзионист | 175/+3 | 2 | 30 | 30 | 5% | 15% | 15/+1.5 | every 15 s creates a copy with 30% of the hero's max HP; it lasts 8 s, draws enemies, and repeats the hero's attacks at 25% damage; at most one copy → timed summon with decoy aggro and mirrored attacks (S5, S11) | +0.25 percentage points of illusion damage per level | [ ] |
+| 15 | Puppeteer | 200/+3 | 1 | 30 | 20 | 5% | 5% | 20/+1 | +10% damage and attack speed for allies and allied creatures → ally buff (S12); needs summons from items to matter in solo | 1% | [x] |
+| 16 | Necromancer | 200/+5 | 1 | 30 | 25 | 0% | 15% | 15/+1 | killed enemies leave souls; every 30 s spends them: 1–20 souls → healing ghost, 21–50 → warrior ghost (HP and damage = souls), 51+ → big area ghost (HP and damage = souls); during the cooldown each soul adds +0.5% damage → soul counter (`onKill`), three summon AIs (S11), ally heal (S12) | +0.1% damage per soul per level | [x] |
+| 17 | Иллюзионист | 175/+3 | 2 | 30 | 30 | 5% | 15% | 15/+1.5 | every 15 s creates a copy with 30% of the hero's max HP; it lasts 8 s, draws enemies, and repeats the hero's attacks at 25% damage; at most one copy → timed summon with decoy aggro and mirrored attacks (S5, S11) | +0.25 percentage points of illusion damage per level | [x] |
+
+The new heroes use these defaults where the sheet leaves values open. Cube starts at 0 damage and earns its first upgrade after 15 seconds if it has not levelled through XP. Diver gains one percentage point of armor per 100 pixels travelled and can still dash. Masochist converts the missing-health fraction into a proportional bonus to each of the four stats, up to +100% at level 1. Skater fire patches share a damage tick, so overlapping patches from the same owner do not multiply damage. Necromancer summons use the shared companion cap. Pig keeps moving and attacking during the ghost interval with damage immunity.
 
 ## 5. Items ordered by ease
 

@@ -23,7 +23,8 @@ internal sealed class RunView : IDisposable
     private readonly GpuParticles _particles;
     private readonly Texture2D _albedo, _normals, _emission;
     private readonly AtlasSprite _chest, _grass, _stone, _gem, _statue;
-    private readonly AtlasSprite[] _heroSprites;
+    private readonly AtlasSprite[] _heroSprites, _soulSprites;
+    private readonly AtlasSprite? _pigGhost;
     private readonly AtlasSprite[] _enemySprites;
     private readonly AtlasSprite?[] _companionSprites;
     private readonly SpriteAnim[] _enemyAnims;
@@ -49,7 +50,8 @@ internal sealed class RunView : IDisposable
     private struct Ghost
     {
         public float X, Y, Age;
-        public int Sprite, Frame;
+        public int Frame;
+        public AtlasSprite Sprite;
         public bool Flip;
     }
 
@@ -66,6 +68,9 @@ internal sealed class RunView : IDisposable
         AtlasSprite S(string id) => atlas.Sprites.TryGetValue(id, out var s) ? s
             : throw new InvalidDataException($"atlas has no sprite '{id}'. Rebuild Assets with TickHappens.AssetTool -- build.");
         _heroSprites = [.. content.Characters.Select(c => S(c.Sprite))];
+        _pigGhost = atlas.Sprites.GetValueOrDefault("char_pig_ghost");
+        _soulSprites = content.Characters.Any(c => c.Id == "necromancer")
+            ? [.. RunWorld.SoulCompanions.Select(def => S(def.Sprite))] : [];
         _chest = S("prop_chest");
         _grass = S("tile_grass");
         _stone = S("tile_stone");
@@ -147,6 +152,18 @@ internal sealed class RunView : IDisposable
         if (_flashes.Count < 40) _flashes.Add(new Flash { X = x, Y = y, Radius = radius, R = r, G = g, B = b, Life = life, MaxLife = life });
     }
 
+    private int HeroFrame(AtlasSprite sprite, PlayerState player, int tick, float alpha, bool walking)
+    {
+        if (player.HeroAttackTick >= 0 && player.HeroAttackTick <= tick &&
+            sprite.Anims.TryGetValue("attack", out var attack))
+        {
+            int frame = (int)((tick - player.HeroAttackTick + alpha) * attack.Fps / RunWorld.TicksPerSecond);
+            if (frame < attack.Frames.Count) return attack.Frames[frame];
+        }
+        var anim = sprite.Anims[walking && sprite.Anims.ContainsKey("walk") ? "walk" : "idle"];
+        return anim.Frames[(int)(_time * anim.Fps) % anim.Frames.Count];
+    }
+
     private void ScreenFlash(float amount, uint color)
     {
         if (amount < _flash) return;
@@ -219,6 +236,18 @@ internal sealed class RunView : IDisposable
                 case EventKind.Frost:
                     _hud.Ring(e.X, e.Y, e.Value);
                     RingBurst(e.X, e.Y, e.Value, 0xFFFFE4ACu, 0xFFD58848u);
+                    break;
+                case EventKind.HeroFireTrail:
+                    for (int k = 0; k < 10; k++)
+                    {
+                        _particles.Spawn(new GpuParticle
+                        {
+                            X = e.X + (_cosmetic.NextSingle() - 0.5f) * 20,
+                            Y = e.Y + (_cosmetic.NextSingle() - 0.5f) * 16,
+                            Vy = -_cosmetic.NextSingle() * 3,
+                            Life = 3, MaxLife = 3, ColorA = 0xFF2A8AFFu, ColorB = 0xFF172E80u, Intensity = 1.15f,
+                        });
+                    }
                     break;
                 case EventKind.Flame:
                     for (int k = 0; k < 16; k++)
@@ -467,12 +496,12 @@ internal sealed class RunView : IDisposable
         {
             var player = world.Players[i];
             if (paused || !player.Active || player.DashTicks <= 0 || _ghosts.Count >= _ghosts.Capacity) continue;
-            int spriteIndex = world.Content.CharacterIndex(player.Character.Id);
-            var sprite = _heroSprites[spriteIndex];
+            var sprite = player.GhostUntilTick > world.Tick && _pigGhost != null
+                ? _pigGhost : _heroSprites[world.Content.CharacterIndex(player.Character.Id)];
             var anim = sprite.Anims[sprite.Anims.ContainsKey("walk") ? "walk" : "idle"];
             _ghosts.Add(new Ghost
             {
-                X = _displayPlayers[i].X, Y = _displayPlayers[i].Y, Sprite = spriteIndex, Flip = player.FacingLeft,
+                X = _displayPlayers[i].X, Y = _displayPlayers[i].Y, Sprite = sprite, Flip = player.FacingLeft,
                 Frame = anim.Frames[(int)(_time * anim.Fps) % anim.Frames.Count],
             });
         }
@@ -483,7 +512,7 @@ internal sealed class RunView : IDisposable
             float k = g.Age / GhostLife;
             if (k > 0.5f && (i + (int)(_time * 30)) % 2 == 0) continue;  // flicker out
             uint tint = k < 0.12f ? 0xD8FFF0C0u : 0xFFFFD070u;
-            _batch.Draw(_heroSprites[g.Sprite], g.Frame, g.X - ox, g.Y - oy, g.Flip, tint, (byte)(70 * (1 - k)));
+            _batch.Draw(g.Sprite, g.Frame, g.X - ox, g.Y - oy, g.Flip, tint, (byte)(70 * (1 - k)));
         }
 
         // Actors and props sorted by ground Y (painter's order).
@@ -526,12 +555,12 @@ internal sealed class RunView : IDisposable
             else if (id > StatueBase)
             {
                 var player = world.Players[HeroBase - id];
-                bool blink = player.InvulnTicks > 0 && player.DashTicks == 0 && (world.Tick / 2) % 2 == 0;
+                bool ghost = player.GhostUntilTick > world.Tick;
+                bool blink = !ghost && player.InvulnTicks > 0 && player.DashTicks == 0 && (world.Tick / 2) % 2 == 0;
                 // The character screen shows the hero enlarged on its own stage instead.
                 if (blink || player.Hp <= 0 || menuSelection >= 0) continue;
-                var sprite = _heroSprites[world.Content.CharacterIndex(player.Character.Id)];
-                var anim = sprite.Anims[player.Walking && sprite.Anims.ContainsKey("walk") ? "walk" : "idle"];
-                int frame = anim.Frames[(int)(_time * anim.Fps) % anim.Frames.Count];
+                var sprite = ghost && _pigGhost != null ? _pigGhost : _heroSprites[world.Content.CharacterIndex(player.Character.Id)];
+                int frame = HeroFrame(sprite, player, world.Tick, alpha, player.Walking);
                 var position = _displayPlayers[player.Id];
                 _batch.Draw(sprite, frame, position.X - ox, position.Y - oy, player.FacingLeft,
                     tint: ReferenceEquals(player, p) ? 0xFFFFFFFFu : 0xFFE6F4BCu);
@@ -540,8 +569,7 @@ internal sealed class RunView : IDisposable
             {
                 var owner = world.Players[IllusionBase - id];
                 var sprite = _heroSprites[world.Content.CharacterIndex(owner.Character.Id)];
-                var anim = sprite.Anims["idle"];
-                int frame = anim.Frames[(int)(_time * anim.Fps) % anim.Frames.Count];
+                int frame = HeroFrame(sprite, owner, world.Tick, alpha, walking: false);
                 _batch.Draw(sprite, frame, owner.IllusionPosition.X - ox, owner.IllusionPosition.Y - oy,
                     owner.FacingLeft, tint: 0xFFC69999u, emissionBoost: 40);
             }
@@ -549,7 +577,9 @@ internal sealed class RunView : IDisposable
             {
                 ref readonly var ally = ref companions[CompanionBase - id];
                 var pos = Vector2.Lerp(ally.Prev, ally.Pos, alpha);
-                if (_companionSprites[ally.Item] is { } sprite)
+                var allySprite = ally.Item >= 0 ? _companionSprites[ally.Item]
+                    : -1 - ally.Item < _soulSprites.Length ? _soulSprites[-1 - ally.Item] : null;
+                if (allySprite is { } sprite)
                 {
                     var anim = sprite.Anims["move"];
                     int frame = anim.Frames[(int)((_time + ally.Id * 0.13f) * anim.Fps) % anim.Frames.Count];

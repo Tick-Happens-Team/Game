@@ -142,10 +142,11 @@ public sealed partial class RunWorld
             p.Xp -= p.XpNext;
             float before = MaxHealthFor(p);
             p.Level++;
+            RollCubeLevel(p);
             p.XpNext = XpForLevel(p.Level);
             ApplyLevelStats(p);
             UpdateAllPlayerStats();
-            p.Hp += MathF.Max(0, MaxHealthFor(p) - before);
+            if (p.GhostUntilTick == 0) p.Hp += MathF.Max(0, MaxHealthFor(p) - before);
             Emit(EventKind.LevelUp, p.Pos.X, p.Pos.Y, p.Level);
         }
     }

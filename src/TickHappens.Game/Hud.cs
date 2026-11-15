@@ -132,6 +132,8 @@ internal sealed class Hud(GameSettings settings)
         Bar(ui, 2, 2, w - 4, 5, p.Xp / p.XpNext, Teal, TealDark);
         PixelFont.Draw(ui, Localizer.Format("hud.level", CharacterName(p.Character), p.Level), 4, 10, White, Ink);
         PixelFont.Draw(ui, Localizer.Format("hud.hp", (int)MathF.Ceiling(p.Hp), (int)MathF.Ceiling(world.MaxHealth)), 4, 20, 0xFF7070FFu, Ink);
+        if (p.Character.Id == "necromancer")
+            PixelFont.Draw(ui, Localizer.Format("hud.souls", p.Souls), 4, 30, Teal, Ink);
         int secs = (int)world.RunSeconds;
         PixelFont.DrawCentered(ui, Localizer.Format("hud.time", secs / 60, secs % 60), w / 2, 10, White, Ink, 2);
         if (world.BonusSeconds > 0)
@@ -222,14 +224,33 @@ internal sealed class Hud(GameSettings settings)
     // Under the info panel, clear of the settings and online buttons at the bottom centre.
     private static (int X, int Y) StartButton(int w, int h) => (PanelX(w) + PanelW - StartW, h - 66);
 
+    private static int RosterRows(int height) => Math.Max(1, (height - RosterY - 65) / RowH);
+
     /// <summary>Roster row under a normalized window point, or -1.</summary>
-    public static int MenuRowAt(PixelRenderer renderer, (float X, float Y)? point, int count)
+    public static int MenuRowAt(PixelRenderer renderer, (float X, float Y)? point, int count, int selected)
     {
         if (point is not { } p) return -1;
         float x = p.X * renderer.UiW, y = p.Y * renderer.UiH;
         if (x < RosterX || x >= RosterX + RosterW || y < RosterY) return -1;
         int row = (int)((y - RosterY) / RowH);
-        return row < count ? row : -1;
+        int rows = RosterRows(renderer.UiH);
+        if (row >= rows || (y - RosterY) % RowH >= RowH - 3) return -1;
+        int index = (selected / rows) * rows + row;
+        return index < count ? index : -1;
+    }
+
+    public static int MenuPageAt(PixelRenderer renderer, (float X, float Y)? point, int count, int selected)
+    {
+        if (point is not { } p) return -1;
+        int rows = RosterRows(renderer.UiH);
+        int first = selected / rows * rows;
+        int y = RosterY + rows * RowH;
+        float mouseY = p.Y * renderer.UiH;
+        if (mouseY < y || mouseY >= y + 16) return -1;
+        float x = p.X * renderer.UiW;
+        if (first > 0 && x >= RosterX && x < RosterX + 24) return first - rows;
+        if (first + rows < count && x >= RosterX + RosterW - 24 && x < RosterX + RosterW) return first + rows;
+        return -1;
     }
 
     /// <summary>True when a normalized window point is on the start button.</summary>
@@ -257,14 +278,35 @@ internal sealed class Hud(GameSettings settings)
         PixelFont.DrawCentered(ui, Localizer.Get("menu.pick"), w / 2, 32, Grey, Ink);
 
         // Roster: the hero's sprite and name per row; the selected hero animates, the mouse highlights a row.
-        int hover = MenuRowAt(renderer, mouse, content.Characters.Count);
-        for (int i = 0; i < content.Characters.Count; i++)
+        int rows = RosterRows(h);
+        int first = (selected / rows) * rows;
+        int last = Math.Min(first + rows, content.Characters.Count);
+        int hover = MenuRowAt(renderer, mouse, content.Characters.Count, selected);
+        for (int i = first; i < last; i++)
         {
-            int y = RosterY + i * RowH;
+            int y = RosterY + (i - first) * RowH;
             bool sel = i == selected;
             Frame(ui, RosterX, y, RosterW, RowH - 3, sel ? Teal : i == hover ? TealDark : PanelEdge, sel ? PanelLit : Panel);
             preview.DrawHero(ui, i, sel ? _menuTime : 0, RosterX + 14, y + 25, 1);
             PixelFont.Draw(ui, CharacterName(content.Characters[i]), RosterX + 32, y + 10, sel ? White : Grey, Ink);
+        }
+
+        if (content.Characters.Count > rows)
+        {
+            int y = RosterY + rows * RowH;
+            PixelFont.DrawCentered(ui, $"{first + 1}-{last} / {content.Characters.Count}", RosterX + RosterW / 2, y + 4, Grey, Ink);
+            int pageHover = MenuPageAt(renderer, mouse, content.Characters.Count, selected);
+            if (first > 0)
+            {
+                Frame(ui, RosterX, y, 24, 16, Teal, pageHover == first - rows ? PanelLit : Panel);
+                PixelFont.DrawCentered(ui, "<", RosterX + 12, y + 4, Teal, Ink);
+            }
+            if (last < content.Characters.Count)
+            {
+                int x = RosterX + RosterW - 24;
+                Frame(ui, x, y, 24, 16, Teal, pageHover == first + rows ? PanelLit : Panel);
+                PixelFont.DrawCentered(ui, ">", x + 12, y + 4, Teal, Ink);
+            }
         }
 
         // Stage: the hero's in-game sprite, five times larger, on a glowing pedestal.

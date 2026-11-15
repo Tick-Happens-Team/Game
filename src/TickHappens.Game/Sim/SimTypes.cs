@@ -11,7 +11,7 @@ public enum RunPhase { Playing, Dead }
 public enum EventKind : byte
 {
     Hit, Kill, Bolt, Pulse, Chain, Blast, LevelUp, Statue, Chest, PlayerHurt, Dash, Pickup, Elite, Melee, ItemBeam, Flame, Frost, BossReward,
-    DroneBlast, EnemyBlast,
+    DroneBlast, HeroFireTrail, EnemyBlast,
 }
 
 /// <summary>Gameplay event for cosmetics (VFX, sound, damage numbers). Never drives simulation.</summary>
@@ -82,6 +82,11 @@ public sealed class PlayerState
     public int DashChargesUsed, DashTicksTotal, BoughtChests, IllusionUntilTick;
     public float BonusShield, AuraBlockChance, PhysicalAuraBonus;
     public Vector2 IllusionPosition;
+    public int GhostUntilTick, HeroAttackTick = -1;
+    internal int NextHeroPassiveTick, Souls, IllusionHurtTick;
+    internal float IllusionHealth, PendingBlastDamage, HeroDistance, PuppeteerDamageBonus;
+    internal float CubeMin = 1, CubeMax = 5;
+    internal readonly float[] CubeBonuses = new float[7];
     public int ConversionItem = -1;
     public float AcceleratorSpeedBonus;
     /// <summary>Fractional gold carried between pickups so small multipliers (+10% gold) are never rounded away.</summary>
