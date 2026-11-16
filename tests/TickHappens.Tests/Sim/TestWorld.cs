@@ -1,3 +1,4 @@
+using TickHappens.Game.Content;
 using TickHappens.Game.Sim;
 
 namespace TickHappens.Tests;
@@ -8,6 +9,12 @@ internal static class TestWorld
     /// <summary>Asserts float equality to <paramref name="precision"/> decimal places (simulation math is not exact).</summary>
     public static void Close(float expected, float actual, int precision = 4) =>
         Assert.Equal(expected, actual, precision);
+
+    public static void DisableCrits(RunWorld world)
+    {
+        world.Player.Stats.SetBase(Stat.PhysicalCrit, 0);
+        world.Player.Stats.SetBase(Stat.MagicalCrit, 0);
+    }
 
     /// <summary>Places a gold pickup on the player so the next step collects it, without a kill or XP.</summary>
     public static void DropGold(RunWorld world, int amount)

@@ -23,6 +23,7 @@ public sealed class CombatTests
     {
         var content = TestContent.LoadCore();
         var world = new RunWorld(content, seed: 1, character: "smith");
+        TestWorld.DisableCrits(world);
         int enemy = world.SpawnEnemy(content.EnemyIndex("duskslime"), world.Player.Pos + new Vector2(100, 0));
         int item = content.ItemIndex("sprats");
 
@@ -53,6 +54,7 @@ public sealed class CombatTests
             });
             var content = ContentLoader.Load(dir);
             var world = new RunWorld(content, seed: 1, character: "octarine");
+            TestWorld.DisableCrits(world);
             int enemy = world.SpawnEnemy(content.EnemyIndex("gloombat"), world.Player.Pos + new Vector2(100, 0));
             var source = new DamageSourceRef(world.Player.Id);
 
@@ -120,6 +122,7 @@ public sealed class CombatTests
     {
         var content = TestContent.LoadCore();
         var world = new RunWorld(content, seed: 1, character: "octarine");
+        TestWorld.DisableCrits(world);
         int def = content.EnemyIndex("duskslime");
         int enemy = world.SpawnEnemy(def, world.Player.Pos + new Vector2(100, 0));
         float hp = world.EHp[enemy];
@@ -264,6 +267,7 @@ public sealed class CombatTests
         int item = content.Items.Count;
         content.Items.Add(new ItemDef { Id = "test_weapon", Weapon = weapon });
         var world = new RunWorld(content);
+        TestWorld.DisableCrits(world);
         world.Player.AttackTimer = 100;
         world.GiveItem(item);
         return (world, enemy, item);
