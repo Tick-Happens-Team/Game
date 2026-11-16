@@ -97,7 +97,12 @@ public sealed class EnemyAttacksTests
         target.Pos = world.Player.Pos + new Vector2(100, 0);
         int slot = world.SpawnEnemy(world.Content.EnemyIndex("siphoner"), target.Pos + new Vector2(90, 0));
 
+        float before = target.Hp;
+        float expectedDrain = 0.4f * (1 - target.Stats[Stat.MagicResist]);
         world.StepCoop([default, default]);
+        TestWorld.Close(before - expectedDrain, target.Hp);
+        TestWorld.Close(25 + expectedDrain, world.EMaxHp[slot]);
+        TestWorld.Close(7, world.Content.Enemies[world.EDef[slot]].Speed);
 
         var replica = IsolatedWorld(playerCount: 2);
         byte[] snapshot = new byte[RunWorld.SnapshotCapacity];
@@ -236,8 +241,8 @@ public sealed class EnemyAttacksTests
         }
         world.Step(default);
         Assert.False(world.EAlive[bomber]);
-        Assert.True(world.EHp[nearby] <= 30);
-        Assert.Equal(80f, world.EHp[distant]);
+        TestWorld.Close(world.EMaxHp[nearby] - 50, world.EHp[nearby]);
+        Assert.Equal(world.EMaxHp[distant], world.EHp[distant]);
         var hurt = Assert.Single(world.Events, e => e.Kind == EventKind.PlayerHurt);
         TestWorld.Close(50 * (1 - world.Player.Stats[Stat.MagicResist]), hurt.Value);
         var blast = Assert.Single(world.Events, e => e.Kind == EventKind.EnemyBlast);

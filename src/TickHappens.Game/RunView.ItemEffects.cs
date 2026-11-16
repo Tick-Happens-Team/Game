@@ -10,6 +10,7 @@ internal sealed partial class RunView
     private const uint RevivalMint = 0xFFAEF5B0u, RevivalGold = 0xFF9ADFFFu;
     private readonly List<ItemEffectFrame> _itemEffects = new(MaxItemEffects);
     private readonly record struct ItemEffectFrame(GameEvent Event, float Age, float Duration);
+    private readonly int _hookahItem;
     private readonly SiphonBeam[] _siphonBeams;
     private readonly record struct SiphonBeam(int PlayerId, int EnemyUid, float Until);
     private readonly SkateMark[] _skateTrail = new SkateMark[4 * RunWorld.TrailCapacity];
@@ -45,6 +46,25 @@ internal sealed partial class RunView
                 color.AlphaDisc(point.X, point.Y, 2.8f, 0xFF33B4F4u, fade * 0.8f);
             }
             light.Glow(mark.End.X, mark.End.Y, 8, 0xFF2B9CFFu, fade * 0.45f);
+        }
+    }
+
+    private void DrawHookahMist(RunWorld world, PixelCanvas color, float alpha)
+    {
+        if (_hookahItem < 0) return;
+        foreach (var player in world.Players)
+        {
+            if (!player.Active || player.Hp <= 0 || player.ItemStacks[_hookahItem] == 0 ||
+                player.StolenItem == _hookahItem) continue;
+            var center = Vector2.Lerp(player.Prev, player.Pos, alpha);
+            for (int i = 0; i < 8; i++)
+            {
+                float life = (_time * 0.8f + i / 8f) % 1;
+                float angle = i * 2.4f + _time * 0.4f;
+                var offset = new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * (6 + 20 * life);
+                color.AlphaDisc(center.X + offset.X, center.Y + offset.Y - 4, 3 + 5 * life,
+                    0xFFB5B0CCu, 0.20f * MathF.Sin(life * MathF.PI));
+            }
         }
     }
 

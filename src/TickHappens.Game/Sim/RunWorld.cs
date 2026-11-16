@@ -437,7 +437,7 @@ public sealed partial class RunWorld
         dmg -= bonusAbsorbed;
         float absorbed = Math.Min(dmg, p.Shield);
         p.Shield -= absorbed;
-        p.ShieldRechargeTick = Tick + 6 * TicksPerSecond;
+        p.ShieldRechargeTick = Tick + 4 * TicksPerSecond;
         dmg = Math.Min(p.Hp, dmg - absorbed);
         p.Hp -= dmg;
         if (!continuous) p.InvulnTicks = (int)MathF.Round(Rules.InvulnerableSeconds * TicksPerSecond);

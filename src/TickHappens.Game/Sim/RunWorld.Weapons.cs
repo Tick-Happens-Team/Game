@@ -190,7 +190,8 @@ public sealed partial class RunWorld
         {
             if (!EAlive[i] || !circle.Contains(new Vector2(EX[i], EY[i]), out float squared)) continue;
             float weight = Math.Clamp(1 - MathF.Sqrt(squared) / radius, 0, 1);
-            ApplyEnemyStatus(i, w.Slow * (0.25f + 0.75f * weight), 2, 0);
+            float minSlow = w.MinSlow ?? 0.25f * w.Slow;
+            ApplyEnemyStatus(i, minSlow + (w.Slow - minSlow) * weight, 2, 0);
             DamageEnemy(i, (w.MinDamage + (w.Damage - w.MinDamage) * weight) * count, kind, source, p.Pos.X, p.Pos.Y);
         }
         Emit(EventKind.WoodShockwave, p.Pos.X, p.Pos.Y, radius);

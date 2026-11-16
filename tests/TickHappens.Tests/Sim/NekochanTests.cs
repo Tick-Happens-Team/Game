@@ -30,9 +30,9 @@ public sealed class NekochanTests
         world.StepCoop([default, default]);
 
         TestWorld.Close(1 - 0.10f * 1.75f, self.Stats[Stat.DamageTaken]);
-        TestWorld.Close(0.45f + 1.5f * 1.75f, self.Stats[Stat.Regen]);
+        TestWorld.Close(0.45f + 1.75f * 1.75f, self.Stats[Stat.Regen]);
         TestWorld.Close(0.90f, ally.Stats[Stat.DamageTaken]);
-        TestWorld.Close(1.75f + 1.5f, ally.Stats[Stat.Regen]);
+        TestWorld.Close(1.75f + 1.75f, ally.Stats[Stat.Regen]);
 
         ally.Pos = self.Pos + new Vector2(176, 0);
         world.StepCoop([default, default]);
@@ -54,7 +54,7 @@ public sealed class NekochanTests
         world.StepCoop([default, default]);
 
         TestWorld.Close(1 - (0.10f + 4 * 0.0035f), ally.Stats[Stat.DamageTaken]);
-        TestWorld.Close(1.75f + 1.5f + 4 * 0.3f, ally.Stats[Stat.Regen]);
+        TestWorld.Close(1.75f + 1.75f + 4 * 0.35f, ally.Stats[Stat.Regen]);
         TestWorld.Close(1 - (0.10f + 4 * 0.0035f) * 1.75f, self.Stats[Stat.DamageTaken]);
     }
 
@@ -99,7 +99,7 @@ public sealed class NekochanTests
         ally.Hp = 50;
         for (int i = 0; i < RunWorld.TicksPerSecond; i++) world.StepCoop([default, default]);
 
-        Assert.Equal(50 + 1.75f + 1.5f, ally.Hp, 2);
+        Assert.Equal(50 + 1.75f + 1.75f, ally.Hp, 2);
     }
 
     private static ContentSet QuietContent()

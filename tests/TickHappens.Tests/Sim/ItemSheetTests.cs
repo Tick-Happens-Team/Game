@@ -92,6 +92,42 @@ public sealed class ItemSheetTests
     }
 
     [Fact]
+    public void EveryRegularItemCanRollFromAChest()
+    {
+        var world = new RunWorld(QuietContent(), seed: 83);
+        var rolled = new HashSet<int>();
+        for (int i = 0; i < 10_000; i++) rolled.Add(world.RollChestItem());
+
+        var expected = Enumerable.Range(0, world.Content.Items.Count)
+            .Where(i => world.Content.Items[i].Rarity != ContentSet.CursedRarity);
+        Assert.Equal(expected, rolled.Order());
+        Assert.Equal(60, rolled.Count);
+    }
+
+    [Fact]
+    public void HookahProtectsNearbyAlliesAndSummonsWhileCloakProtectsOnlyItsOwner()
+    {
+        var content = QuietContent();
+        var world = new RunWorld(content, playerCount: 2);
+        world.SetPlayerActive(1, true);
+        var ally = world.Players[1];
+        ally.Pos = world.Player.Pos + new Vector2(150, 0);
+        world.GiveItem(content.ItemIndex("hookah"));
+        world.GiveItem(content.ItemIndex("archmage_cloak"));
+        world.GiveItem(content.ItemIndex("sausages"));
+        world.StepCoop([default, default]);
+
+        TestWorld.Close(0.33f, world.Player.Stats[Stat.MagicResist]);
+        TestWorld.Close(0.25f, ally.Stats[Stat.MagicResist]);
+        var companion = Assert.Single(world.Companions.ToArray(), summon => summon.Active);
+        TestWorld.Close(0.10f, companion.MagicResist);
+
+        ally.Pos = world.Player.Pos + new Vector2(210, 0);
+        world.StepCoop([default, default]);
+        TestWorld.Close(0.15f, ally.Stats[Stat.MagicResist]);
+    }
+
+    [Fact]
     public void ASecondDashChargeCanBeSpentBeforeTheFirstRecovers()
     {
         var content = QuietContent();
