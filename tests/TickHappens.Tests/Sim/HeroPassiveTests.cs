@@ -31,6 +31,7 @@ public sealed class HeroPassiveTests
     public void BoarChargesAfterFiveSecondsAndRamsOnlyOncePerContact()
     {
         var world = new RunWorld(QuietContent(), character: "pig");
+        TestWorld.DisableCrits(world);
         var player = world.Player;
         player.AttackTimer = 100;
         var forward = new RunInput(1, 0);

@@ -106,6 +106,9 @@ public sealed class RunProgressionTests
         var world = new RunWorld(content, seed: 5, character: "watchman");
         var p = world.Player;
         TestWorld.Close(3.75f, p.Stats[Stat.Damage]);
+        TestWorld.Close(0.05f, p.Stats[Stat.PhysicalCrit]);
+        TestWorld.Close(0.05f, p.Stats[Stat.MagicalCrit]);
+        TestWorld.Close(2f, p.Stats[Stat.CritDamage]);
 
         p.Pos = world.Statues[0];
         int ticks = (int)(content.Rules.Statue.HoldSeconds * RunWorld.TicksPerSecond) + 2;
@@ -119,8 +122,8 @@ public sealed class RunProgressionTests
         TestWorld.LevelTo(world, 2);
 
         TestWorld.Close(3.75f + 0.35f + 0.75f * minutes, p.Stats[Stat.Damage]);
-        TestWorld.Close(0.01f, p.Stats[Stat.PhysicalCrit]);
-        TestWorld.Close(0.01f, p.Stats[Stat.MagicalCrit]);
+        TestWorld.Close(0.06f, p.Stats[Stat.PhysicalCrit]);
+        TestWorld.Close(0.06f, p.Stats[Stat.MagicalCrit]);
     }
 
     [Fact]
