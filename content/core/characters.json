@@ -98,27 +98,27 @@
   },
   {
     "id": "vampire",
-    "name": "Вампир",
+    "name": "Вамптян",
     "sprite": "char_vampire",
     "stats": {
-      "maxHp": 175,
-      "maxHpPerLevel": 5,
-      "regen": 2,
+      "maxHp": 125,
+      "maxHpPerLevel": 2.5,
+      "regen": 0.5,
       "moveSpeed": 35,
-      "attackSpeed": 30,
+      "attackSpeed": 35,
       "armor": 0.05,
       "magicResist": 0,
       "damage": 15,
-      "damagePerLevel": 1.5
+      "damagePerLevel": 3
     },
-    "passive": "Восстанавливает 10% от нанесённого урона.",
-    "growth": "+1,05 п. п. вампиризма за уровень.",
+    "passive": "Восстанавливает 5% от нанесённого урона.",
+    "growth": "+0,35 п. п. вампиризма за уровень.",
     "passives": [
       {
         "stat": "lifesteal",
-        "add": 0.1,
+        "add": 0.05,
         "perLevel": {
-          "add": 0.0105
+          "add": 0.0035
         }
       }
     ]

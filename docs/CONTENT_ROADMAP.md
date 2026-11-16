@@ -80,7 +80,7 @@ Stats are copied from the owner's table. Growth means the per-level value of the
 
 | # | Character | HP | Regen (HP/s) | Move speed | Attack speed | Armor | Magic resist | Damage | Passive → implementation | Growth | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 7 | Vampire | 175/+5 | 2 | 35 | 30 | 5% | 0% | 15/+1.5 | 10% lifesteal from damage dealt → S4 | 1.05% | [x] |
+| 7 | Vamp-chan | 125/+2.5 | 0.5 | 35 | 35 | 5% | 0% | 15/+3 | 5% lifesteal from damage dealt → S4 | +0.35 pp lifesteal | [x] |
 | 8 | Miner | 300/+3 | 4.75 | 25 | 20 | 6% | 4% | 15/+1 | after taking 50 damage, explodes for 10 in radius 50 → `onDamageTaken` accumulator plus blast VFX | +2.5 damage and +2.5 radius | [x] |
 | 9 | Cybernetic Cube | 100/+5 | 2 | 25 | 30 | 10% | 10% | 10/+0.5 | each level increases one random stat by 1–10% → seeded roll on `onLevelUp` | fixed roll range | [x] |
 | 10 | Masochist | 150/+4 | 1 | 20 | 35 | 1% | 1% | 13.5/+2.15 | lower HP gives more regen and move speed → stats computed from missing HP | conversion +0.15% per level | [x] |
@@ -97,7 +97,7 @@ Stats are copied from the owner's table. Growth means the per-level value of the
 
 | # | Character | HP | Regen (HP/s) | Move speed | Attack speed | Armor | Magic resist | Damage | Passive → implementation | Growth | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 14 | Nekotyan | 175/+3.5 | 0.15 | 45 | 35 | 2.5% | 2.5% | 15/+1.5 | allies take −8% damage and heal 1.75 HP within radius 200; self bonuses ×1.75 → ally aura (S12) | −0.3 percentage points damage taken, +1.25 radius, +0.25 regen per level | [x] |
+| 14 | Neko-chan | 175/+3.5 | 0.15 | 45 | 35 | 2.5% | 2.5% | 15/+1.5 | allies take −8% damage and heal 1.75 HP within radius 200; self bonuses ×1.75 → ally aura (S12) | −0.3 percentage points damage taken, +1.25 radius, +0.25 regen per level | [x] |
 | 15 | Puppeteer | 200/+3 | 1 | 30 | 20 | 5% | 5% | 20/+1 | +10% damage and attack speed for allies and allied creatures → ally buff (S12); needs summons from items to matter in solo | 1% | [x] |
 | 16 | Necromancer | 200/+5 | 1 | 30 | 25 | 0% | 15% | 15/+1 | killed enemies leave souls; every 30 s spends them: 1–20 souls → healing ghost, 21–50 → warrior ghost (HP and damage = souls), 51+ → big area ghost (HP and damage = souls); during the cooldown each soul adds +0.5% damage → soul counter (`onKill`), three summon AIs (S11), ally heal (S12) | +0.1% damage per soul per level | [x] |
 | 17 | Иллюзионист | 175/+3 | 2 | 30 | 30 | 5% | 15% | 15/+1.5 | every 15 s creates a copy with 30% of the hero's max HP; it lasts 8 s, draws enemies, and repeats the hero's attacks at 25% damage; at most one copy → timed summon with decoy aggro and mirrored attacks (S5, S11) | +0.25 percentage points of illusion damage per level | [x] |
@@ -309,7 +309,7 @@ Each milestone is playable content.
 | M4b "Bosses" | E6, E4b | All five bosses and the cultist roster | Boss schedule in waves.json. Each boss beaten in a scripted test. |
 | Boss rewards | E6, S13, relevant I7 effect systems | Five cursed items | Each boss drops its assigned reward. Старатель's reward requires chest reward choices. |
 | M5 "Companions" | S11 | Items I5; Иллюзионист | Summon AI and owner credit tests. 50 summons stay within budget. |
-| M6 "Allies" | S12 (+P3 co-op) | Items I6; Nekotyan (done: character `aura` block lowers `damageTaken` and adds regen for players and summons, stacks between Nekotyans), Puppeteer, Necromancer | Auras work in solo (summons) and in a 2-player loopback test. |
+| M6 "Allies" | S12 (+P3 co-op) | Items I6; Neko-chan (done: character `aura` block lowers `damageTaken` and adds regen for players and summons, stacks between Neko-chans), Puppeteer, Necromancer | Auras work in solo (summons) and in a 2-player loopback test. |
 
 Art for every character, enemy and summon goes through recipes (`art-recipe` skill) alongside its milestone.
 
