@@ -611,9 +611,13 @@ internal sealed partial class RunView : IDisposable
             var player = world.Players[i];
             var position = _displayPlayers[i];
             if (player.Active && Visible(position.X, position.Y)) Add(HeroBase - i, position.Y);
-            if (player.Active && player.Hp > 0 && player.IllusionUntilTick > world.Tick &&
-                Visible(player.IllusionPosition.X, player.IllusionPosition.Y))
-                Add(IllusionBase - i, player.IllusionPosition.Y);
+            if (player.Active && player.Hp > 0 && player.Character.Id == "illusionist")
+                for (int j = 0; j < player.Illusions.Length; j++)
+                {
+                    ref readonly var illusion = ref player.Illusions[j];
+                    if (illusion.UntilTick > world.Tick && Visible(illusion.Position.X, illusion.Position.Y))
+                        Add(IllusionBase - i * RunWorld.HeroIllusionCapacity - j, illusion.Position.Y);
+                }
             if (player.Active && player.Hp > 0 && player.MaskIllusionUntilTick > world.Tick &&
                 Visible(player.MaskIllusionPosition.X, player.MaskIllusionPosition.Y))
                 Add(MaskIllusionBase - i, player.MaskIllusionPosition.Y);
@@ -671,13 +675,15 @@ internal sealed partial class RunView : IDisposable
             else if (id <= IllusionBase)
             {
                 bool mask = id <= MaskIllusionBase;
-                var owner = world.Players[(mask ? MaskIllusionBase : IllusionBase) - id];
+                int index = (mask ? MaskIllusionBase : IllusionBase) - id;
+                var owner = world.Players[mask ? index : index / RunWorld.HeroIllusionCapacity];
+                var illusion = mask ? default : owner.Illusions[index % RunWorld.HeroIllusionCapacity];
                 var sprite = _heroSprites[world.Content.CharacterIndex(owner.Character.Id)];
                 int frame = HeroFrame(sprite, owner, world.Tick, alpha, walking: false);
-                var position = mask ? owner.MaskIllusionPosition : owner.IllusionPosition;
+                var position = mask ? owner.MaskIllusionPosition : illusion.Position;
                 _batch.Draw(sprite, frame, position.X - ox, position.Y - oy,
                     owner.FacingLeft, tint: 0xFFC69999u, emissionBoost: 40);
-                if (!mask) DrawSummonHealth(sprite, position, owner.IllusionHealth, owner.IllusionMaxHealth);
+                if (!mask) DrawSummonHealth(sprite, position, illusion.Health, illusion.MaxHealth);
             }
             else if (id <= CompanionBase)
             {

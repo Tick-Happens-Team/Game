@@ -45,7 +45,7 @@ public sealed class HeroPassiveTests
         float hp = world.EHp[target];
         var start = player.Pos;
         world.Step(forward);
-        TestWorld.Close(1.25f * 42 * world.Rules.Units.MoveSpeedScale * RunWorld.Dt, player.Pos.X - start.X);
+        TestWorld.Close(1.25f * 38 * world.Rules.Units.MoveSpeedScale * RunWorld.Dt, player.Pos.X - start.X);
         TestWorld.Close(hp - 0.055f * world.MaxHealth, world.EHp[target]);
         Assert.True(world.EKx[target] > 0);
 
@@ -116,13 +116,13 @@ public sealed class HeroPassiveTests
         var world = new RunWorld(QuietContent(), character: "illusionist");
         int interval = 15 * RunWorld.TicksPerSecond;
         Step(world, interval - 1);
-        Assert.Equal(0, world.Player.IllusionUntilTick);
+        Assert.Equal(0, world.Player.Illusions[0].UntilTick);
 
         world.SpawnEnemy(0, world.Player.Pos + new Vector2(-100, 0));
         world.Step(default);
-        Assert.Equal(world.Tick + 8 * RunWorld.TicksPerSecond, world.Player.IllusionUntilTick);
-        TestWorld.Close(world.MaxHealth * 0.4f, world.Player.IllusionHealth);
-        world.Player.IllusionHealth *= 0.5f;
+        Assert.Equal(world.Tick + 8 * RunWorld.TicksPerSecond, world.Player.Illusions[0].UntilTick);
+        TestWorld.Close(world.MaxHealth * 0.5f, world.Player.Illusions[0].Health);
+        world.Player.Illusions[0].Health *= 0.5f;
         int mask = world.Content.ItemIndex("phantom_mask");
         world.GiveItem(mask);
         for (int i = 0; i < 9; i++) world.GiveItem(mask); // Force the proc without depending on the seed.
@@ -133,13 +133,37 @@ public sealed class HeroPassiveTests
         Assert.Equal(killPosition, world.Player.MaskIllusionPosition);
         var replica = new RunWorld(world.Content, character: "illusionist");
         CopySnapshot(world, replica);
-        Assert.Equal(world.Player.IllusionHealth, replica.Player.IllusionHealth);
-        Assert.Equal(world.Player.IllusionMaxHealth, replica.Player.IllusionMaxHealth);
+        Assert.Equal(world.Player.Illusions[0].Health, replica.Player.Illusions[0].Health);
+        Assert.Equal(world.Player.Illusions[0].MaxHealth, replica.Player.Illusions[0].MaxHealth);
         Assert.Equal(world.Player.MaskIllusionUntilTick, replica.Player.MaskIllusionUntilTick);
         Assert.InRange(Vector2.Distance(world.Player.MaskIllusionPosition, replica.Player.MaskIllusionPosition), 0, 0.025f);
         Assert.Contains(RunWorld.ProjectileStyle.Phantom, world.PStyle);
         Step(world, 8 * RunWorld.TicksPerSecond);
-        Assert.Equal(world.Tick, world.Player.IllusionUntilTick);
+        Assert.Equal(world.Tick, world.Player.Illusions[0].UntilTick);
+    }
+
+    [Fact]
+    public void IllusionsOverlapAfterLifetimeGrowthAndBothReplicate()
+    {
+        var world = new RunWorld(QuietContent(), character: "illusionist");
+        world.Player.Level = 51;
+        int interval = 15 * RunWorld.TicksPerSecond;
+        Step(world, interval * 2);
+        var first = world.Player.Illusions[0];
+        var second = world.Player.Illusions[1];
+        Assert.Equal(interval + 465, first.UntilTick);
+        Assert.Equal(interval * 2 + 465, second.UntilTick);
+
+        var replica = new RunWorld(world.Content, character: "illusionist");
+        CopySnapshot(world, replica);
+        Assert.Equal(first.UntilTick, replica.Player.Illusions[0].UntilTick);
+        Assert.Equal(second.UntilTick, replica.Player.Illusions[1].UntilTick);
+        Assert.Equal(second.Health, replica.Player.Illusions[1].Health);
+
+        Step(world, first.UntilTick - world.Tick);
+        CopySnapshot(world, replica);
+        Assert.Equal(0, replica.Player.Illusions[0].UntilTick);
+        Assert.Equal(second.UntilTick, replica.Player.Illusions[1].UntilTick);
     }
 
     [Fact]
@@ -150,7 +174,7 @@ public sealed class HeroPassiveTests
         TestWorld.LevelTo(world, 2);
         TestWorld.LevelTo(second, 2);
 
-        Assert.InRange(Assert.Single(world.Player.CubeBonuses, bonus => bonus > 0), 0.01f, 0.08f);
+        Assert.InRange(Assert.Single(world.Player.CubeBonuses, bonus => bonus > 0), 0.0075f, 0.0825f);
         Assert.Equal(world.Player.CubeBonuses, second.Player.CubeBonuses);
         var replica = new RunWorld(world.Content, character: "cybernetic_cube");
         CopySnapshot(world, replica);
@@ -179,7 +203,7 @@ public sealed class HeroPassiveTests
         world.Step(default);
 
         TestWorld.Close(0.525f, world.Player.Stats[Stat.Regen]);
-        TestWorld.Close(30.06f, world.Player.Stats[Stat.MoveSpeed]);
+        TestWorld.Close(33.066f, world.Player.Stats[Stat.MoveSpeed]);
     }
 
     [Fact]
@@ -234,7 +258,7 @@ public sealed class HeroPassiveTests
         wounded.Step(default);
         TestWorld.Close(wounded.Player.Character.Stats.Damage, wounded.Player.Stats[Stat.Damage]);
         TestWorld.Close(wounded.Player.Character.Stats.AttackSpeed, wounded.Player.Stats[Stat.AttackSpeed]);
-        Assert.InRange(wounded.Player.Stats[Stat.MoveSpeed], 29.9f, 30f);
+        Assert.InRange(wounded.Player.Stats[Stat.MoveSpeed], 32.9f, 33f);
         Assert.InRange(wounded.Player.Stats[Stat.Regen], 0.37f, 0.375f);
 
         var vampire = new RunWorld(content, character: "vampire");

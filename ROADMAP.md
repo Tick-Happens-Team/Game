@@ -85,8 +85,8 @@
 
 Depends on P2. The owner's [Google Sheet](https://docs.google.com/spreadsheets/d/1q4DUxTFMWcSg_zevYYDIWf2DWFH_v2YpFHKe_LTDcOM/edit) is the source of truth for content design. The [content roadmap](docs/CONTENT_ROADMAP.md) orders the 18 characters, 63 items and 24 enemies by ease of implementation, lists the engine systems (S0–S13 for heroes and items, E0–E7 for enemies) they need, groups them into milestones, and records owner decisions and open questions. Content is data-driven, with stat application tests for each item and character.
 
-- [~] 5.1 Characters with unique passives: six C1 heroes (Octarine, Swordsman, Smith, Goflin, Celestial Mage, Watchman) and Nekotyan (C4, ally aura) are playable with sprites and a character select screen. Apply base HP regeneration to C1 and sync Watchman’s attack stats and crit growth. Ten heroes remain (C2–C4).
-- [~] 5.2 Weapons, items, evolutions, and combinations: chest loot stacks and six I1 items are playable. Sync four I1 effects and chest rarity chances to the sheet. I2–I6 and five cursed boss drops (I7) remain.
+- [~] 5.1 Characters with unique passives: 18 playable heroes use the sheet stats and growth. The Illusionist can sustain overlapping copies as their lifetime grows. Captures of every character are tracked in the content roadmap.
+- [~] 5.2 Weapons, items, evolutions, and combinations: 58 chest items and five cursed boss rewards. Chest rarity weights are 58/25/10/5/2. See the content roadmap for system and capture acceptance.
 - [ ] 5.3 Enemies and bosses based on run time: 23 owner enemies, including five bosses, in tiers E1–E5 (see the content roadmap).
 - [ ] 5.4 Balance using local run logs under .tmp/.
 - [ ] 5.5 Metaprogression pending owner decision.

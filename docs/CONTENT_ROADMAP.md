@@ -2,7 +2,7 @@
 
 This plan orders the owner's character, item and enemy lists by how easy they are to add. Each tier builds on the engine systems introduced by the tiers before it, and every finished tier is playable content. Russian names are the canonical content names. Content is data in `content/core/*.json` (see the `add-content` skill); new behaviour is added as engine systems (S0–S13) shared by many entries.
 
-The [owner's Google Sheet](https://docs.google.com/spreadsheets/d/1q4DUxTFMWcSg_zevYYDIWf2DWFH_v2YpFHKe_LTDcOM/edit) is the source of truth for content names, stats, and effects. This roadmap tracks implementation order and status.
+The [owner's Google Sheet](https://docs.google.com/spreadsheets/d/1q4DUxTFMWcSg_zevYYDIWf2DWFH_v2YpFHKe_LTDcOM/edit) is the source of truth for content names, stats, and effects. This roadmap tracks implementation order and status. For balance values, use the linked sheet and the core mod.
 
 Status markers follow the main [roadmap](../ROADMAP.md): `[x]` verified, `[ ]` pending, `[~]` partial.
 
@@ -69,21 +69,21 @@ Stats are copied from the owner's table. Growth means the per-level value of the
 
 | # | Character | HP | Regen (HP/s) | Move speed | Attack speed | Armor | Magic resist | Damage | Passive → implementation | Growth | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | Octarine | 135/+5 | 1.75 | 25 | 25 | 5% | 15% | 18/+2.75 | −12% cooldown on all abilities and items → `cooldown` pct | 0.25% | [~] |
-| 2 | Swordsman | 275/+4.5 | 3 | 18 | 20 | 10% | 3% | 20/+1.75 | armor rises every level and blocks a physical contact hit with 17% chance | 0.5% | [x] |
+| 1 | Octarine | 135/+5 | 1.75 | 25 | 25 | 5% | 15% | 18/+2.75 | −10% cooldown on all abilities and items → `cooldown` pct | 0.5% | [~] |
+| 2 | Swordsman | 275/+4.5 | 3 | 18 | 20 | 8% | 5% | 20/+1.75 | armor rises every level and blocks a physical contact hit with 18.5% chance | +0.5 percentage points to armor and block chance | [x] |
 | 3 | Smith | 200/+2 | 2.75 | 30 | 25 | 5% | 4% | 15/+1.8 | +10% item damage → `itemDamage` multiplier (needs S2 source tags) | 0.25% | [~] |
-| 4 | Goflin | 125/+3.5 | 1.75 | 35 | 30 | 4% | 6% | 5/+2.5 | +15% gold → `goldGain` (S13) | 0.75% | [~] |
-| 5 | Celestial Mage | 200/+1 | 1.25 | 28 | 28 | 15% | 35% | 10/+0.25 | +35% magical damage, max HP always −65% → `magicDamage` pct and `maxHp` final multiplier 0.35 | 2.25% | [~] |
-| 6 | Watchman | 225/+1.5 | 5 | 40 | 55 | 5% | 5% | 4/+0.35 | +0.75 damage per minute of play → stat bound to run time (Q8) | +1 percentage point crit chance | [x] |
+| 4 | Goflin | 125/+3.5 | 1.75 | 35 | 30 | 4% | 6% | 5/+2.5 | +20% gold → `goldGain` (S13) | 0.75% | [~] |
+| 5 | Celestial Mage | 185/+1 | 1.25 | 28 | 28 | 15% | 35% | 10/+0.25 | +35% magical damage, max HP always −60% → `magicalDamage` pct and `hpMultiplier` final multiplier 0.4 | 2.25% | [~] |
+| 6 | Watchman | 200/+1.5 | 5 | 40 | 55 | 5% | 5% | 4/+0.35 | +0.75 damage per minute of play → stat bound to run time (Q8) | +1.05 percentage points crit chance | [x] |
 
 ### Tier C2: simple triggers (S2, S4, S5)
 
 | # | Character | HP | Regen (HP/s) | Move speed | Attack speed | Armor | Magic resist | Damage | Passive → implementation | Growth | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 7 | Vamp-chan | 125/+1.5 | 0.5 | 35 | 35 | 5% | 0% | 18/+1.75 | 3.5% lifesteal from damage dealt → S4 | +0.25 pp lifesteal | [x] |
+| 7 | Vamp-chan | 125/+1.5 | 1.25 | 35 | 35 | 5% | 0% | 18/+1.75 | 3.5% lifesteal from damage dealt → S4 | +0.25 pp lifesteal | [x] |
 | 8 | Miner | 300/+3 | 3.75 | 20 | 20 | 10% | 5% | 10/+1.25 | after taking 80 damage, explodes for 10 in radius 50 → `onDamageTaken` accumulator plus blast VFX | +2.5 damage and +2.5 radius | [x] |
-| 9 | Cybernetic Cube | 100/+3.5 | 1.75 | 25 | 30 | 10% | 10% | 10/+0.75 | each level increases one random stat by 1–8% → seeded roll on `onLevelUp` | fixed roll range | [x] |
-| 10 | Masochist | 150/+3 | 0.25 | 20 | 35 | 1% | 1% | 13/+2.25 | lower HP gives more regen and move speed → stats computed from missing HP | conversion +0.15% per level | [x] |
+| 9 | Cybernetic Cube | 100/+3.5 | 1.75 | 25 | 30 | 10% | 10% | 10/+0.75 | each level increases one random stat by 0.75–8.25% → seeded roll on `onLevelUp` | fixed roll range | [x] |
+| 10 | Masochist | 150/+3 | 0.25 | 22 | 35 | 1% | 3% | 13/+2.25 | lower HP gives more regen and move speed → stats computed from missing HP | +0.15 HP/s and +0.3 percentage points movement speed at maximum bonus | [x] |
 
 ### Tier C3: new world mechanics (S6, S8, S9, death override)
 
@@ -91,23 +91,23 @@ Stats are copied from the owner's table. Growth means the per-level value of the
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 11 | Skater | 135/+3 | 1.25 | 25 | 25 | 5% | 5% | 12/+1.25 | +25% move speed; leaves a fire trail (5 dps, lasts 3 s) → S8 trail hazard | +1% move speed, +2.75 trail dps | [x] |
 | 12 | Diver | 200/+5.25 | 6.75 | 10 | 15 | 7% | 7% | 15/+3.25 | low base move speed that cannot be increased; armor grows with distance travelled; reflection grows per level → move-speed lock, odometer stat, S9 reflect | 0.25% | [x] |
-| 13 | Boar | 200/+5 | 3 | 42 | 15 | 5.5% | 8% | 5/+2.5 | rams for 5% of max HP and knocks enemies back, gains 25% speed and 10% ram damage after 5 s of walking, becomes a ghost for 5 s after death | +0.1 s in ghost form | [x] |
+| 13 | Boar | 200/+5 | 3 | 38 | 15 | 5.5% | 8% | 5/+2.5 | rams for 5% of max HP and knocks enemies back, gains 25% speed and 10% ram damage after 5 s of walking, becomes a ghost for 5 s after death | +0.1 s in ghost form | [x] |
 
 ### Tier C4: allies and summons (S11, S12; co-op for full value)
 
 | # | Character | HP | Regen (HP/s) | Move speed | Attack speed | Armor | Magic resist | Damage | Passive → implementation | Growth | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 14 | Neko-chan | 135/+3.5 | 0.25 | 35 | 35 | 2.5% | 2.5% | 15/+2 | allies take −8% damage and heal 1.75 HP within radius 200; self bonuses ×1.5 → ally aura (S12) | −0.3 percentage points damage taken, +1.25 radius, +0.25 regen per level | [x] |
+| 14 | Neko-chan | 135/+3.25 | 0.25 | 35 | 35 | 2.5% | 2.5% | 15/+2.25 | allies take −7% damage and heal 1.5 HP within radius 175; self bonuses ×1.5 → ally aura (S12) | −0.35 percentage points damage taken, +1.5 radius, +0.25 regen per level | [x] |
 | 15 | Puppeteer | 200/+1 | 1 | 30 | 20 | 7.5% | 5% | 15/+1.25 | +10% damage and attack speed for allies and allied creatures → ally buff (S12); needs summons from items to matter in solo | 1% | [x] |
 | 16 | Necromancer | 200/+5 | 1 | 30 | 25 | 0% | 15% | 15/+1 | killed enemies leave souls; every 30 s spends them: 1–20 souls → healing ghost, 21–50 → warrior ghost (HP and damage = souls), 51+ → big area ghost (HP and damage = souls); during the cooldown each soul adds +0.5% damage → soul counter (`onKill`), three summon AIs (S11), ally heal (S12) | +0.1% damage per soul per level | [x] |
-| 17 | Иллюзионист | 125/+3 | 1.75 | 25 | 25 | 5% | 15% | 12/+1.5 | every 15 s creates a copy with 40% of the hero's max HP; it lasts 8 s, draws enemies, and repeats the hero's attacks at 25% damage; up to two copies with the Phantom Mask → timed summon with decoy aggro and mirrored attacks (S5, S11) | +0.25 percentage points of illusion damage per level | [x] |
-| 18 | King Arthur | 200/+5 | 3 | 30 | 20 | 10% | 5% | 15/+2 | Excalibur replaces projectiles with a 350° physical slash in radius 30 | +5 Excalibur radius per level | [x] |
+| 17 | Иллюзионист | 125/+3 | 1.75 | 25 | 25 | 5% | 15% | 12/+1.75 | every 15 s creates a copy with 50% of the hero’s max HP; it lasts 8 s, draws enemies, and repeats attacks at 25% damage. Up to eight hero copies can overlap, plus the Phantom Mask copy. | +0.25 percentage points of damage and +0.15 s lifetime per level | [x] |
+| 18 | King Arthur | 200/+5 | 2.75 | 25 | 20 | 10% | 5% | 15/+2 | Excalibur replaces projectiles with a 350° physical slash in radius 30 | +5 Excalibur radius per level | [x] |
 
 The new heroes use these defaults where the sheet leaves values open. Diver gains one percentage point of armor per 100 pixels travelled and can still dash. Masochist converts the missing-health fraction into a proportional bonus to regeneration and movement speed, up to +100% at level 1. Skater fire patches share a damage tick, so overlapping patches from the same owner do not multiply damage. Necromancer summons use the shared companion cap. Pig keeps moving and attacking during the ghost interval with damage immunity.
 
 ## 5. Items ordered by ease
 
-There are 63 items: 58 in the chest rarity pool and five cursed boss drops. The chest rolls use 40% common, 25% rare, 17% epic, 12% mythic, and 6% legendary as rarity weights. Each chest offers two distinct items while the run continues. Press 1 or 2 within 10 seconds. The first option is granted on timeout. Heart of the Gold Vein adds key 3 and a third item to every second chest opened while held. A damage type of «—» means the item deals no damage.
+There are 63 items: 58 in the chest rarity pool and five cursed boss drops. The chest rolls use 58% common, 25% rare, 10% epic, 5% mythic, and 2% legendary as rarity weights. Each chest offers two distinct items while the run continues. Press 1 or 2 within 10 seconds. The first option is granted on timeout. Heart of the Gold Vein adds key 3 and a third item to every second chest opened while held. A damage type of «—» means the item deals no damage.
 
 Values the sheet leaves open use tunable defaults in `items.json`. Jetpack increases dash distance and duration by 75%. Wooden Stick pulses every 5 s, Magic Projectile fires every 3 s, and Poor Man's Shield refreshes every 12 s. Sword reaches 75, Fan 150, and Leader's Heart 250. Cane checks its chance on a basic attack once its cooldown is ready. Repeated summons have per-item caps and a shared 64-entity simulation cap.
 
@@ -195,7 +195,7 @@ Values the sheet leaves open use tunable defaults in `items.json`. Jetpack incre
 | Poor Man's Shield | Rare | 50 shield to the ally with the lowest HP | targeted shield (S4) | [x] |
 | Motivation Mask | Epic | +12% physical damage to allies within 300 | aura | [x] |
 | Shared Heart | Epic | the hero receives 7% of healing done to allies and 6% of healing done to summons | heal share | [x] |
-| Dumbbell | Epic | +125 HP to allies and +35 HP to summons within 250 | aura | [x] |
+| Dumbbell | Epic | +50 HP to allies and +25 HP to summons within 150 | aura | [x] |
 | Шипастые ботинки | Mythic | +30 attack speed to allies within 300; 9% chance to redirect a physical hit above 35 to its source | aura plus reflect (S9) | [x] |
 | Dominator Helm | Legendary | +10% armor to allies within 400 and 15% chance to block a physical hit on an ally; applies to all allies | aura plus block (S9) | [x] |
 

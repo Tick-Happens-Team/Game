@@ -420,7 +420,7 @@ public sealed partial class RunWorld
             EAlive[enemy] && Content.Enemies[EDef[enemy]].ShotRange == 0)
         {
             float contact = PlayerRadius + Content.Enemies[EDef[enemy]].Radius + ContactTolerance;
-            if (Vector2.DistanceSquared(p.Pos, new(EX[enemy], EY[enemy])) <= contact * contact && RollChance(0.17f))
+            if (Vector2.DistanceSquared(p.Pos, new(EX[enemy], EY[enemy])) <= contact * contact && RollChance(0.185f + 0.005f * (p.Level - 1)))
                 return 0;
         }
         if (TryBlockOrRedirect(p, enemy, kind, dmg)) return 0;
@@ -623,7 +623,7 @@ public sealed partial class RunWorld
             float vx = 0, vy = 0;
             bool stunned = _enemyStunUntil[i] > Tick;
             var pos = new Vector2(EX[i], EY[i]);
-            var goal = EnemySteering(i, d, player, pos, p, decoy != null);
+            var goal = EnemySteering(i, d, player, pos, p, decoy >= 0);
             float speed = stunned ? 0 : (d.Speed + 5 * _enemyAbilities[i].SpeedBuffs) * moveSpeedScale;
             if (!stunned) StepEnemyAbility(i, d, player, p, ref goal, ref speed);
             if (!EAlive[i]) continue;
@@ -861,6 +861,13 @@ public sealed partial class RunWorld
             if (!p.Active) continue;
             Mix(p.Pos.X); Mix(p.Pos.Y); Mix(p.Hp); Mix(p.Xp); Mix(p.Level);
             Mix(p.Kills); Mix(p.Wallet.Gold); Mix(p.Wallet.NextPrice);
+            if (p.Character.Id != "illusionist") continue;
+            foreach (ref readonly var illusion in p.Illusions.AsSpan())
+            {
+                if (illusion.UntilTick <= Tick) continue;
+                Mix(illusion.Position.X); Mix(illusion.Position.Y); Mix(illusion.Health);
+                Mix(illusion.UntilTick); Mix(illusion.HurtTick);
+            }
         }
         for (int i = 0; i < _enemyHigh; i++) if (EAlive[i]) { Mix(EX[i]); Mix(EY[i]); Mix(EHp[i]); }
         foreach (ref readonly var shot in EnemyShots) { Mix(shot.Pos.X); Mix(shot.Pos.Y); Mix(shot.Life); }

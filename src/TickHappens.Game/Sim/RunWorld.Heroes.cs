@@ -5,6 +5,7 @@ namespace TickHappens.Game.Sim;
 
 public sealed partial class RunWorld
 {
+    internal const int HeroIllusionCapacity = 8;
     internal const int BoarChargeTicks = 5 * TicksPerSecond;
     private const int TrailInterval = 6;
     private const int TrailCapacity = 3 * TicksPerSecond / TrailInterval;
@@ -51,7 +52,7 @@ public sealed partial class RunWorld
     {
         if (player.Character.Id != "cybernetic_cube") return;
         int stat = _rng.Int(CubeStats.Length);
-        player.CubeBonuses[stat] += _rng.Range(0.01f, 0.08f);
+        player.CubeBonuses[stat] += _rng.Range(0.0075f, 0.0825f);
     }
 
     private void OnHeroDamaged(PlayerState player, float damage)
@@ -129,11 +130,7 @@ public sealed partial class RunWorld
                 if (Tick >= player.NextHeroPassiveTick)
                 {
                     player.NextHeroPassiveTick = Tick + 15 * TicksPerSecond;
-                    player.IllusionPosition = Vector2.Clamp(player.Pos - player.Facing * 22,
-                        new Vector2(12), new Vector2(Rules.ArenaSize - 12));
-                    player.IllusionUntilTick = Tick + 8 * TicksPerSecond;
-                    player.IllusionHealth = player.IllusionMaxHealth = 0.4f * MaxHealthFor(player);
-                    Emit(EventKind.Pulse, player.IllusionPosition.X, player.IllusionPosition.Y, 20);
+                    SpawnHeroIllusion(player, level);
                 }
                 break;
         }
@@ -186,17 +183,41 @@ public sealed partial class RunWorld
         return goal;
     }
 
-    private Vector2 EnemyTarget(Vector2 enemy, PlayerState player, out PlayerState? decoy)
+    private void SpawnHeroIllusion(PlayerState player, int levelsGained)
+    {
+        var illusions = player.Illusions;
+        int slot = 0;
+        for (int i = 1; i < illusions.Length && illusions[slot].UntilTick > Tick; i++)
+            if (illusions[i].UntilTick < illusions[slot].UntilTick) slot = i;
+        var position = Vector2.Clamp(player.Pos - player.Facing * 22,
+            new Vector2(12), new Vector2(Rules.ArenaSize - 12));
+        float health = 0.5f * MaxHealthFor(player);
+        illusions[slot] = new HeroIllusion
+        {
+            Position = position,
+            UntilTick = Tick + (int)MathF.Round((8 + 0.15f * levelsGained) * TicksPerSecond),
+            Health = health,
+            MaxHealth = health
+        };
+        Emit(EventKind.Pulse, position.X, position.Y, 20);
+    }
+
+    private Vector2 EnemyTarget(Vector2 enemy, PlayerState player, out int decoy)
     {
         var closest = player.Pos;
         float distance = Vector2.DistanceSquared(closest, enemy);
-        decoy = null;
+        decoy = -1;
         foreach (var ally in _players)
         {
-            if (!ally.Active || ally.Hp <= 0 || ally.IllusionUntilTick <= Tick || ally.IllusionHealth <= 0) continue;
-            float d = Vector2.DistanceSquared(ally.IllusionPosition, enemy);
-            if (d >= distance) continue;
-            (closest, distance, decoy) = (ally.IllusionPosition, d, ally);
+            if (!ally.Active || ally.Hp <= 0 || ally.Character.Id != "illusionist") continue;
+            for (int i = 0; i < ally.Illusions.Length; i++)
+            {
+                ref readonly var illusion = ref ally.Illusions[i];
+                if (illusion.UntilTick <= Tick) continue;
+                float d = Vector2.DistanceSquared(illusion.Position, enemy);
+                if (d >= distance) continue;
+                (closest, distance, decoy) = (illusion.Position, d, ally.Id * HeroIllusionCapacity + i);
+            }
         }
         return closest;
     }

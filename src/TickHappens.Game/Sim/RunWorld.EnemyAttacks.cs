@@ -28,7 +28,7 @@ public sealed partial class RunWorld
 
     public static int EnemyWindupDuration(EnemyDef def) => def.DetonateRange > 0 ? KamikazeFuseTicks : EnemyWindupTicks;
 
-    private void StepEnemyAttack(int slot, EnemyDef def, PlayerState target, PlayerState? decoy, Vector2 targetPosition, bool stunned, float lifestealCap)
+    private void StepEnemyAttack(int slot, EnemyDef def, PlayerState target, int decoy, Vector2 targetPosition, bool stunned, float lifestealCap)
     {
         if (stunned)
         {
@@ -64,7 +64,7 @@ public sealed partial class RunWorld
         _enemyAttackReady[slot] = Tick + Math.Max(1, interval - EnemyWindupTicks);
         if (distance > range) return;
         var kind = _enemyKind[EDef[slot]];
-        if (def.Behavior == "witch" && decoy == null)
+        if (def.Behavior == "witch" && decoy < 0)
         {
             Strike(target, pos);
             var from = target.Pos;
@@ -109,15 +109,16 @@ public sealed partial class RunWorld
         _enemyShots[_enemyShotCount++] = new EnemyShot(origin, velocity, life, EDamage[slot], kind, slot, EUid[slot]);
     }
 
-    private void HitPlayerWithEnemy(int slot, EnemyDef def, PlayerState target, PlayerState? decoy, float lifestealCap)
+    private void HitPlayerWithEnemy(int slot, EnemyDef def, PlayerState target, int decoy, float lifestealCap)
     {
-        if (decoy != null)
+        if (decoy >= 0)
         {
-            if (Tick >= decoy.IllusionHurtTick)
+            ref var illusion = ref _players[decoy / HeroIllusionCapacity].Illusions[decoy % HeroIllusionCapacity];
+            if (illusion.UntilTick > Tick && Tick >= illusion.HurtTick)
             {
-                decoy.IllusionHurtTick = Tick + TicksPerSecond / 2;
-                decoy.IllusionHealth -= EDamage[slot];
-                if (decoy.IllusionHealth <= 0) decoy.IllusionUntilTick = 0;
+                illusion.HurtTick = Tick + TicksPerSecond / 2;
+                illusion.Health -= EDamage[slot];
+                if (illusion.Health <= 0) illusion = default;
             }
             return;
         }

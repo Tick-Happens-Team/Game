@@ -55,11 +55,11 @@ public sealed class RunProgressionTests
     {
         var world = new RunWorld(TestContent.LoadCore(), seed: 1, character: "octarine");
 
-        TestWorld.Close(1f - 0.12f, world.Player.Stats[Stat.Cooldown]);
+        TestWorld.Close(1f - 0.10f, world.Player.Stats[Stat.Cooldown]);
 
         TestWorld.LevelTo(world, 5);
 
-        TestWorld.Close(1f - 0.12f - 0.0025f * 4, world.Player.Stats[Stat.Cooldown]);
+        TestWorld.Close(1f - 0.10f - 0.005f * 4, world.Player.Stats[Stat.Cooldown]);
     }
 
     [Fact]
@@ -67,11 +67,11 @@ public sealed class RunProgressionTests
     {
         var world = new RunWorld(TestContent.LoadCore(), seed: 1, character: "swordsman");
 
-        TestWorld.Close(0.10f, world.Player.Stats[Stat.Armor]);
+        TestWorld.Close(0.08f, world.Player.Stats[Stat.Armor]);
 
         TestWorld.LevelTo(world, 5);
 
-        TestWorld.Close(0.10f + 0.005f * 4, world.Player.Stats[Stat.Armor]);
+        TestWorld.Close(0.08f + 0.005f * 4, world.Player.Stats[Stat.Armor]);
     }
 
     [Fact]
@@ -79,11 +79,11 @@ public sealed class RunProgressionTests
     {
         var world = new RunWorld(TestContent.LoadCore(), seed: 1, character: "goflin");
 
-        TestWorld.Close(1f + 0.15f, world.Player.Stats[Stat.GoldGain]);
+        TestWorld.Close(1f + 0.20f, world.Player.Stats[Stat.GoldGain]);
 
         TestWorld.LevelTo(world, 5);
 
-        TestWorld.Close(1f + 0.15f + 0.0075f * 4, world.Player.Stats[Stat.GoldGain]);
+        TestWorld.Close(1f + 0.20f + 0.0075f * 4, world.Player.Stats[Stat.GoldGain]);
     }
 
     [Fact]
@@ -92,7 +92,7 @@ public sealed class RunProgressionTests
         var world = new RunWorld(TestContent.LoadCore(), seed: 1, character: "celestial_mage");
         var p = world.Player;
 
-        TestWorld.Close(p.Character.Stats.MaxHp * 0.35f, world.MaxHealth);
+        TestWorld.Close(p.Character.Stats.MaxHp * 0.40f, world.MaxHealth);
         TestWorld.Close(world.MaxHealth, p.Hp);
         TestWorld.Close(1.35f, p.Stats[Stat.MagicalDamage]);
         Assert.True(ContentLoader.TryParseDamage(p.Attack.DamageType, out var kind));
@@ -122,8 +122,8 @@ public sealed class RunProgressionTests
         TestWorld.LevelTo(world, 2);
 
         TestWorld.Close(4f + 0.35f + 0.75f * minutes, p.Stats[Stat.Damage]);
-        TestWorld.Close(0.06f, p.Stats[Stat.PhysicalCrit]);
-        TestWorld.Close(0.06f, p.Stats[Stat.MagicalCrit]);
+        TestWorld.Close(0.0605f, p.Stats[Stat.PhysicalCrit]);
+        TestWorld.Close(0.0605f, p.Stats[Stat.MagicalCrit]);
     }
 
     [Fact]
@@ -151,9 +151,9 @@ public sealed class RunProgressionTests
 
         world.GiveItem(content.ItemIndex("heavy_shackles"));
 
-        TestWorld.Close(15f, world.Player.Stats[Stat.MoveSpeed]);
+        TestWorld.Close(10f, world.Player.Stats[Stat.MoveSpeed]);
         TestWorld.Close(1.30f, world.Player.Stats[Stat.Might]);
-        TestWorld.Close(45f, world.MoveSpeedPx);
+        TestWorld.Close(30f, world.MoveSpeedPx);
     }
 
     [Fact]
@@ -171,7 +171,7 @@ public sealed class RunProgressionTests
             octarine.Step(default);
         }
 
-        Assert.Equal(11, goflin.Player.Wallet.Gold); // floor(10 × 1.15): fractions are carried between pickups
+        Assert.Equal(12, goflin.Player.Wallet.Gold); // floor(10 × 1.20): fractions are carried between pickups
         Assert.Equal(10, octarine.Player.Wallet.Gold);
         Assert.True(goflin.Player.Wallet.Gold > octarine.Player.Wallet.Gold);
     }
@@ -304,6 +304,8 @@ public sealed class RunProgressionTests
     {
         var content = TestContent.LoadCore();
         var world = new RunWorld(content, seed: 21);
+        Assert.Equal(100f, content.Rules.Chests.RarityWeights.Values.Sum());
+        Assert.Equal(2f, content.Rules.Chests.RarityWeights["legendary"]);
         int common = 0, legendary = 0;
 
         for (int i = 0; i < 2000; i++)

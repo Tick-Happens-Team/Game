@@ -354,12 +354,17 @@ public sealed partial class RunWorld
 
     private void FireIllusion(PlayerState player)
     {
-        if (player.IllusionUntilTick > Tick)
+        if (player.Character.Id == "illusionist")
         {
             var attack = player.Attack;
-            FireBolts(player.Stats[Stat.Damage] * (0.25f + 0.0025f * (player.Level - 1)), Kind(attack.DamageType),
-                new DamageSourceRef(player.Id), attack.Count + (int)player.Stats[Stat.Amount], attack.Speed, attack.Range,
-                attack.Pierce, player.IllusionPosition, ProjectileStyle.Phantom);
+            float damage = player.Stats[Stat.Damage] * (0.25f + 0.0025f * (player.Level - 1));
+            foreach (ref readonly var illusion in player.Illusions.AsSpan())
+            {
+                if (illusion.UntilTick <= Tick) continue;
+                FireBolts(damage, Kind(attack.DamageType), new DamageSourceRef(player.Id),
+                    attack.Count + (int)player.Stats[Stat.Amount], attack.Speed, attack.Range,
+                    attack.Pierce, illusion.Position, ProjectileStyle.Phantom);
+            }
         }
         if (player.MaskIllusionUntilTick <= Tick) return;
         foreach (int item in player.EffectItems)

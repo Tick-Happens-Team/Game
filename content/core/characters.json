@@ -2,11 +2,11 @@
   {
     "id": "octarine", "sprite": "char_octarine",
     "stats": { "maxHp": 135, "maxHpPerLevel": 5, "regen": 1.75, "moveSpeed": 25, "attackSpeed": 25, "armor": 0.05, "magicResist": 0.15, "damage": 18, "damagePerLevel": 2.75 },
-    "passives": [ { "stat": "cooldown", "pct": -0.12, "perLevel": { "pct": -0.0025 } } ]
+    "passives": [ { "stat": "cooldown", "pct": -0.10, "perLevel": { "pct": -0.005 } } ]
   },
   {
     "id": "swordsman", "sprite": "char_swordsman",
-    "stats": { "maxHp": 275, "maxHpPerLevel": 4.5, "regen": 3, "moveSpeed": 18, "attackSpeed": 20, "armor": 0.1, "magicResist": 0.03, "damage": 20, "damagePerLevel": 1.75 },
+    "stats": { "maxHp": 275, "maxHpPerLevel": 4.5, "regen": 3, "moveSpeed": 18, "attackSpeed": 20, "armor": 0.08, "magicResist": 0.05, "damage": 20, "damagePerLevel": 1.75 },
     "passives": [ { "stat": "armor", "perLevel": { "add": 0.005 } } ]
   },
   {
@@ -17,30 +17,30 @@
   {
     "id": "goflin", "sprite": "char_goflin",
     "stats": { "maxHp": 125, "maxHpPerLevel": 3.5, "regen": 1.75, "moveSpeed": 35, "attackSpeed": 30, "armor": 0.04, "magicResist": 0.06, "damage": 5, "damagePerLevel": 2.5 },
-    "passives": [ { "stat": "goldGain", "pct": 0.15, "perLevel": { "pct": 0.0075 } } ]
+    "passives": [ { "stat": "goldGain", "pct": 0.20, "perLevel": { "pct": 0.0075 } } ]
   },
   {
     "id": "celestial_mage", "sprite": "char_celestial_mage",
-    "stats": { "maxHp": 200, "maxHpPerLevel": 1, "regen": 1.25, "moveSpeed": 28, "attackSpeed": 28, "armor": 0.15, "magicResist": 0.35, "damage": 10, "damagePerLevel": 0.25 },
+    "stats": { "maxHp": 185, "maxHpPerLevel": 1, "regen": 1.25, "moveSpeed": 28, "attackSpeed": 28, "armor": 0.15, "magicResist": 0.35, "damage": 10, "damagePerLevel": 0.25 },
     "attack": { "damageType": "magical", "speed": 230, "range": 220, "pierce": 1, "count": 1 },
     "passives": [
       { "stat": "magicalDamage", "pct": 0.35, "perLevel": { "pct": 0.0225 } },
-      { "stat": "hpMultiplier", "pct": -0.65 }
+      { "stat": "hpMultiplier", "pct": -0.60 }
     ]
   },
   {
     "id": "watchman", "sprite": "char_watchman",
-    "stats": { "maxHp": 225, "maxHpPerLevel": 1.5, "regen": 5, "moveSpeed": 40, "attackSpeed": 55, "armor": 0.05, "magicResist": 0.05, "damage": 4, "damagePerLevel": 0.35 },
+    "stats": { "maxHp": 200, "maxHpPerLevel": 1.5, "regen": 5, "moveSpeed": 40, "attackSpeed": 55, "armor": 0.05, "magicResist": 0.05, "damage": 4, "damagePerLevel": 0.35 },
     "passives": [
       { "stat": "damage", "add": 0.75, "per": "runMinute" },
-      { "stat": "physicalCrit", "perLevel": { "add": 0.01 } },
-      { "stat": "magicalCrit", "perLevel": { "add": 0.01 } }
+      { "stat": "physicalCrit", "perLevel": { "add": 0.0105 } },
+      { "stat": "magicalCrit", "perLevel": { "add": 0.0105 } }
     ]
   },
   {
     "id": "nekochan", "sprite": "char_nekochan",
-    "stats": { "maxHp": 135, "maxHpPerLevel": 3.5, "regen": 0.25, "moveSpeed": 35, "attackSpeed": 35, "armor": 0.025, "magicResist": 0.025, "damage": 15, "damagePerLevel": 2 },
-    "aura": { "radius": 200, "radiusPerLevel": 1.25, "damageReduction": 0.08, "damageReductionPerLevel": 0.003, "regen": 1.75, "regenPerLevel": 0.25, "selfMultiplier": 1.5 }
+    "stats": { "maxHp": 135, "maxHpPerLevel": 3.25, "regen": 0.25, "moveSpeed": 35, "attackSpeed": 35, "armor": 0.025, "magicResist": 0.025, "damage": 15, "damagePerLevel": 2.25 },
+    "aura": { "radius": 175, "radiusPerLevel": 1.5, "damageReduction": 0.07, "damageReductionPerLevel": 0.0035, "regen": 1.5, "regenPerLevel": 0.25, "selfMultiplier": 1.5 }
   },
   {
     "id": "pig",
@@ -50,7 +50,7 @@
       "maxHp": 200,
       "maxHpPerLevel": 5,
       "regen": 3,
-      "moveSpeed": 42,
+      "moveSpeed": 38,
       "attackSpeed": 15,
       "armor": 0.055,
       "magicResist": 0.08,
@@ -103,7 +103,7 @@
     "stats": {
       "maxHp": 125,
       "maxHpPerLevel": 1.5,
-      "regen": 0.5,
+      "regen": 1.25,
       "moveSpeed": 35,
       "attackSpeed": 35,
       "armor": 0.05,
@@ -156,8 +156,8 @@
       "damage": 10,
       "damagePerLevel": 0.75
     },
-    "passive": "Каждый уровень повышает одну случайную характеристику на 1–8%.",
-    "growth": "+1–8% к одной случайной характеристике за уровень."
+    "passive": "Каждый уровень повышает одну случайную характеристику на 0,75-8,25%.",
+    "growth": "+0,75-8,25% к одной случайной характеристике за уровень."
   },
   {
     "id": "masochist",
@@ -167,10 +167,10 @@
       "maxHp": 150,
       "maxHpPerLevel": 3,
       "regen": 0.25,
-      "moveSpeed": 20,
+      "moveSpeed": 22,
       "attackSpeed": 35,
       "armor": 0.01,
-      "magicResist": 0.01,
+      "magicResist": 0.03,
       "damage": 13,
       "damagePerLevel": 2.25
     },
@@ -243,10 +243,10 @@
       "armor": 0.05,
       "magicResist": 0.15,
       "damage": 12,
-      "damagePerLevel": 1.5
+      "damagePerLevel": 1.75
     },
-    "passive": "Каждые 15 с создаёт копию на 8 с. Копия имеет 40% ОЗ героя, отвлекает врагов и повторяет атаки с 25% урона.",
-    "growth": "+0,25 п. п. к урону копии за уровень."
+    "passive": "Каждые 15 с создаёт копию на 8 с. Копия имеет 50% ОЗ героя, отвлекает врагов и повторяет атаки с 25% урона.",
+    "growth": "+0,25 п. п. к урону и +0,15 с жизни копии за уровень."
   },
   {
     "id": "king_arthur",
@@ -255,8 +255,8 @@
     "stats": {
       "maxHp": 200,
       "maxHpPerLevel": 5,
-      "regen": 3,
-      "moveSpeed": 30,
+      "regen": 2.75,
+      "moveSpeed": 25,
       "attackSpeed": 20,
       "armor": 0.1,
       "magicResist": 0.05,
