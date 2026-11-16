@@ -145,7 +145,7 @@ public sealed partial class RunWorld
         if (player.Walking)
         {
             _heroTrail[player.Id, slot] = (player.Prev, Tick + 3 * TicksPerSecond);
-            Emit(EventKind.HeroFireTrail, player.Prev.X, player.Prev.Y);
+            Emit(EventKind.HeroFireTrail, player.Prev.X, player.Prev.Y, a: player.Id);
         }
         float damage = damagePerSecond * TrailInterval * Dt;
         var source = new DamageSourceRef(player.Id, SuppressProcs: true);

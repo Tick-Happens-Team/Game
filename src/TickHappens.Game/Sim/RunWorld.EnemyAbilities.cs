@@ -153,7 +153,9 @@ public sealed partial class RunWorld
                     float drain = HurtPlayer(player, 1, DamageKind.Magical, pos.X, pos.Y, slot, continuous: true);
                     EMaxHp[slot] += drain;
                     HealEnemy(slot, drain);
-                    if (drain > 0) Emit(EventKind.ItemBeam, player.Pos.X, player.Pos.Y, x2: pos.X, y2: pos.Y);
+                    if (drain > 0)
+                        Emit(EventKind.ItemBeam, player.Pos.X, player.Pos.Y, value: EUid[slot] & ushort.MaxValue,
+                            a: player.Id + 1, b: slot, x2: pos.X, y2: pos.Y);
                 }
                 if (range < 125) speed *= range < 70 ? -1 : 0;
                 break;

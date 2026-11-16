@@ -22,7 +22,8 @@ public struct GameEvent
 {
     public EventKind Kind;
     public float X, Y, X2, Y2, Value;
-    /// <summary>Chain: start index into <see cref="RunWorld.ChainPoints"/>; Hit: damage kind; Chest: item index; otherwise kind-specific.</summary>
+    /// <summary>Chain: start index into <see cref="RunWorld.ChainPoints"/>; Hit: damage kind; Chest: item index.
+    /// ItemBeam: zero for a lightning arc, or the drained player ID plus one (B is then the siphoner slot and Value its network UID).</summary>
     public int A, B;
     /// <summary>Gold drop RNG state for a kill. Cosmetic seed for other events.</summary>
     public uint Seed;

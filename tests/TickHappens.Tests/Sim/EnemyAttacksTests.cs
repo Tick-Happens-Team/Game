@@ -74,6 +74,7 @@ public sealed class EnemyAttacksTests
 
         var beams = world.Events.Where(e => e.Kind == EventKind.ItemBeam).ToArray();
         Assert.Equal(2, beams.Length);
+        Assert.All(beams, beam => Assert.Equal(0, beam.A));
         Assert.Equal(witchPos.X, beams[0].X);
         Assert.Equal(primary.Pos.X, beams[0].X2);
         Assert.Equal(primary.Pos.X, beams[1].X);
@@ -85,6 +86,29 @@ public sealed class EnemyAttacksTests
         Assert.DoesNotContain(world.Events, e => e.Kind == EventKind.ItemBeam);
         world.StepCoop([default, default]);
         Assert.Equal(2, world.Events.Count(e => e.Kind == EventKind.ItemBeam));
+    }
+
+    [Fact]
+    public void SiphonBeamReplicatesTheTargetAndEnemyIdentity()
+    {
+        var world = IsolatedWorld(playerCount: 2);
+        world.SetPlayerActive(1, true);
+        var target = world.Players[1];
+        target.Pos = world.Player.Pos + new Vector2(100, 0);
+        int slot = world.SpawnEnemy(world.Content.EnemyIndex("siphoner"), target.Pos + new Vector2(90, 0));
+
+        world.StepCoop([default, default]);
+
+        var replica = IsolatedWorld(playerCount: 2);
+        byte[] snapshot = new byte[RunWorld.SnapshotCapacity];
+        Assert.True(replica.TryApplySnapshot(snapshot.AsSpan(0, world.WriteSnapshot(snapshot))));
+        Span<byte> packet = stackalloc byte[CoopSession.MaxEventBytes];
+        int next = 0;
+        Assert.True(replica.TryApplyEvents(packet[..world.WriteEvents(packet, ref next)]));
+        var beam = Assert.Single(replica.Events, e => e.Kind == EventKind.ItemBeam);
+        Assert.Equal(target.Id + 1, beam.A);
+        Assert.Equal(slot, beam.B);
+        Assert.Equal(replica.EUid[slot], beam.Value);
     }
 
     [Fact]

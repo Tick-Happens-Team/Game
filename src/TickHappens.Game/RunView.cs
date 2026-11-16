@@ -84,6 +84,7 @@ internal sealed partial class RunView : IDisposable
         _bossChestFrame = _chest.FrameNames.IndexOf("boss");
         _soda = atlas.Sprites.GetValueOrDefault("prop_soda_r");
         _enemySprites = [.. content.Enemies.Select(e => S(e.Sprite))];
+        _siphonBeams = new SiphonBeam[RunWorld.EnemySlots(content)];
         _companionSprites = [.. content.Items.Select(item => item.Companion is { } c &&
             atlas.Sprites.TryGetValue(c.Sprite, out var sprite) && sprite.Anims.ContainsKey("move") ? sprite : null)];
         _enemyAnims = [.. content.Enemies.Select((e, i) => _enemySprites[i].Anims.TryGetValue(e.Anim, out var a) ? a
@@ -145,6 +146,10 @@ internal sealed partial class RunView : IDisposable
     {
         _effects.Clear();
         _itemEffects.Clear();
+        Array.Clear(_siphonBeams);
+        Array.Clear(_skateTrail);
+        Array.Clear(_lastSkateMarks);
+        _nextSkateMark = 0;
         _hud.Reset();
         _shake = 0;
         _flashes.Clear();
@@ -277,14 +282,15 @@ internal sealed partial class RunView : IDisposable
                     RingBurst(e.X, e.Y, e.Value, 0xFFFFE4ACu, 0xFFD58848u);
                     break;
                 case EventKind.HeroFireTrail:
+                    AddSkateMark(e);
                     for (int k = 0; k < 10; k++)
                     {
                         _particles.Spawn(new GpuParticle
                         {
-                            X = e.X + (_cosmetic.NextSingle() - 0.5f) * 20,
-                            Y = e.Y + (_cosmetic.NextSingle() - 0.5f) * 16,
-                            Vy = -_cosmetic.NextSingle() * 3,
-                            Life = 3, MaxLife = 3, ColorA = 0xFF2A8AFFu, ColorB = 0xFF172E80u, Intensity = 1.15f,
+                            X = e.X + (_cosmetic.NextSingle() - 0.5f) * 13,
+                            Y = e.Y + (_cosmetic.NextSingle() - 0.5f) * 7,
+                            Vy = -_cosmetic.NextSingle() * 8,
+                            Life = 1.3f, MaxLife = 1.3f, ColorA = 0xFF4FCBFFu, ColorB = 0xFF172E80u, Intensity = 1.35f,
                         });
                     }
                     break;
@@ -302,7 +308,12 @@ internal sealed partial class RunView : IDisposable
                     }
                     break;
                 case EventKind.ItemBeam:
-                    if (_effects.Count < MaxCpuEffects)
+                    if (e.A != 0)
+                    {
+                        if ((uint)(e.A - 1) < (uint)world.Players.Count && (uint)e.B < (uint)_siphonBeams.Length)
+                            _siphonBeams[e.B] = new SiphonBeam(e.A - 1, (int)e.Value, _time + 0.28f);
+                    }
+                    else if (_effects.Count < MaxCpuEffects)
                         _effects.Add(new LightningEffect(new LightningOptions
                         {
                             Kind = LightningKind.Arc, From = (e.X * 2, (e.Y - 10) * 2),
@@ -713,9 +724,11 @@ internal sealed partial class RunView : IDisposable
         foreach (var e in _effects) e.Draw(vfx, VfxLayer.All);
         var color = PixelCanvas.ColorOf(vfx);
         var light = PixelCanvas.LightOf(vfx);
+        DrawSkateTrail(color, light);
         DrawEnemyEffects(world, color, light, alpha, ox, oy, tw, th);
         DrawItemEffects(world, color, light, dt, ox, oy, tw, th);
         DrawLeechBeams(world, color, light, alpha);
+        DrawSiphonBeams(world, color, light, alpha);
         for (int i = 0; i < RunWorld.ProjectileCapacity; i++)
         {
             if (!world.PAlive[i]) continue;
@@ -1047,9 +1060,9 @@ internal sealed partial class RunView : IDisposable
                 float angle = j * (MathF.Tau / 48);
                 float x = pos.X + MathF.Cos(angle) * radius;
                 float y = pos.Y + MathF.Sin(angle) * radius;
-                color.AlphaDisc(x, y, 1.7f + charge, 0xFF407AFFu, 0.6f + 0.4f * charge);
+                color.AlphaDisc(x, y, 1.7f + charge, 0xFF639AD9u, 0.6f + 0.4f * charge);
             }
-            light.Glow(pos.X, pos.Y - 7, 16 + 14 * charge, 0xFF389DFFu, 0.5f + 0.45f * charge);
+            light.Glow(pos.X, pos.Y - 7, 14 + 10 * charge, 0xFF639AD9u, 0.2f + 0.25f * charge);
         }
 
         foreach (ref readonly var shot in world.EnemyShots)

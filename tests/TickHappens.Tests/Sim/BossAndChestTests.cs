@@ -19,19 +19,22 @@ public sealed class BossAndChestTests
     public void FiveMinuteBossWavesRotateThenSpawnPairsWithOneRewardEach()
     {
         var world = new RunWorld(QuietContent(), seed: 56);
-        string[] order = ["devourer", "timekeeper", "phantom", "prospector", "ancient_cultist"];
-        for (int wave = 0; wave < order.Length * 2; wave++)
+        int bossCount = world.Content.Enemies.Count(enemy => enemy.Boss);
+        var seen = new HashSet<int>();
+        for (int wave = 0; wave < bossCount * 2; wave++)
         {
+            if (wave == bossCount) seen.Clear();
             int atTick = (wave + 1) * 5 * 60 * RunWorld.TicksPerSecond;
             while (world.Tick < atTick - 1) world.Step(default);
             Assert.Equal(0, world.AliveEnemies);
             world.Step(default);
 
-            int expected = wave < order.Length ? 1 : 2;
-            int def = world.Content.EnemyIndex(order[wave % order.Length]);
+            int expected = wave < bossCount ? 1 : 2;
             var slots = Enumerable.Range(0, world.EnemyHighWater).Where(i => world.EAlive[i]).ToArray();
             Assert.Equal(expected, slots.Length);
-            var item = Assert.Single(world.Content.Items, item => item.BossDrop == order[wave % order.Length]);
+            int def = world.EDef[slots[0]];
+            Assert.True(seen.Add(def));
+            var item = Assert.Single(world.Content.Items, item => item.BossDrop == world.Content.Enemies[def].Id);
             int reward = world.Content.ItemIndex(item.Id);
             int oldDrops = CountRewards(world, reward);
             int oldChests = CountBossChests(world);
@@ -45,6 +48,28 @@ public sealed class BossAndChestTests
             Assert.Equal(oldDrops + expected, CountRewards(world, reward));
             Assert.Equal(oldChests + expected, CountBossChests(world));
             world.ClearEvents();
+        }
+    }
+
+    [Fact]
+    public void FirstBossVariesBySeedAndFavorsTimekeeperAndAncientCultist()
+    {
+        var content = QuietContent();
+        content.Waves.BossIntervalMinutes = 1;
+        var counts = new int[content.Enemies.Count];
+        for (uint seed = 1; seed <= 150; seed++)
+        {
+            var world = new RunWorld(content, seed);
+            for (int tick = 0; tick < 60 * RunWorld.TicksPerSecond; tick++) world.Step(default);
+            int slot = Assert.Single(Enumerable.Range(0, world.EnemyHighWater), i => world.EAlive[i]);
+            counts[world.EDef[slot]]++;
+        }
+
+        foreach (var boss in content.Enemies.Where(enemy => enemy.Boss))
+        {
+            int count = counts[content.EnemyIndex(boss.Id)];
+            if (boss.Id is "timekeeper" or "ancient_cultist") Assert.InRange(count, 45, 75);
+            else Assert.InRange(count, 3, 20);
         }
     }
 

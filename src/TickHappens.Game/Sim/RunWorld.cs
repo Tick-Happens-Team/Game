@@ -46,6 +46,7 @@ public sealed partial class RunWorld
     private int _enemyHigh, _nextUid = 1;
     public int AliveEnemies { get; private set; }
     public int EnemyHighWater => _enemyHigh;
+    internal static int EnemySlots(ContentSet content) => content.Waves.MaxAlive + 64;
     private readonly SpatialGrid _grid;
     private readonly DamageKind[] _enemyKind;
     private readonly float[] _enemySlow;
@@ -55,12 +56,14 @@ public sealed partial class RunWorld
     private float _spawnAcc;
     private int _nextElite, _bossesSpawned;
     private readonly int[] _bossRotation;
+    private SimRng _bossRng;
 
     public RunWorld(ContentSet content, uint seed = 1, string? character = null, int playerCount = 1, int localPlayerId = 0)
     {
         Content = content;
         Seed = seed;
         _bossRotation = Enumerable.Range(0, content.Enemies.Count).Where(i => content.Enemies[i].Boss).ToArray();
+        _bossRng = new SimRng(seed);
         _rng = new SimRng(seed);
         var ch = character != null ? content.Characters.Find(c => c.Id == character) ?? throw new ArgumentException($"unknown character '{character}'")
                                    : content.Characters[0];
@@ -71,7 +74,7 @@ public sealed partial class RunWorld
         _players = new PlayerState[playerCount];
         for (int i = 0; i < playerCount; i++) _players[i] = CreatePlayer(ch, i, i == localPlayerId);
 
-        EnemyCapacity = content.Waves.MaxAlive + 64;
+        EnemyCapacity = EnemySlots(content);
         _enemyAbilities = new EnemyAbility[EnemyCapacity];
         _enemyHidden = new bool[EnemyCapacity];
         _phantomIllusion = content.EnemyIndex("phantom_illusion");
@@ -455,6 +458,33 @@ public sealed partial class RunWorld
     }
     public float DamageScale => 1 + Content.Waves.DamagePerMinute * Minutes;
 
+    private int FirstBossWeight(int enemyDef) => Content.Enemies[enemyDef].Id is "timekeeper" or "ancient_cultist" ? 6 : 1;
+
+    private void ShuffleBossRotation(bool firstCycle)
+    {
+        int start = 0;
+        if (firstCycle)
+        {
+            int totalWeight = 0;
+            foreach (int def in _bossRotation) totalWeight += FirstBossWeight(def);
+            int roll = _bossRng.Int(totalWeight);
+            int first = 0;
+            for (; first < _bossRotation.Length - 1; first++)
+            {
+                roll -= FirstBossWeight(_bossRotation[first]);
+                if (roll < 0) break;
+            }
+            (_bossRotation[0], _bossRotation[first]) = (_bossRotation[first], _bossRotation[0]);
+            start = 1;
+        }
+
+        for (int i = _bossRotation.Length - 1; i > start; i--)
+        {
+            int j = start + _bossRng.Int(i - start + 1);
+            (_bossRotation[i], _bossRotation[j]) = (_bossRotation[j], _bossRotation[i]);
+        }
+    }
+
     private void SpawnEnemies()
     {
         int interval = Content.Waves.BossIntervalMinutes;
@@ -462,7 +492,9 @@ public sealed partial class RunWorld
         {
             int count = _bossesSpawned < _bossRotation.Length ? 1 : 2;
             if (EnemyCapacity - AliveEnemies < count) break;
-            int def = _bossRotation[_bossesSpawned % _bossRotation.Length];
+            int rotationIndex = _bossesSpawned % _bossRotation.Length;
+            if (rotationIndex == 0) ShuffleBossRotation(firstCycle: _bossesSpawned == 0);
+            int def = _bossRotation[rotationIndex];
             for (int i = 0; i < count; i++)
             {
                 int boss = SpawnEnemy(def);
