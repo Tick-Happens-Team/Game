@@ -129,7 +129,7 @@ public sealed partial class RunWorld
             ItemPulseTimers = new float[Content.Items.Count],
             Pos = new Vector2(center + (id % 2) * 16, center + (id / 2) * 16),
             XpNext = XpForLevel(1),
-            NextHeroPassiveTick = Tick + (character.Id == "necromancer" ? 30 : 15) * TicksPerSecond,
+            NextHeroPassiveTick = Tick + (int)((character.Id == "necromancer" ? 30 : IllusionCooldown) * TicksPerSecond),
         };
         p.Prev = p.Pos;
         var cs = character.Stats;
@@ -420,7 +420,7 @@ public sealed partial class RunWorld
             EAlive[enemy] && Content.Enemies[EDef[enemy]].ShotRange == 0)
         {
             float contact = PlayerRadius + Content.Enemies[EDef[enemy]].Radius + ContactTolerance;
-            if (Vector2.DistanceSquared(p.Pos, new(EX[enemy], EY[enemy])) <= contact * contact && RollChance(0.185f + 0.005f * (p.Level - 1)))
+            if (Vector2.DistanceSquared(p.Pos, new(EX[enemy], EY[enemy])) <= contact * contact && RollChance(0.185f + 0.0065f * (p.Level - 1)))
                 return 0;
         }
         if (TryBlockOrRedirect(p, enemy, kind, dmg)) return 0;

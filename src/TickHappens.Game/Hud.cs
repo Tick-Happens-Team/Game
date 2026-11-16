@@ -320,7 +320,7 @@ internal sealed partial class Hud(GameSettings settings)
             int y = RosterY + (i - first) * RowH;
             bool sel = i == selected;
             Frame(ui, RosterX, y, RosterW, RowH - 3, sel ? Teal : i == hover ? TealDark : PanelEdge, sel ? PanelLit : Panel);
-            preview.DrawHero(ui, i, sel ? _menuTime : 0, RosterX + 14, y + 25, 1);
+            preview.DrawHero(ui, i, sel ? _menuTime : 0, RosterX + 14, y + 25, 1, clipTop: y + 1);
             PixelFont.Draw(ui, CharacterName(content.Characters[i]), RosterX + 32, y + 10, sel ? White : Grey, Ink);
         }
 

@@ -10,7 +10,7 @@ Install the .NET 10 SDK, keep Game and Assets side by side, and use a GPU with O
 dotnet run --project src/TickHappens.Game
 ```
 
-Pick one of six heroes from the owner roster (Octarine, Swordsman, Smith, Goflin, Celestial Mage, Watchman), each with table stats and a passive. The hero shoots automatically, crystals level you up (HP and damage grow per level), and items come only from chests, which open on their own when you can pay (10 gold, then ×1.5 per purchase) and roll by rarity. Time statues add minutes to the run clock and the horde grows with it. The run ends when your HP reaches zero.
+Pick one of six heroes from the owner roster (Florist, Swordsman, Smith, Goflin, Celestial Mage, Watchman), each with table stats and a passive. The hero shoots automatically, crystals level you up (HP and damage grow per level), and items come only from chests, which open on their own when you can pay (10 gold, then ×1.5 per purchase) and roll by rarity. Time statues add minutes to the run clock and the horde grows with it. The run ends when your HP reaches zero.
 
 | Control | Action |
 |---|---|

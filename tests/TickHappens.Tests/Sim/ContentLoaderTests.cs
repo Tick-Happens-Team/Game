@@ -85,21 +85,21 @@ public sealed class ContentLoaderTests
         var nekochan = Character(content, "nekochan");
         Assert.Equal(135f, nekochan.Stats.MaxHp);
         Assert.Equal(3.25f, nekochan.Stats.MaxHpPerLevel);
-        Assert.Equal(0.25f, nekochan.Stats.Regen);
+        Assert.Equal(0.45f, nekochan.Stats.Regen);
         Assert.Equal(35f, nekochan.Stats.MoveSpeed);
         Assert.Equal(35f, nekochan.Stats.AttackSpeed);
         Assert.Equal(0.025f, nekochan.Stats.Armor);
-        Assert.Equal(0.025f, nekochan.Stats.MagicResist);
-        Assert.Equal(15f, nekochan.Stats.Damage);
+        Assert.Equal(0.05f, nekochan.Stats.MagicResist);
+        Assert.Equal(16f, nekochan.Stats.Damage);
         Assert.Equal(2.25f, nekochan.Stats.DamagePerLevel);
         var aura = Assert.IsType<CharacterAura>(nekochan.Aura);
         Assert.Equal(175f, aura.Radius);
         Assert.Equal(1.5f, aura.RadiusPerLevel);
-        Assert.Equal(0.07f, aura.DamageReduction);
+        Assert.Equal(0.10f, aura.DamageReduction);
         Assert.Equal(0.0035f, aura.DamageReductionPerLevel);
         Assert.Equal(1.5f, aura.Regen);
-        Assert.Equal(0.25f, aura.RegenPerLevel);
-        Assert.Equal(1.5f, aura.SelfMultiplier);
+        Assert.Equal(0.3f, aura.RegenPerLevel);
+        Assert.Equal(1.75f, aura.SelfMultiplier);
     }
 
     [Fact]

@@ -173,6 +173,9 @@ internal sealed partial class RunView : IDisposable
             int frame = (int)((tick - player.HeroAttackTick + alpha) * attack.Fps / RunWorld.TicksPerSecond);
             if (frame < attack.Frames.Count) return attack.Frames[frame];
         }
+        // The Boar's horns catch fire while its walking speed bonus is active.
+        if (walking && player.BoarWalkTicks == RunWorld.BoarChargeTicks && sprite.Anims.TryGetValue("charge", out var charge))
+            return charge.Frames[(int)(_time * charge.Fps) % charge.Frames.Count];
         var anim = sprite.Anims[walking && sprite.Anims.ContainsKey("walk") ? "walk" : "idle"];
         return anim.Frames[(int)(_time * anim.Fps) % anim.Frames.Count];
     }
