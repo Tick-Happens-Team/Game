@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\TickHappens.Distribution\TickHappens.Distribution.csproj" />
+    <ProjectReference Include="..\..\src\TickHappens.Localization\TickHappens.Localization.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

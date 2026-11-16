@@ -8,7 +8,7 @@ using static TickHappens.Launcher.Paint;
 
 namespace TickHappens.Launcher;
 
-internal enum Page { Play, Mods, Settings }
+internal enum Page { Play, Notes, Mods, Settings }
 
 internal sealed record LauncherOptions(bool Offline, Page Page, int Frames, string? Screenshot);
 
@@ -40,6 +40,8 @@ internal sealed class LauncherApp
     private volatile InstalledRelease? _installed;
     private TimeSpan _nextCheck = TimeSpan.Zero;
     private int _modScroll;
+    private readonly NotesPage _notes = new();
+    private readonly string _notesSeen;
     private (int X, int Y) _mouse = (-1, -1);
     private (int X, int Y)? _click;
 
@@ -53,6 +55,7 @@ internal sealed class LauncherApp
         _page = options.Page;
         _modsDirectory = Path.Combine(root, "mods");
         _profile = Path.Combine(root, "enabled-mods.json");
+        _notesSeen = Path.Combine(root, "notes-seen.txt");
         Directory.CreateDirectory(_modsDirectory);
         ReloadMods();
         RefreshInstalled();
@@ -88,6 +91,7 @@ internal sealed class LauncherApp
             HandleKeys(window);
             if (window.Wheel != 0 && _page == Page.Mods)
                 _modScroll = Math.Clamp(_modScroll - Math.Sign(window.Wheel), 0, Math.Max(0, _mods.Count - VisibleMods));
+            if (window.Wheel != 0 && _page == Page.Notes) _notes.Scroll(-Math.Sign(window.Wheel) * 3, BarTop);
 
             bool idle = !Busy;
             Draw(screen.Canvas, (float)_clock.Elapsed.TotalSeconds);
@@ -107,11 +111,16 @@ internal sealed class LauncherApp
     private void HandleKeys(GameWindow window)
     {
         if (window.WasPressed(Key.Return) && CanPlay) Start(LaunchAsync());
-        if (window.WasPressed(Key.Tab)) _page = (Page)(((int)_page + 1) % 3);
+        if (window.WasPressed(Key.Tab)) _page = (Page)(((int)_page + 1) % 4);
         if (_page == Page.Mods)
         {
             if (window.WasPressed(Key.Down)) _modScroll = Math.Min(_modScroll + 1, Math.Max(0, _mods.Count - VisibleMods));
             if (window.WasPressed(Key.Up)) _modScroll = Math.Max(0, _modScroll - 1);
+        }
+        if (_page == Page.Notes)
+        {
+            if (window.WasPressed(Key.Down)) _notes.Scroll(1, BarTop);
+            if (window.WasPressed(Key.Up)) _notes.Scroll(-1, BarTop);
         }
     }
 
@@ -134,7 +143,31 @@ internal sealed class LauncherApp
             if (NewLauncher is null) SetStatus(Localizer.Get("launcher.current"));
         }
         catch (Exception error) { SetError(error, "launcher.updateError"); }
-        if (NewLauncher is null && !_closeRequested) await Task.Run(RefreshInstalled);
+        if (NewLauncher is null && !_closeRequested)
+        {
+            await Task.Run(RefreshInstalled);
+            ShowNewNotes();
+        }
+    }
+
+    /// <summary>Opens the patch notes once after a newer release is installed (not in review captures).</summary>
+    private void ShowNewNotes()
+    {
+        if (_installed is not { } installed || _options.Screenshot is not null || _gameRunning) return;
+        try
+        {
+            long seen = File.Exists(_notesSeen) && long.TryParse(File.ReadAllText(_notesSeen).Trim(),
+                System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out long value) ? value : 0;
+            if (installed.Sequence <= seen) return;
+            File.WriteAllText(_notesSeen, installed.Sequence.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            // The first install has nothing to compare against; only later updates open the page.
+            if (seen > 0 && installed.Release.NotesFor(Localizer.Language) is { IsEmpty: false })
+            {
+                _page = Page.Notes;
+                _notes.Reset();
+            }
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
     }
 
     private async Task LaunchAsync()
@@ -255,6 +288,9 @@ internal sealed class LauncherApp
         switch (_page)
         {
             case Page.Play: DrawPlay(c, time); break;
+            case Page.Notes:
+                _notes.Draw(c, Sidebar + 16, Screen.W - Sidebar - 32, BarTop, _installed, _game is { } game ? Path.GetDirectoryName(game) : null);
+                break;
             case Page.Mods: DrawMods(c); break;
             case Page.Settings: DrawSettings(c); break;
         }
@@ -280,7 +316,8 @@ internal sealed class LauncherApp
         Label(c, "HAPPENS", 38, 30, Text, 1);
         Fill(c, 12, 46, Sidebar - 24, 1, PanelDark);
 
-        (Page Page, string Key)[] pages = [(Page.Play, "launcher.page.play"), (Page.Mods, "launcher.page.mods"), (Page.Settings, "launcher.page.settings")];
+        (Page Page, string Key)[] pages = [(Page.Play, "launcher.page.play"), (Page.Notes, "launcher.page.notes"),
+            (Page.Mods, "launcher.page.mods"), (Page.Settings, "launcher.page.settings")];
         for (int i = 0; i < pages.Length; i++)
             if (Button(c, Localizer.Get(pages[i].Key), 10, 58 + i * 28, Sidebar - 20, 22, selected: _page == pages[i].Page))
             {

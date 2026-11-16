@@ -8,7 +8,7 @@ namespace TickHappens.Launcher;
 
 internal sealed record Install(string Directory, string Manifest, string Signature);
 
-internal sealed record InstalledRelease(string Game, string Assets, long Sequence);
+internal sealed record InstalledRelease(string Game, string Assets, long Sequence, ChannelManifest Release);
 
 internal sealed class Updater(string root, Uri channelUrl, string publicKey)
 {
@@ -36,7 +36,7 @@ internal sealed class Updater(string root, Uri channelUrl, string publicKey)
         var install = ReadInstall("game");
         if (install is null) return null;
         var release = Verify(install);
-        return new(release.Game[Platform].Version, release.Assets.Version, release.Sequence);
+        return new(release.Game[Platform].Version, release.Assets.Version, release.Sequence, release);
     }
 
     public FileStream Lock() => new(Path.Combine(root, "launcher.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);

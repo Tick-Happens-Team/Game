@@ -6,6 +6,10 @@ try
 {
     switch (args)
     {
+        case ["notes", var directory, var output]:
+            // Validates patch notes and writes them as release-page Markdown (empty when there are none).
+            WriteNew(output, NotesMarkdown(directory));
+            return 0;
         case ["keygen", var privatePath, var publicPath]:
         {
             var keys = ManifestSigner.CreateKeyPair();
@@ -16,7 +20,8 @@ try
         case ["pack", var kind, var version, var commit, var source, var zipPath, var url]:
             Pack(kind, version, commit, source, zipPath, url);
             return 0;
-        case ["channel", var sequence, var minimum, var game, var assets, var launcher, var publicKey, var output]:
+        case ["channel", var sequence, var minimum, var game, var assets, var launcher, var publicKey, var output, .. var rest]
+            when rest.Length <= 1:
         {
             string key = Environment.GetEnvironmentVariable("TICKHAPPENS_RELEASE_PRIVATE_KEY")
                 ?? throw new InvalidOperationException("Set TICKHAPPENS_RELEASE_PRIVATE_KEY to the private PEM.");
@@ -29,6 +34,8 @@ try
                 Assets = ReadReference(assets),
                 Launcher = new() { ["win-x64"] = ReadReference(launcher) },
             };
+            if (rest.Length == 1 && ReadNotes(rest[0]) is { } notes)
+                foreach (var (language, text) in notes) manifest.SetNotes(language, text);
             if (manifest.Sequence < 1 || SemVer.Parse(manifest.Launcher["win-x64"].Version) < SemVer.Parse(minimum))
                 throw new InvalidDataException("Invalid release sequence or launcher minimum.");
             string json = manifest.ToJson();
@@ -44,7 +51,9 @@ try
     Console.Error.WriteLine("""
         keygen PRIVATE.pem PUBLIC.pem
         pack game|assets|launcher VERSION COMMIT SOURCE ZIP URL
-        channel SEQUENCE MIN_LAUNCHER GAME.zip.json ASSETS.zip.json LAUNCHER.zip.json PUBLIC.pem channel.json
+        channel SEQUENCE MIN_LAUNCHER GAME.zip.json ASSETS.zip.json LAUNCHER.zip.json PUBLIC.pem channel.json [NOTES_DIR]
+          NOTES_DIR holds <language>.json patch notes (en.json, ru.json); see patchnotes/README.md.
+        notes NOTES_DIR OUTPUT.md
         """);
     return 2;
 }
@@ -93,6 +102,57 @@ static void Pack(string kind, string version, string commit, string source, stri
         ManifestSha256 = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bytes)),
     };
     WriteNew(zipPath + ".json", System.Text.Json.JsonSerializer.Serialize(reference, PackageManifest.Json));
+}
+
+static Dictionary<string, PatchNotes>? ReadNotes(string directory)
+{
+    var notes = new Dictionary<string, PatchNotes>(StringComparer.Ordinal);
+    foreach (string file in Directory.EnumerateFiles(directory, "*.json").Order(StringComparer.Ordinal))
+    {
+        string language = Path.GetFileNameWithoutExtension(file);
+        if (language.Length is < 2 or > 8 || !language.All(char.IsAsciiLetterLower))
+            throw new InvalidDataException($"Patch note files are named by language code, not '{language}'.");
+        try
+        {
+            var parsed = PatchNotes.FromJson(File.ReadAllText(file, Encoding.UTF8));
+            if (!parsed.IsEmpty) notes[language] = parsed;
+        }
+        catch (System.Text.Json.JsonException error) { throw new InvalidDataException($"{file}: {error.Message}"); }
+        catch (InvalidDataException error) { throw new InvalidDataException($"{file}: {error.Message}"); }
+    }
+    return notes.Count == 0 ? null : notes;
+}
+
+static string NotesMarkdown(string directory)
+{
+    var notes = ReadNotes(directory);
+    if (notes is null) return "";
+    var languages = notes.Keys.OrderBy(code => code == "en" ? 0 : 1).ThenBy(code => code, StringComparer.Ordinal).ToList();
+    if (languages.Count == 1) return notes[languages[0]].ToMarkdown(ContentNames(languages[0]));
+    var md = new StringBuilder();
+    foreach (string code in languages)
+        md.Append("## ").AppendLine(code switch { "en" => "English", "ru" => "Русский", _ => code })
+            .AppendLine().AppendLine(notes[code].ToMarkdown(ContentNames(code)));
+    return md.ToString();
+}
+
+// Localized hero, item and enemy names from the game's string tables, falling back to English.
+static Func<PatchSection, string?> ContentNames(string language)
+{
+    var english = Strings("en");
+    var own = language == "en" ? english : Strings(language);
+    return section =>
+    {
+        string type = section.Kind switch { "hero" => "characters", "item" => "items", "enemy" => "enemies", _ => "" };
+        string key = $"content.{type}.{section.Id}.name";
+        return own.GetValueOrDefault(key) ?? english.GetValueOrDefault(key);
+    };
+}
+
+static Dictionary<string, string> Strings(string language)
+{
+    using var stream = typeof(TickHappens.Localization.Localizer).Assembly.GetManifestResourceStream(language + ".json");
+    return stream is null ? [] : System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(stream) ?? [];
 }
 
 static PackageRef ReadReference(string path) =>

@@ -13,6 +13,7 @@
     <ProjectReference Include="../TickHappens.Localization/TickHappens.Localization.csproj" />
     <EmbeddedResource Include="$(ReleasePublicKey)" Condition="'$(ReleasePublicKey)' != ''" LogicalName="ReleasePublicKey.pem" />
     <EmbeddedResource Include="../../content/core/characters.json" LogicalName="characters.json" />
+    <EmbeddedResource Include="../../content/core/enemies.json" LogicalName="enemies.json" />
     <InternalsVisibleTo Include="TickHappens.Tests" />
   </ItemGroup>
   <ItemGroup Condition="Exists('$(TickHappensAssetsRoot)/assets/atlas/main.png')">
