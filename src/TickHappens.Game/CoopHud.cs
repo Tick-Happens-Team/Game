@@ -115,8 +115,8 @@ internal sealed class CoopHud(OnlineGame game, SettingsMenu settings)
         if (!game.Interrupted && !itemsOpen)
         {
             const int arrowGutter = 46;
-            string ping = game.LocalPing is int ms ? Localizer.Format("online.ping", Localizer.Format("online.ms", ms))
-                : Localizer.Format("online.ping", "-");
+            string ping = Localizer.Format("online.ping", game.IsHost ? Localizer.Get("online.hostPing")
+                : game.LocalPing is int ms ? Localizer.Format("online.ms", ms) : "-");
             PixelFont.Draw(ui, ping, w - arrowGutter - PixelFont.Measure(ping), Hud.RunHeaderBottom + 5, Foreground, Background);
             for (int slot = 0; slot < world.Players.Count; slot++)
             {

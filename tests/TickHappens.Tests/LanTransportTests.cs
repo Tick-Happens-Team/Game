@@ -39,6 +39,12 @@ public sealed class LanTransportTests
         }
 
         await PumpUntil(() => guest.CanReady);
+        // Each player's ping is their own round trip to the host; the host has none.
+        await PumpUntil(() => guest.LocalPing is not null && host.Ping(1) is not null);
+        Assert.Null(host.LocalPing);
+        Assert.Null(host.Ping(0));
+        Assert.Null(guest.Ping(0));
+        Assert.Equal(guest.LocalPing, guest.Ping(1));
         host.ToggleReady();
         guest.ToggleReady();
         await PumpUntil(() => host.EveryoneReady && guest.LocalReady);

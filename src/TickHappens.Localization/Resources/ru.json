@@ -116,6 +116,7 @@
   "online.player": "ИГРОК {0}",
   "online.ms": "{0} МС",
   "online.ping": "ПИНГ {0}",
+  "online.hostPing": "ХОСТ",
   "online.nickname": "ВВЕДИТЕ НИКНЕЙМ",
   "online.confirmNickname": "СОХРАНИТЬ  ENTER",
   "online.editNickname": "ИЗМЕНИТЬ НИК  F4",

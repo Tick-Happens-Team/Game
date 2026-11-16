@@ -17,14 +17,15 @@ public sealed partial class CoopSession : IDisposable
     // Fits LiteNetLib's initial 1024-byte MTU including its reliable header.
     public const int MaxPacketBytes = 1000;
     public const int MaxSnapshotBytes = 256 * 1024;
-    public const byte ProtocolVersion = 16;
+    public const byte ProtocolVersion = 17;
     private const int HeaderBytes = 2;
     private const int RunHeaderBytes = HeaderBytes + sizeof(uint);
     public const int MaxEventBytes = MaxPacketBytes - RunHeaderBytes;
     private const int InputHeaderBytes = RunHeaderBytes + sizeof(int);
     private const int SnapshotHeaderBytes = RunHeaderBytes + 2 * sizeof(int) + sizeof(ushort);
     private const int FragmentBytes = MaxPacketBytes - SnapshotHeaderBytes;
-    private const int RedundantInputs = 3;
+    // Every input packet repeats the latest inputs, so a burst of up to seven lost packets loses no input.
+    private const int RedundantInputs = 8;
     private const int DigestBytes = 32;
     private const int ResumeKeyBytes = 16;
     private const int ResumeSeconds = 60;
@@ -117,7 +118,7 @@ public sealed partial class CoopSession : IDisposable
         }
         if (_joining && now - _lastHello >= second) SendHello(now);
 
-        bool sendHeartbeat = now - _lastHeartbeat >= 2 * second;
+        bool sendHeartbeat = now - _lastHeartbeat >= second;
         if (sendHeartbeat) _lastHeartbeat = now;
         if (IsHost)
         {
@@ -445,6 +446,8 @@ public sealed partial class CoopSession : IDisposable
             _pingId[slot] = 0;
             _latency[slot] = 0;
             _jitter[slot] = 0;
+            _smoothedRtt[slot] = 0;
+            _lastPong[slot] = 0;
             if (AcceptNewPlayers) _profiles[slot] = null;
             _lastInput[slot] = 0;
             if (AcceptNewPlayers) _slotKeys[slot] = Guid.Empty;

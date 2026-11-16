@@ -34,9 +34,13 @@ The probe signs in, creates and publishes a room code, and destroys the lobby. I
 
 In a LAN or EOS lobby, use **Left/Right** to choose your hero and **F4** to edit your nickname. Each player chooses a unique hero and uses **Space** or **Ready** to confirm. Unready to change your hero. Everyone must confirm again after returning from a run. An ally revived by a teammate returns with 40% of maximum HP and two seconds of invulnerability. During a run, hold **Tab** to inspect the team's items and use **Up/Down** to scroll. **Esc** opens the match menu for both roles. The host pauses the run while its menu is open and can explicitly end the match. Guests can open settings while the match continues.
 
-The lobby and match HUD show round-trip ping in milliseconds. Network samples are written to `%LOCALAPPDATA%/TickHappens/coop-network.log`, with one rotated file retained. Guest samples also include snapshot intervals, their variation, and the largest local position correction since the previous sample.
+The lobby and match HUD show each player's round-trip ping to the host in milliseconds. The host shows HOST instead of a number because it has no connection to itself. A guest measures its own ping. The host measures every guest and shares that table, so a guest sees the other guests' pings as the host measured them. Pings go out once per second and the shown value is smoothed: one late reply moves it a quarter of the way. Replies are answered when the receiving frame polls the network, so the value includes up to one frame on each side. Network samples are written to `%LOCALAPPDATA%/TickHappens/coop-network.log`, with one rotated file retained. Guest samples also include snapshot intervals, their variation, and the largest local position correction since the previous sample.
 
-The current transport sends host snapshots at 10 Hz and player input at 30 Hz. Hosts advance the game. Clients predict their own movement and dash, reconcile to the authoritative state, and replay inputs newer than the last one the host applied. Clients interpolate remote players and enemies. Reliable keyframes arrive about once per second. Smaller unreliable snapshots refer to the current keyframe, with a full-state fallback when the delta would be larger. The host sends reliable gameplay-event batches, including chain paths, visual seeds, and the RNG state for enemy gold drops. Clients replay those events and read loot and progression from authoritative snapshots. Exact mod installation on join and measurements across independent networks are outstanding. Use identical core and enabled mod data on all machines.
+The current transport sends host snapshots at 10 Hz and player input at 30 Hz. Hosts advance the game. Clients predict their own movement and dash, reconcile to the authoritative state, and replay inputs newer than the last one the host applied. A replayed input runs at the host tick that applies it, so slows and roots end on the same tick on both sides. Corrections up to 96 pixels blend out within about a tenth of a second; larger ones snap.
+
+The host keeps a queue of each guest's inputs and applies exactly one per simulation tick in sequence order. Snapshots acknowledge only inputs the host applied. Inputs that arrive in a burst wait instead of overwriting each other. When the queue runs dry the host repeats the last movement without its dash or chest action and without acknowledging anything. The queue then holds one more input and absorbs later jitter. A queue deeper than six inputs is trimmed to two, and a queue that stayed at two or more for a second drops one input, so the delay jitter once required does not remain. Trimmed inputs pass their dash and chest actions on. A guest silent for a third of a second stops moving.
+
+Clients interpolate remote players and enemies from where they are drawn to the newest snapshot. The interpolation time follows the measured snapshot interval plus its jitter, between 100 and 300 ms. A late or lost snapshot slows the motion instead of stopping it and then covering the distance at double speed. Reliable keyframes arrive about once per second. Smaller unreliable snapshots refer to the current keyframe, with a full-state fallback when the delta would be larger. The host sends reliable gameplay-event batches, including chain paths, visual seeds, and the RNG state for enemy gold drops. Clients replay those events and read loot and progression from authoritative snapshots. Exact mod installation on join and measurements across independent networks are outstanding. Use identical core and enabled mod data on all machines.
 
 ```csharp
 interface ICoopTransport
@@ -53,7 +57,7 @@ Loopback endpoints support single-process tests. LanTransport supports discovery
 
 | Data | Owner and transmission |
 |---|---|
-| Input | Client sends the latest three samples redundantly at 30 Hz on the unreliable channel |
+| Input | Client sends the latest eight samples redundantly at 30 Hz on the unreliable channel; the host queues them and applies one per tick |
 | Local hero position | Predicted locally and reconciled against host snapshots |
 | RunClock and waves | Host includes tick and clock in every snapshot |
 | Statues | Host sends reliable activation events with the statue ID and added minutes |
@@ -70,7 +74,25 @@ Run the loopback UDP benchmark with a game host, a client, and 1,000 active enem
 dotnet run --project src/TickHappens.Game -c Release -- --net-bench .tmp/bench/network.csv
 ```
 
-The report records host bytes sent and elapsed time from client input submission to authoritative acknowledgement. It excludes IP and UDP headers and does not measure latency between computers. The local sample measured 70.0 kB/s host outbound, with acknowledgement latency of 73.5 ms average and 78.6 ms p99. The per-client traffic budget is 150 kB/s.
+The report records host bytes sent and elapsed time from client input submission to authoritative acknowledgement. It excludes IP and UDP headers and does not measure latency between computers. The benchmark starts the run from the lobby with both players ready. The November 2026 sample after the input queue measured 77.5 kB/s host outbound, with acknowledgement latency of 74.1 ms average and 108.6 ms p99. Acknowledgements arrive with snapshots, so the average includes about half a snapshot interval. The per-client traffic budget is 150 kB/s.
+
+### Audit (November 2026)
+
+Fixed:
+
+- The host overwrote a guest's pending input with the newest one and acknowledged the newest sequence. Two inputs in one frame lost a step, a frame without input repeated one, and the guest's replay disagreed with the host on every jitter spike. On a bursty connection that showed as constant rubber-banding of the guest and of the guest as others see them. The input queue above replaces it. `NetcodePredictionTests` reproduce bursty arrival and a 300 ms stall.
+- The host's own HUD ping showed the highest guest ping, and a guest stored its own ping in the host's slot, so the host's row repeated the guest's own value. Each player now shows their own ping.
+- Only three inputs were repeated per packet, so a short burst of loss dropped a dash. Packets now repeat eight.
+- Predicted movement compared slows and roots with the snapshot tick instead of the tick the host would apply the input on.
+- Remote entities paused at their target when a snapshot came late and then raced to catch up.
+- The network benchmark stopped working once runs started from the ready-up lobby.
+
+Open:
+
+- Prediction collides with teammates at their last snapshot positions, which are older than the local hero. Pushing through a moving teammate can still correct by a few pixels.
+- Snapshots larger than one packet are split into fragments that all have to arrive. Loss multiplies with the fragment count in large fights. Smaller per-entity deltas or several independent snapshot parts would reduce it.
+- Reliable keyframes and gameplay events share one ordered channel. A lost keyframe fragment delays later events until it is resent. A separate channel for keyframes would remove that.
+- Measurements across independent networks and NAT, with real latency and loss, are still outstanding.
 
 ## Compatibility and disconnects
 

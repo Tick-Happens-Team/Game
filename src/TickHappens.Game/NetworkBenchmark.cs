@@ -25,9 +25,16 @@ internal static class NetworkBenchmark
         using var host = new OnlineGame(content, lanPort: 0, collectStatistics: true);
         using var guest = new OnlineGame(content);
         host.ConnectLan(true, null, "octarine", 1);
-        var world = host.World ?? throw new InvalidOperationException(host.Status);
         var endpoint = new IPEndPoint(IPAddress.Loopback, host.LanPort!.Value);
-        guest.ConnectLan(false, endpoint, "octarine", 1);
+        guest.ConnectLan(false, endpoint, "swordsman", 1);
+        // The run starts from the lobby once both players are ready, as in the game.
+        PumpUntil(host, guest, () => guest.CanReady && host.CanReady, "The guest did not join the LAN room.");
+        host.ToggleReady();
+        guest.ToggleReady();
+        PumpUntil(host, guest, () => host.CanStart, "The players did not become ready.");
+        host.Start();
+        var world = host.World ?? throw new InvalidOperationException(host.Status);
+        PumpUntil(host, guest, () => guest.Playing, "The guest did not receive the run.");
         for (int i = 0; i < EnemyCount; i++)
         {
             float angle = i * MathF.Tau / EnemyCount;
@@ -45,7 +52,6 @@ internal static class NetworkBenchmark
             long now = Stopwatch.GetTimestamp();
             float dt = (float)Math.Min(0.1, Stopwatch.GetElapsedTime(previous, now).TotalSeconds);
             previous = now;
-            if (host.PlayerCount == 2 && !host.Playing) host.Start();
             host.Update(dt, default);
             int sentBefore = guest.LastSubmittedInput;
             guest.Update(dt, new RunInput(world.Tick % 120 < 60 ? 1 : -1, 0));
@@ -90,5 +96,17 @@ internal static class NetworkBenchmark
         Console.WriteLine(FormattableString.Invariant(
             $"{EnemyCount} enemies, {rows.Count} input acknowledgements: {latencies.Average():F1} ms average, {p99:F1} ms p99, {bytes / seconds / 1000:F1} kB/s host outbound on loopback."));
         Console.WriteLine(path);
+    }
+
+    private static void PumpUntil(OnlineGame host, OnlineGame guest, Func<bool> done, string failure)
+    {
+        var timeout = Stopwatch.StartNew();
+        while (!done())
+        {
+            if (timeout.Elapsed.TotalSeconds > 10) throw new InvalidOperationException(failure);
+            host.Update(RunWorld.Dt, default);
+            guest.Update(RunWorld.Dt, default);
+            Thread.Sleep(1);
+        }
     }
 }
