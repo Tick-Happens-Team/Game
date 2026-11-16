@@ -141,7 +141,7 @@ public sealed class BossAndChestTests
         world.Player.Facing = Vector2.UnitX;
         int front = world.SpawnEnemy(0, world.Player.Pos + new Vector2(28, 0));
         int back = world.SpawnEnemy(0, world.Player.Pos - new Vector2(28, 0));
-        Assert.Equal(15, world.Player.Stats[Stat.AttackSpeed]);
+        Assert.Equal(20, world.Player.Stats[Stat.AttackSpeed]);
 
         world.Step(default);
 

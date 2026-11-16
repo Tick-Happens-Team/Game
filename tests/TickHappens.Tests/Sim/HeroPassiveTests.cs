@@ -28,6 +28,32 @@ public sealed class HeroPassiveTests
     }
 
     [Fact]
+    public void BoarChargesAfterFiveSecondsAndRamsOnlyOncePerContact()
+    {
+        var world = new RunWorld(QuietContent(), character: "pig");
+        var player = world.Player;
+        player.AttackTimer = 100;
+        var forward = new RunInput(1, 0);
+        for (int i = 0; i < 5 * RunWorld.TicksPerSecond; i++) world.Step(forward);
+
+        var replica = new RunWorld(world.Content, character: "pig");
+        CopySnapshot(world, replica);
+        Assert.Equal(5 * RunWorld.TicksPerSecond, replica.Player.BoarWalkTicks);
+
+        int target = world.SpawnEnemy(0, player.Pos + new Vector2(10, 0));
+        float hp = world.EHp[target];
+        var start = player.Pos;
+        world.Step(forward);
+        TestWorld.Close(1.25f * 30 * world.Rules.Units.MoveSpeedScale * RunWorld.Dt, player.Pos.X - start.X);
+        TestWorld.Close(hp - 0.055f * world.MaxHealth, world.EHp[target]);
+        Assert.True(world.EKx[target] > 0);
+
+        world.Step(default);
+        TestWorld.Close(hp - 0.055f * world.MaxHealth, world.EHp[target]);
+        Assert.Equal(0, player.BoarWalkTicks);
+    }
+
+    [Fact]
     public void MinerAccumulatesDamageAndExplodesAroundThePlayer()
     {
         var world = new RunWorld(QuietContent(enemyDamage: 60), character: "miner");
@@ -114,15 +140,15 @@ public sealed class HeroPassiveTests
     }
 
     [Fact]
-    public void CubeStartsWithEightDamageAndGainsHalfADamagePerLevelEarnedThroughXp()
+    public void CubeStartsWithTenDamageAndGainsHalfADamagePerLevelEarnedThroughXp()
     {
         var world = new RunWorld(QuietContent(), character: "cybernetic_cube");
         Step(world, 15 * RunWorld.TicksPerSecond);
         Assert.Equal(1, world.Player.Level);
-        Assert.Equal(8, world.Player.Stats.Base(Stat.Damage));
+        Assert.Equal(10, world.Player.Stats.Base(Stat.Damage));
 
         TestWorld.LevelTo(world, 3);
-        Assert.Equal(9, world.Player.Stats.Base(Stat.Damage));
+        Assert.Equal(11, world.Player.Stats.Base(Stat.Damage));
     }
 
     [Fact]

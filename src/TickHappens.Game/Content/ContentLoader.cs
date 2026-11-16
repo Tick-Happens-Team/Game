@@ -258,6 +258,8 @@ public static class ContentLoader
             e.Add("rules.json: invalid chest count");
         if (r.Chests.FreeCount < 0 || r.Chests.FreeCount + (r.Chests.RareFreeChest ? 1L : 0L) > r.Chests.Count)
             e.Add("rules.json: free chests exceed the chest count");
+        if (!float.IsFinite(c.Waves.XpPerMinute) || c.Waves.XpPerMinute < 0)
+            e.Add("waves: xpPerMinute must be finite and non-negative");
         if (c.Waves.BossIntervalMinutes < 0 || c.Waves.GoldPerMinute < 0)
             e.Add("waves.json: boss interval and gold growth must be nonnegative");
         if (r.Chests.PriceGrowth != 1.5m) e.Add("rules.json: chests.priceGrowth is fixed at 1.5 by the game design");

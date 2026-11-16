@@ -14,13 +14,13 @@ Status markers follow the main [roadmap](../ROADMAP.md): `[x]` verified, `[ ]` p
 - **Damage types:** `physical`, `magical` and `pure` are supported. Physical and magical damage use the corresponding defences, while pure damage bypasses them.
 - **VFX:** explosion, impact, slash, lightning, sparkle, pickup, and GPU particles.
 
-Milestone M1 is playable: stat model v2 (S0), hero basic attack (S1), the damage pipeline with types and percentage defences (S2), chest loot by rarity with stacking items (S13), six C1 heroes with sprites and the character select screen. The item catalog implements all 62 sheet entries. The five cursed rewards are wired to bosses and drop once per defeated boss. Each boss also leaves a free, one-use chest. The playable hero stats still need a separate sheet-parity pass.
+Milestone M1 is playable: stat model v2 (S0), hero basic attack (S1), the damage pipeline with types and percentage defences (S2), chest loot by rarity with stacking items (S13), six C1 heroes with sprites and the character select screen. The item catalog implements all 62 sheet entries. The five cursed rewards are wired to bosses and drop once per defeated boss. Each boss also leaves a free, one-use chest. The playable roster uses the hero sheet’s base stats and growth.
 
 ## 2. Engine systems
 
 | ID | System | Depends on | Acceptance |
 |---|---|---|---|
-| S0 | **Character stat model v2.** See §3. | — | All 17 characters load from JSON with their table values. Unit tests cover per-level growth and percentage defences. |
+| S0 | **Character stat model v2.** See §3. | — | All 18 characters load from JSON with their table values. Unit tests cover per-level growth and percentage defences. |
 | S1 | **Hero basic attack** driven by the character's «Damage» and «Attack speed». Auto-aimed projectiles use the shape described in §8. | S0 | Each character attacks with its own damage and rate. Damage and attack speed scale with level. |
 | S2 | **Damage pipeline.** Hit = base × source multipliers (hero, items, damage type) → crit → target defence (armor % for physical, Magic resist % for magical, none for pure) → on-hit and on-damage-taken hooks. Every hit carries source (hero / item id / summon owner), type and flags (crit, proc, reflected). | S0 | Order-independent multiplier tests. Pure damage ignores defences. Summon damage credits the summon owner. |
 | S3 | **Crit:** separate chance per damage type and a shared crit damage multiplier. | S2 | Deterministic crit rolls from the seeded RNG. |
@@ -63,14 +63,14 @@ Tier C1 replaced the demo character `clockwarden` with six heroes using this mod
 
 ## 4. Characters ordered by ease
 
-Stats are copied from the owner's table. Growth means the per-level value of the passive. C1 heroes are playable and await sheet parity. Часовой also needs its updated attack speed and damage, with per-level crit chance tracked under S3.
+Stats are copied from the owner's table. Growth means the per-level value of the passive. C1 heroes are playable with their sheet values.
 
 ### Tier C1: playable heroes (S0, S1, S13 for gold; S3 for Watchman’s crit growth)
 
 | # | Character | HP | Regen (HP/s) | Move speed | Attack speed | Armor | Magic resist | Damage | Passive → implementation | Growth | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | Octarine | 150/+5 | 2 | 25 | 25 | 5% | 10% | 15/+2.75 | −10% cooldown on all abilities and items → `cooldown` pct | 0.15% | [~] |
-| 2 | Swordsman | 300/+5 | 3 | 18 | 20 | 10% | 3% | 20/+1 | armor rises every level → levelUp passive | 1% | [x] |
+| 1 | Octarine | 150/+5 | 2 | 25 | 25 | 5% | 10% | 15/+2.75 | −15% cooldown on all abilities and items → `cooldown` pct | 0.15% | [~] |
+| 2 | Swordsman | 300/+5 | 3 | 18 | 20 | 10% | 3% | 20/+1.5 | armor rises every level and blocks a physical contact hit with 17% chance | 1% | [x] |
 | 3 | Smith | 250/+2 | 2.75 | 30 | 25 | 5% | 4% | 15/+1.5 | +15% item damage → `itemDamage` multiplier (needs S2 source tags) | 1% | [~] |
 | 4 | Goflin | 200/+4 | 2 | 35 | 30 | 4% | 6% | 5/+0.5 | +10% gold → `goldGain` (S13) | 0.75% | [~] |
 | 5 | Celestial Mage | 200/+1 | 1 | 28 | 28 | 25% | 25% | 10/+0.25 | +25% magical damage, max HP always −65% → `magicDamage` pct and `maxHp` final multiplier 0.35 | 2.25% | [~] |
@@ -81,17 +81,17 @@ Stats are copied from the owner's table. Growth means the per-level value of the
 | # | Character | HP | Regen (HP/s) | Move speed | Attack speed | Armor | Magic resist | Damage | Passive → implementation | Growth | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 7 | Vampire | 175/+5 | 2 | 35 | 30 | 5% | 0% | 15/+1.5 | 10% lifesteal from damage dealt → S4 | 1.05% | [x] |
-| 8 | Miner | 300/+3 | 4.75 | 25 | 20 | 6% | 4% | 10/+1 | after taking 50 damage, explodes for 5 in radius 50 → `onDamageTaken` accumulator plus blast VFX | +2.5 damage and +2.5 radius | [x] |
-| 9 | Cybernetic Cube | 100/+5 | 2 | 25 | 30 | 10% | 10% | 8/+0.5 | each level increases one random stat by 1–5% → seeded roll on `onLevelUp` | fixed roll range | [x] |
-| 10 | Masochist | 100/+4 | 1 | 20 | 35 | 1% | 1% | 13.5/+2.15 | lower HP gives more regen and move speed → stats computed from missing HP | conversion +0.15% per level | [x] |
+| 8 | Miner | 300/+3 | 4.75 | 25 | 20 | 6% | 4% | 15/+1 | after taking 50 damage, explodes for 10 in radius 50 → `onDamageTaken` accumulator plus blast VFX | +2.5 damage and +2.5 radius | [x] |
+| 9 | Cybernetic Cube | 100/+5 | 2 | 25 | 30 | 10% | 10% | 10/+0.5 | each level increases one random stat by 1–10% → seeded roll on `onLevelUp` | fixed roll range | [x] |
+| 10 | Masochist | 150/+4 | 1 | 20 | 35 | 1% | 1% | 13.5/+2.15 | lower HP gives more regen and move speed → stats computed from missing HP | conversion +0.15% per level | [x] |
 
 ### Tier C3: new world mechanics (S6, S8, S9, death override)
 
 | # | Character | HP | Regen (HP/s) | Move speed | Attack speed | Armor | Magic resist | Damage | Passive → implementation | Growth | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 11 | Skater | 200/+3 | 2 | 25 | 25 | 5% | 5% | 20/+1 | +25% move speed; leaves a fire trail (5 dps, lasts 3 s) → S8 trail hazard | +1% move speed, +3 trail dps | [x] |
-| 12 | Diver | 200/+5.5 | 7 | 10 | 15 | 7% | 7% | 15/+1 | low base move speed that cannot be increased; armor grows with distance travelled; reflection grows per level → move-speed lock, odometer stat, S9 reflect | 0.25% | [x] |
-| 13 | Pig | 200/+4 | 1.75 | 30 | 20 | 7.5% | 8% | 5/+8.25 | becomes a ghost for 5 s after death → death-override state (Q7) | +0.25 s | [x] |
+| 12 | Diver | 200/+5.5 | 7 | 10 | 15 | 7% | 7% | 15/+2 | low base move speed that cannot be increased; armor grows with distance travelled; reflection grows per level → move-speed lock, odometer stat, S9 reflect | 0.25% | [x] |
+| 13 | Boar | 200/+4 | 1.75 | 30 | 20 | 7.5% | 8% | 5/+1.25 | rams for 5% of max HP and knocks enemies back, gains 25% speed and 10% ram damage after 5 s of walking, becomes a ghost for 5 s after death | +0.1 s in ghost form | [x] |
 
 ### Tier C4: allies and summons (S11, S12; co-op for full value)
 
@@ -243,7 +243,7 @@ The owner's roster has 23 enemies: 10 normal, 8 elite, 5 bosses. They replace th
 
 | Enemy | Role | HP | Damage | Type | Move speed | Attack speed | Magic resist | Armor | XP | Lifesteal | Behaviour | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Rot | normal | 80 | 8 | physical | 10 | 15 | 0% | 0% | 10 | 5% | slow melee chaser; on death leaves a rot cloud for 4 s (radius 50 px, 15 magical dps) | [x] |
+| Rot | normal | 80 | 8 | physical | 10 | 15 | 0% | 0% | 10 | 5% | slow melee chaser; on death leaves a rot cloud for 4 s (radius 200 sheet units, 15 magical dps) | [x] |
 | Kamikaze | normal | 50 | 50 | magical | 25 | — | 0% | 0% | 7 | 0% | winds up within 22 px of the player and self-destructs; its death explosion damages players and enemies within 55 px | [x] |
 | Screamer | normal | 75 | — | — | 25 | — | 0% | 0% | 10 | 0% | screams from behind the horde; if alive after 10 s, buffs all existing enemies by +50 HP and +5 Move speed | [~] |
 | Siphoner | normal | 100 | 5 | magical | 20 | drains 15 HP/s | 5% | 5% | 20 | 0% | drains the player's HP from range and turns it into its own max HP | [~] |
@@ -252,8 +252,8 @@ The owner's roster has 23 enemies: 10 normal, 8 elite, 5 bosses. They replace th
 
 | Enemy | Role | HP | Damage | Type | Move speed | Attack speed | Magic resist | Armor | XP | Lifesteal | Behaviour | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Spark | normal | 50 | 10 | magical | 25 | 25 | 10% | 5% | 10 | 0% | keeps its distance and fires small sparks from up to 160 px | [x] |
-| Witch | elite | 125 | 12 | magical | 20 | 25 | 15% | 10% | 30 | 10% | lightning that can hit several targets (reuses the chain arc) | [~] |
+| Spark | normal | 25 | 10 | magical | 15 | 25 | 10% | 5% | 10 | 0% | keeps its distance and fires small sparks from up to 160 px | [x] |
+| Witch | elite | 75 | 10 | magical | 20 | 25 | 15% | 10% | 30 | 10% | lightning that can hit several targets (reuses the chain arc) | [~] |
 | Jumper | normal | 100 | 15 | physical | 0 | — | 20% | 20% | 20 | 0% | moves only by jumps every 2 s up to 250; each landing makes an earthquake (radius 150, 15 damage) | [~] |
 | Dark Mage | elite | 100 | 25 | magical | 0 | 20 | 40% | 15% | 40 | 15% | dark-magic caster that moves only by teleport | [~] |
 | Thief | elite | 215 | 25 | physical | 25 | 25 | 0% | 15% | 50 | 15% | throws daggers and avoids melee; every 15 s disables a random player item for 10 s; on its death all items work again | [~] |
@@ -283,6 +283,8 @@ The owner's roster has 23 enemies: 10 normal, 8 elite, 5 bosses. They replace th
 | Phantom | 1800 | 45 | magical | 25 | 35 | 35% | 35% | 325 | 25% | every 4 s teleports to a random point within 700 of the player and leaves a 5 s illusion that repeats its attacks at 30% damage; every 30 s makes 4 illusions around the player, one of them real; dealing 500 damage to the real one removes the others and stuns the boss for 5 s | [~] |
 | Старатель | 4000 | 85 | physical | 20 | 30 | 35% | 35% | 450 | 15% | every 15 s creates a 500 HP gold vein at a random point within 1000 of himself and runs to mine it. Mining takes 3 s and heals him for 750 HP; the player can destroy the vein first. Below 35% HP, gold fever raises Move speed and Attack speed to 40 and cuts mining to 2 s; his eyes and pickaxe turn gold | [~] |
 | Древний культист | 2500 | 50 | magical | 15 | 25 | 50% | 15% | 350 | 35% | attacks with blood daggers from different sides; every 15 s summons one Старший культист and three Младший культист. Below 50% HP can sacrifice a senior cultist at an altar; if the sacrifice survives 3 s, the boss heals 500 HP and gains +15% lifesteal and +20 Attack speed | [~] |
+
+Enemy XP drops gain 5% of the base drop per elapsed run minute, rounded to whole XP.
 
 **Coverage:** 24 roster enemies, plus the legacy bat and elite slime. Gold veins and phantom illusions are encounter entities.
 - Normal (10): Rot, Slime, Jumper, Spark, Siphoner, Skeleton Swordsman, Screamer, Kamikaze, Младший культист, Шаман-культист.
@@ -321,7 +323,7 @@ Art for every character, enemy and summon goes through recipes (`art-recipe` ski
 | Growth | `base/+lvl`: level 1 has the base value and each later level adds the growth. Passive growth follows the same rule. |
 | Items | Standard items come from chests on the map; cursed items drop from their listed bosses. Copies of standard items stack, and mods apply once per copy. Level-ups give automatic stat growth; there are no level-up cards. |
 | Ally auras | Work on the owner too, including solo play. |
-| Pig | After death becomes an invulnerable ghost re-skin for 5 s (+0.25 s per level), like Wraith King's reincarnation, then dies. |
+| Boar | After death becomes an invulnerable ghost re-skin for 5 s (+0.25 s per level), like Wraith King's reincarnation, then dies. |
 | Watchman | Counts minutes on the game run clock, statues included. Damage bonus is 0.75 × run minutes. Each level grants +1 percentage point of physical and magical crit chance. |
 | Garlic | Caps enemy lifesteal at 20%. |
 | Octarine | Developer's choice: the cooldown reduction also applies to the dash. |

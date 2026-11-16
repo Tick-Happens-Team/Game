@@ -5,6 +5,7 @@ namespace TickHappens.Game.Sim;
 
 public sealed partial class RunWorld
 {
+    internal const int BoarChargeTicks = 5 * TicksPerSecond;
     private const int TrailInterval = 6;
     private const int TrailCapacity = 3 * TicksPerSecond / TrailInterval;
     private const float TrailRadius = 14;
@@ -62,9 +63,33 @@ public sealed partial class RunWorld
         else if (player.Character.Id == "pig" && player.Hp <= 0)
         {
             player.Hp = 1;
-            player.GhostUntilTick = Tick + (int)MathF.Round((5 + 0.25f * (player.Level - 1)) * TicksPerSecond);
+            player.GhostUntilTick = Tick + (int)MathF.Round((5 + 0.1f * (player.Level - 1)) * TicksPerSecond);
             Emit(EventKind.Pulse, player.Pos.X, player.Pos.Y, 24);
         }
+    }
+
+    private void StepBoarContact(PlayerState player, int enemy, bool touching)
+    {
+        ref int contact = ref _boarContact[player.Id, enemy];
+        if (!touching)
+        {
+            contact = 0;
+            return;
+        }
+        if (contact == EUid[enemy]) return;
+        contact = EUid[enemy];
+        bool charged = player.BoarWalkTicks == BoarChargeTicks;
+        float damage = MaxHealthFor(player) * (charged ? 0.055f : 0.05f);
+        DamageEnemy(enemy, damage, DamageKind.Physical, new DamageSourceRef(player.Id),
+            player.Pos.X, player.Pos.Y, knock: 0);
+        if (!EAlive[enemy]) return;
+
+        var offset = new Vector2(EX[enemy], EY[enemy]) - player.Pos;
+        var direction = offset.LengthSquared() > 0.0001f ? Vector2.Normalize(offset) : player.Facing;
+        float impulse = charged || player.GhostUntilTick > Tick ? 145 : 85;
+        if (Content.Enemies[EDef[enemy]].Boss) impulse *= 0.35f;
+        EKx[enemy] += direction.X * impulse;
+        EKy[enemy] += direction.Y * impulse;
     }
 
     private void StepHeroPassive(PlayerState player)
@@ -79,7 +104,7 @@ public sealed partial class RunWorld
                 {
                     player.PendingBlastDamage -= 50;
                     float radius = 50 + 2.5f * level;
-                    AreaItemHit(player.Pos, radius, 5 + 2.5f * level, DamageKind.Physical,
+                    AreaItemHit(player.Pos, radius, 10 + 2.5f * level, DamageKind.Physical,
                         new DamageSourceRef(player.Id, SuppressProcs: true));
                     Emit(EventKind.Blast, player.Pos.X, player.Pos.Y, radius);
                 }
