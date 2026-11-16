@@ -10,10 +10,12 @@ using static TickHappens.Launcher.Paint;
 namespace TickHappens.Launcher;
 
 /// <summary>
-/// The patch notes page, laid out like a balance patch: general changes, then a section per hero, item or enemy with
-/// its sprite in a frame and its localized name, groups such as abilities, named entries with small icons, and
-/// change lines marked buff ▲, nerf ▼, rework ◆, new ★ or fix, with indented details. The notes come from the signed
-/// channel manifest of the installed release; icons come from that release's atlas, or the launcher's embedded one.
+/// The patch notes page with the version history: a column of releases on the left, newest first with the installed
+/// one marked, and the selected release's notes on the right, laid out like a balance patch: general changes, then a
+/// section per hero, item or enemy with its sprite in a frame and its localized name, groups such as abilities, named
+/// entries with small icons, and change lines marked buff ▲, nerf ▼, rework ◆, new ★ or fix, with indented details.
+/// The history and notes come from the signed channel manifest of the installed release, so they work offline; icons
+/// come from that release's atlas, or the launcher's embedded one.
 /// </summary>
 internal sealed class NotesPage
 {
@@ -22,7 +24,7 @@ internal sealed class NotesPage
     private readonly record struct Row(RowKind Kind, int Height, string Text, string? Tag = null,
         (RgbaImage Image, AtlasSprite Sprite)? Icon = null, string? Caption = null, int Indent = 0, bool First = true);
 
-    private const int Top = 64, SectionIcon = 24, EntryIcon = 16;
+    private const int Top = 64, SectionIcon = 24, EntryIcon = 16, ListWidth = 96, VersionRow = 26;
 
     private readonly List<Row> _rows = [];
     private (long Sequence, string Language, int Width, string? Folder) _layoutKey;
@@ -30,47 +32,150 @@ internal sealed class NotesPage
     private string? _atlasFolder = "\0";
     private int _scroll;
 
+    private List<ReleaseHistoryEntry> _versions = [];
+    private long _versionsOf = -1, _selected;
+    private int _listScroll, _listX = -1, _listBottom;
+
     private sealed record Atlas(RgbaImage Image, AtlasData Data);
 
     public int Scroll(int delta, int bottom) => _scroll = Math.Clamp(_scroll + delta, 0, MaxScroll(bottom));
 
-    public void Reset() => _scroll = 0;
+    /// <summary>Scrolls the version list when the pointer is over it, otherwise the notes.</summary>
+    public void Wheel(int delta, (int X, int Y) mouse, int bottom)
+    {
+        if (mouse.X >= _listX && mouse.X < _listX + ListWidth) ScrollList(delta);
+        else Scroll(delta, bottom);
+    }
 
-    public void Draw(PixelCanvas c, int x0, int w, int bottom, InstalledRelease? installed, string? gameFolder)
+    /// <summary>Selects a newer (negative) or older (positive) release in the history.</summary>
+    public void Select(int delta)
+    {
+        if (_versions.Count == 0) return;
+        int index = Math.Clamp(SelectedIndex() + delta, 0, _versions.Count - 1);
+        Choose(index);
+        if (index < _listScroll) _listScroll = index;
+        if (index >= _listScroll + VisibleVersions) _listScroll = index - VisibleVersions + 1;
+    }
+
+    /// <summary>Returns to the top of the installed release's notes.</summary>
+    public void Reset()
+    {
+        _scroll = 0;
+        _selected = 0;
+        _listScroll = 0;
+    }
+
+    private int VisibleVersions => Math.Max(1, (_listBottom - Top - 4) / VersionRow);
+
+    private void ScrollList(int delta) =>
+        _listScroll = Math.Clamp(_listScroll + delta, 0, Math.Max(0, _versions.Count - VisibleVersions));
+
+    private int SelectedIndex()
+    {
+        for (int i = 0; i < _versions.Count; i++)
+            if (_versions[i].Sequence == _selected) return i;
+        return 0;
+    }
+
+    private void Choose(int index)
+    {
+        if (_versions[index].Sequence == _selected) return;
+        _selected = _versions[index].Sequence;
+        _scroll = 0;
+    }
+
+    public void Draw(PixelCanvas c, int x0, int w, int bottom, InstalledRelease? installed, string? gameFolder,
+        (int X, int Y) mouse, (int X, int Y)? click)
     {
         Label(c, Localizer.Get("launcher.page.notes"), x0, 16, Ink, 2);
-        string heading = installed is { } v
-            ? Localizer.Format("launcher.notesFor", v.Game, v.Release.Published.ToLocalTime().DateTime)
-            : Localizer.Get("launcher.notInstalled");
-        Label(c, heading, x0, 38, Muted);
-        Bevel(c, x0, Top - 6, w, bottom - Top, White, White, PanelDark);
-
-        var notes = installed?.Release.NotesFor(Localizer.Language);
-        if (notes is null || notes.IsEmpty)
+        _listX = x0;
+        _listBottom = bottom;
+        if (installed is null)
         {
+            Label(c, Localizer.Get("launcher.notInstalled"), x0, 38, Muted);
+            Bevel(c, x0, Top - 6, w, bottom - Top, White, White, PanelDark);
             Centered(c, Localizer.Get("launcher.noNotes"), x0 + w / 2, Top + 60, Muted);
             return;
         }
-        var key = (installed!.Sequence, Localizer.Language, w, gameFolder);
+        if (_versionsOf != installed.Sequence)
+        {
+            // A newly installed release opens at its own notes.
+            _versionsOf = installed.Sequence;
+            _versions = installed.Release.Versions();
+            Reset();
+        }
+        _selected = _versions[SelectedIndex()].Sequence;
+        _listScroll = Math.Clamp(_listScroll, 0, Math.Max(0, _versions.Count - VisibleVersions));
+
+        DrawVersions(c, x0, bottom, installed.Sequence, mouse, click);
+        var entry = _versions[SelectedIndex()];
+        string heading = Localizer.Format(entry.Sequence == installed.Sequence ? "launcher.notesForInstalled" : "launcher.notesFor",
+            entry.Version, entry.Published.ToLocalTime().DateTime);
+        int nx = x0 + ListWidth + 8, nw = w - ListWidth - 8;
+        Label(c, heading, nx, 38, Muted);
+        Bevel(c, nx, Top - 6, nw, bottom - Top, White, White, PanelDark);
+
+        var notes = entry.NotesFor(Localizer.Language);
+        if (notes is null || notes.IsEmpty)
+        {
+            Centered(c, Localizer.Get("launcher.noNotes"), nx + nw / 2, Top + 60, Muted);
+            return;
+        }
+        var key = (entry.Sequence, Localizer.Language, nw, gameFolder);
         if (key != _layoutKey)
         {
             _layoutKey = key;
             LoadAtlas(gameFolder);
-            Layout(notes, w - 44);
+            Layout(notes, nw - 44);
             _scroll = Math.Min(_scroll, MaxScroll(bottom));
         }
 
-        int y = Top, left = x0 + 10;
+        int y = Top, left = nx + 10;
         for (int i = _scroll; i < _rows.Count && y + _rows[i].Height <= bottom - 8; i++)
         {
-            DrawRow(c, _rows[i], left, y, w - 28);
+            DrawRow(c, _rows[i], left, y, nw - 28);
             y += _rows[i].Height;
         }
         if (MaxScroll(bottom) > 0)
         {
             int track = bottom - Top - 16, thumb = Math.Max(10, track * Math.Max(1, _rows.Count - MaxScroll(bottom)) / _rows.Count);
             int offset = (track - thumb) * _scroll / MaxScroll(bottom);
-            Fill(c, x0 + w - 8, Top - 2 + offset, 3, thumb, PanelDark);
+            Fill(c, nx + nw - 8, Top - 2 + offset, 3, thumb, PanelDark);
+        }
+    }
+
+    /// <summary>The release list: version and date per row, the selected row raised, the installed one with a gold dot.</summary>
+    private void DrawVersions(PixelCanvas c, int x0, int bottom, long installed, (int X, int Y) mouse, (int X, int Y)? click)
+    {
+        Label(c, Localizer.Get("launcher.history"), x0, 38, Muted);
+        Bevel(c, x0, Top - 6, ListWidth, bottom - Top, White, White, PanelDark);
+        int rx = x0 + 3, rw = ListWidth - 10, rh = VersionRow - 2;
+        for (int row = 0; row < VisibleVersions && _listScroll + row < _versions.Count; row++)
+        {
+            int index = _listScroll + row, y = Top - 2 + row * VersionRow;
+            var version = _versions[index];
+            bool Inside((int X, int Y) p) => p.X >= rx && p.X < rx + rw && p.Y >= y && p.Y < y + rh;
+            bool selected = version.Sequence == _selected;
+            if (selected)
+            {
+                Bevel(c, rx, y, rw, rh, Panel, White, PanelDark);
+                Fill(c, rx + 2, y + 2, 2, rh - 4, Accent);
+            }
+            else if (Inside(mouse)) Fill(c, rx, y, rw, rh, Mix(Panel, White, 0.6f));
+            Label(c, version.Version, rx + 8, y + 4, selected ? Ink : Text);
+            Label(c, Localizer.Format("launcher.historyDate", version.Published.ToLocalTime().DateTime), rx + 8, y + 14, Muted);
+            if (version.Sequence == installed)
+            {
+                c.Disc(rx + rw - 7, y + rh / 2, 3, GoldDark);
+                c.Disc(rx + rw - 7, y + rh / 2, 2, Gold);
+            }
+            if (click is { } p && Inside(p)) Choose(index);
+        }
+        if (_versions.Count > VisibleVersions)
+        {
+            int track = bottom - Top - 16, thumb = Math.Max(10, track * VisibleVersions / _versions.Count);
+            int offset = (track - thumb) * _listScroll / Math.Max(1, _versions.Count - VisibleVersions);
+            Fill(c, x0 + ListWidth - 5, Top - 2 + offset, 2, thumb, PanelDark);
         }
     }
 

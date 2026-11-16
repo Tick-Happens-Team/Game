@@ -51,8 +51,9 @@ jobs:
           $sequence = 1
           $latest = gh release view --repo $env:GITHUB_REPOSITORY --json tagName --jq .tagName 2>$null
           if ($LASTEXITCODE -eq 0 -and $latest) {
-            gh release download $latest --repo $env:GITHUB_REPOSITORY --pattern channel.json --dir $env:RUNNER_TEMP/latest
+            gh release download $latest --repo $env:GITHUB_REPOSITORY --pattern 'channel.json*' --dir $env:RUNNER_TEMP/latest
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            "PREVIOUS_CHANNEL=$env:RUNNER_TEMP/latest/channel.json" >> $env:GITHUB_ENV
             $previous = Get-Content -Raw "$env:RUNNER_TEMP/latest/channel.json" | ConvertFrom-Json
             $sequence = [long]$previous.sequence + 1
           }
@@ -133,7 +134,7 @@ jobs:
               -AssetsVersion $env:ASSETS_VERSION -Sequence $env:SEQUENCE -PublicKey tools/release-public.pem `
               -AssetsRoot ../Assets -DownloadBase "https://github.com/$env:GITHUB_REPOSITORY/releases/download/v$env:GAME_VERSION" `
               -Output .tmp/release -EosSdkArchive ../eos-sdk/eos-sdk-csharp-1.19.2.1-win64.zip -EosConfig $eosConfig `
-              -NotesDirectory $env:NOTES_DIR
+              -NotesDirectory $env:NOTES_DIR -PreviousChannel $env:PREVIOUS_CHANNEL
           }
           finally { Remove-Item -LiteralPath $eosConfig -Force }
           $files = 'launcher-win-x64.zip', 'game-win-x64.zip', 'assets.zip', 'channel.json', 'channel.json.sig'
