@@ -19,8 +19,11 @@ internal sealed class HeroPreview
         _sprites = [.. content.Characters.Select(c => sprite(c.Sprite))];
     }
 
-    /// <summary>Draws the hero's idle loop scaled up with its feet (the sprite origin) at (<paramref name="x"/>, <paramref name="y"/>).</summary>
-    public void DrawHero(PixelCanvas ui, int hero, float time, int x, int y, int scale)
+    /// <summary>
+    /// Draws the hero's idle loop scaled up with its feet (the sprite origin) at (<paramref name="x"/>, <paramref name="y"/>).
+    /// Rows above <paramref name="clipTop"/> are skipped so tall heroes stay inside a roster row.
+    /// </summary>
+    public void DrawHero(PixelCanvas ui, int hero, float time, int x, int y, int scale, int clipTop = int.MinValue)
     {
         var s = _sprites[hero];
         int frame = 0;
@@ -34,8 +37,11 @@ internal sealed class HeroPreview
                 uint c = _atlas[fx + px, fy + py];
                 if (RgbaImage.A(c) == 0) continue;
                 for (int sy = 0; sy < scale; sy++)
+                {
+                    if (dy + py * scale + sy < clipTop) continue;
                     for (int sx = 0; sx < scale; sx++)
                         ui.Set(dx + px * scale + sx, dy + py * scale + sy, c);
+                }
             }
     }
 }

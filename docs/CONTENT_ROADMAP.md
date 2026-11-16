@@ -69,7 +69,7 @@ Stats are copied from the owner's table. Growth means the per-level value of the
 
 | # | Character | HP | Regen (HP/s) | Move speed | Attack speed | Armor | Magic resist | Damage | Passive → implementation | Growth | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | Octarine | 135/+5 | 1.75 | 25 | 25 | 5% | 15% | 18/+2.75 | −10% cooldown on all abilities and items → `cooldown` pct | 0.5% | [~] |
+| 1 | Florist (formerly Octarine) | 135/+5 | 1.75 | 25 | 25 | 5% | 15% | 18/+2.75 | −10% cooldown on all abilities and items → `cooldown` pct | 0.5% | [~] |
 | 2 | Swordsman | 275/+4.5 | 3 | 18 | 20 | 8% | 5% | 20/+1.75 | armor rises every level and blocks a physical contact hit with 18.5% chance | +0.5 percentage points to armor and block chance | [x] |
 | 3 | Smith | 200/+2 | 2.75 | 30 | 25 | 5% | 4% | 15/+1.8 | +10% item damage → `itemDamage` multiplier (needs S2 source tags) | 0.25% | [~] |
 | 4 | Goflin | 125/+3.5 | 1.75 | 35 | 30 | 4% | 6% | 5/+2.5 | +20% gold → `goldGain` (S13) | 0.75% | [~] |
@@ -103,7 +103,13 @@ Stats are copied from the owner's table. Growth means the per-level value of the
 | 17 | Иллюзионист | 125/+3 | 1.75 | 25 | 25 | 5% | 15% | 12/+1.75 | every 15 s creates a copy with 50% of the hero’s max HP; it lasts 8 s, draws enemies, and repeats attacks at 25% damage. Up to eight hero copies can overlap, plus the Phantom Mask copy. | +0.25 percentage points of damage and +0.15 s lifetime per level | [x] |
 | 18 | King Arthur | 200/+5 | 2.75 | 25 | 20 | 10% | 5% | 15/+2 | Excalibur replaces projectiles with a 350° physical slash in radius 30 | +5 Excalibur radius per level | [x] |
 
-The new heroes use these defaults where the sheet leaves values open. Diver gains one percentage point of armor per 100 pixels travelled and can still dash. Masochist converts the missing-health fraction into a proportional bonus to regeneration and movement speed, up to +100% at level 1. Skater fire patches share a damage tick, so overlapping patches from the same owner do not multiply damage. Necromancer summons use the shared companion cap. Pig keeps moving and attacking during the ghost interval with damage immunity.
+### Planned characters (owner ideas, not in the sheet yet)
+
+| # | Character | Idea | Likely systems | Status |
+|---|---|---|---|---|
+| 19 | Succubus (Суккуб) | Planned hero. Theme, passive, stats, and growth are pending in the owner's sheet. | — | [ ] |
+
+The heroes use these defaults where the sheet leaves values open. Diver gains one percentage point of armor per 100 pixels travelled and can still dash. Skater fire patches share a damage tick, so overlapping patches from the same owner do not multiply damage. Necromancer summons use the shared companion cap. Pig keeps moving and attacking during the ghost interval with damage immunity.
 
 ## 5. Items ordered by ease
 
@@ -326,7 +332,7 @@ Art for every character, enemy and summon goes through recipes (`art-recipe` ski
 | Boar | After death becomes an invulnerable ghost re-skin for 5 s (+0.25 s per level), like Wraith King's reincarnation, then dies. |
 | Watchman | Counts minutes on the game run clock, statues included. Damage bonus is 0.75 × run minutes. Each level grants +1 percentage point of physical and magical crit chance. |
 | Garlic | Caps enemy lifesteal at 12%. |
-| Octarine | Developer's choice: the cooldown reduction also applies to the dash. |
+| Florist | Developer's choice: the cooldown reduction also applies to the dash. |
 
 ## 9. Open questions for the owner
 

@@ -114,7 +114,7 @@ public sealed class HeroPassiveTests
     public void IllusionSpawnsOnScheduleRepeatsTheAttackAndExpires()
     {
         var world = new RunWorld(QuietContent(), character: "illusionist");
-        int interval = 15 * RunWorld.TicksPerSecond;
+        int interval = 16 * RunWorld.TicksPerSecond;
         Step(world, interval - 1);
         Assert.Equal(0, world.Player.Illusions[0].UntilTick);
 
@@ -147,12 +147,13 @@ public sealed class HeroPassiveTests
     {
         var world = new RunWorld(QuietContent(), character: "illusionist");
         world.Player.Level = 51;
-        int interval = 15 * RunWorld.TicksPerSecond;
-        Step(world, interval * 2);
+        int interval = 16 * RunWorld.TicksPerSecond;
+        int secondSpawn = interval + (int)(13.5f * RunWorld.TicksPerSecond);
+        Step(world, secondSpawn);
         var first = world.Player.Illusions[0];
         var second = world.Player.Illusions[1];
         Assert.Equal(interval + 465, first.UntilTick);
-        Assert.Equal(interval * 2 + 465, second.UntilTick);
+        Assert.Equal(secondSpawn + 465, second.UntilTick);
 
         var replica = new RunWorld(world.Content, character: "illusionist");
         CopySnapshot(world, replica);
@@ -202,8 +203,8 @@ public sealed class HeroPassiveTests
         world.Player.Hp = world.MaxHealth * 0.5f;
         world.Step(default);
 
-        TestWorld.Close(0.525f, world.Player.Stats[Stat.Regen]);
-        TestWorld.Close(33.066f, world.Player.Stats[Stat.MoveSpeed]);
+        TestWorld.Close(5.36f, world.Player.Stats[Stat.Regen]);
+        TestWorld.Close(47.03f, world.Player.Stats[Stat.MoveSpeed]);
     }
 
     [Fact]
@@ -214,10 +215,11 @@ public sealed class HeroPassiveTests
         var start = world.Player.Pos;
         for (int i = 0; i < 4 * RunWorld.TicksPerSecond; i++)
             world.Step(new RunInput(1, 0, false));
-        Assert.Equal(120, world.Player.Pos.X - start.X, 2);
+        Assert.Equal(108, world.Player.Pos.X - start.X, 2);
         TestWorld.Close(0.08f, world.Player.Stats[Stat.Armor]);
         TestWorld.LevelTo(world, 2);
-        TestWorld.Close(0.0025f, world.Player.Stats[Stat.DamageReflection]);
+        TestWorld.Close(0.01f, world.Player.Stats[Stat.DamageReflection]);
+        TestWorld.Close(7.75f, world.Player.Stats[Stat.Regen]);
     }
 
     [Fact]
@@ -258,20 +260,20 @@ public sealed class HeroPassiveTests
         wounded.Step(default);
         TestWorld.Close(wounded.Player.Character.Stats.Damage, wounded.Player.Stats[Stat.Damage]);
         TestWorld.Close(wounded.Player.Character.Stats.AttackSpeed, wounded.Player.Stats[Stat.AttackSpeed]);
-        Assert.InRange(wounded.Player.Stats[Stat.MoveSpeed], 32.9f, 33f);
-        Assert.InRange(wounded.Player.Stats[Stat.Regen], 0.37f, 0.375f);
+        TestWorld.Close(47f, wounded.Player.Stats[Stat.MoveSpeed]);
+        TestWorld.Close(5.35f, wounded.Player.Stats[Stat.Regen]);
 
         var vampire = new RunWorld(content, character: "vampire");
         vampire.Player.Hp = 100;
         int enemy = vampire.SpawnEnemy(0, vampire.Player.Pos + new Vector2(30, 0));
         vampire.DamageEnemy(enemy, 10, DamageKind.Pure, new DamageSourceRef(0), 0, 0);
-        TestWorld.Close(100.35f, vampire.Player.Hp);
+        TestWorld.Close(100.365f, vampire.Player.Hp);
 
         TestWorld.LevelTo(vampire, 2);
         vampire.Player.Hp = 100;
         enemy = vampire.SpawnEnemy(0, vampire.Player.Pos + new Vector2(30, 0));
         vampire.DamageEnemy(enemy, 10, DamageKind.Pure, new DamageSourceRef(0), 0, 0);
-        TestWorld.Close(100.375f, vampire.Player.Hp);
+        TestWorld.Close(100.39f, vampire.Player.Hp);
     }
 
     private static void Step(RunWorld world, int ticks)
