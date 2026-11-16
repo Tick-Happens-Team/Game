@@ -150,6 +150,7 @@ public sealed class ItemWeapon
     [JsonPropertyName("bossDamage")] public float BossDamage { get; set; }
     [JsonPropertyName("duration")] public float Duration { get; set; }
     [JsonPropertyName("speedBonus")] public float SpeedBonus { get; set; }
+    [JsonPropertyName("minSlow")] public float? MinSlow { get; set; }
     [JsonPropertyName("minDamage")] public float MinDamage { get; set; }
     [JsonPropertyName("slow")] public float Slow { get; set; }
     [JsonPropertyName("chance")] public float Chance { get; set; }
@@ -232,6 +233,7 @@ public sealed class EnemyDef
     [JsonPropertyName("blastRadius")] public float BlastRadius { get; set; }
     [JsonPropertyName("cloudRadius")] public float CloudRadius { get; set; }
     [JsonPropertyName("cloudSeconds")] public float CloudSeconds { get; set; }
+    [JsonPropertyName("siphonDps")] public float SiphonDps { get; set; } = 5;
     [JsonPropertyName("cloudDps")] public float CloudDps { get; set; }
 }
 

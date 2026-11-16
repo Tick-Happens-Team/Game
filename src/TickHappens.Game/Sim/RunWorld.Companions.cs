@@ -11,7 +11,7 @@ public struct Companion
     internal float Health, MaxHealth, AuraCapacity, Shield, AttackTimer, Life;
     internal int Target, TargetUid, HurtTick;
     internal float DamageBonus, AttackSpeedBonus;
-    internal float Armor, BlockChance, AttackSpeed, PhysicalDamage, Lifesteal, DamageReduction;
+    internal float Armor, MagicResist, BlockChance, AttackSpeed, PhysicalDamage, Lifesteal, DamageReduction;
 }
 
 public sealed partial class RunWorld
@@ -34,7 +34,7 @@ public sealed partial class RunWorld
             int count = 0;
             foreach (ref readonly var ally in Companions)
                 if (ally.Active && ally.Owner == player.Id && ally.Item == item) count++;
-            if (count >= Math.Min(8, def.Kind is "gnome" or "boar" ? player.ItemStacks[item] * 3 : player.ItemStacks[item]))
+            if (count >= Math.Min(8, player.ItemStacks[item] * (def.Kind == "gnome" ? 2 : def.Kind == "boar" ? 3 : 1)))
                 continue;
             if (SpawnCompanion(player.Id, item, player.Pos - player.Facing * 16, def.Health))
                 player.ItemTimers[item] = def.Interval * player.Stats[Stat.Cooldown];
@@ -216,7 +216,7 @@ public sealed partial class RunWorld
             if (Tick - ally.HurtTick < TicksPerSecond / 2 || kind == DamageKind.Physical && RollChance(ally.BlockChance))
                 return true;
             ally.HurtTick = Tick;
-            damage *= (1 - Resist(kind, ally.Armor, 0)) * MathF.Max(0.1f, 1 - ally.DamageReduction);
+            damage *= (1 - Resist(kind, ally.Armor, ally.MagicResist)) * MathF.Max(0.1f, 1 - ally.DamageReduction);
             float absorbed = Math.Min(damage, ally.Shield);
             ally.Shield -= absorbed;
             ally.Health -= damage - absorbed;

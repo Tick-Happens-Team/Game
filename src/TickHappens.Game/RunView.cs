@@ -84,6 +84,7 @@ internal sealed partial class RunView : IDisposable
         _bossChestFrame = _chest.FrameNames.IndexOf("boss");
         _soda = atlas.Sprites.GetValueOrDefault("prop_soda_r");
         _enemySprites = [.. content.Enemies.Select(e => S(e.Sprite))];
+        _hookahItem = content.ItemIndex("hookah");
         _siphonBeams = new SiphonBeam[RunWorld.EnemySlots(content)];
         _companionSprites = [.. content.Items.Select(item => item.Companion is { } c &&
             atlas.Sprites.TryGetValue(c.Sprite, out var sprite) && sprite.Anims.ContainsKey("move") ? sprite : null)];
@@ -738,6 +739,7 @@ internal sealed partial class RunView : IDisposable
         var color = PixelCanvas.ColorOf(vfx);
         var light = PixelCanvas.LightOf(vfx);
         DrawSkateTrail(color, light);
+        DrawHookahMist(world, color, alpha);
         DrawEnemyEffects(world, color, light, alpha, ox, oy, tw, th);
         DrawItemEffects(world, color, light, dt, ox, oy, tw, th);
         DrawLeechBeams(world, color, light, alpha);

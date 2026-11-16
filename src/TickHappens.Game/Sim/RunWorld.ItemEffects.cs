@@ -27,6 +27,7 @@ public sealed partial class RunWorld
                 var stat = effect.Kind switch
                 {
                     "armorAura" => Stat.Armor,
+                    "magicResistAura" => Stat.MagicResist,
                     "attackSpeedAura" => Stat.AttackSpeed,
                     "healthAura" => Stat.MaxHp,
                     "physicalAura" => Stat.PhysicalDamage,
@@ -240,7 +241,7 @@ public sealed partial class RunWorld
 
     private void UpdateCompanionAuras(ref Companion ally)
     {
-        ally.Armor = ally.BlockChance = ally.AttackSpeed = ally.PhysicalDamage = ally.Lifesteal = ally.DamageReduction = 0;
+        ally.Armor = ally.MagicResist = ally.BlockChance = ally.AttackSpeed = ally.PhysicalDamage = ally.Lifesteal = ally.DamageReduction = 0;
         ally.DamageBonus = ally.AttackSpeedBonus = 0;
         float capacity = ally.MaxHealth;
         float regen = 0;
@@ -275,6 +276,7 @@ public sealed partial class RunWorld
                         ally.Armor += effect.Value * copies;
                         ally.BlockChance += effect.Chance * copies;
                         break;
+                    case "magicResistAura": ally.MagicResist += effect.Value * copies; break;
                     case "attackSpeedAura": ally.AttackSpeed += effect.Value * copies; break;
                     case "physicalAura": ally.PhysicalDamage += effect.Value * copies; break;
                     case "lifestealAura": ally.Lifesteal += effect.Value * copies; break;
