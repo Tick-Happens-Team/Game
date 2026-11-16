@@ -93,6 +93,70 @@ public sealed class PackageArchiveTests : IDisposable
         Assert.True(ManifestSigner.Verify(signed, signature, [keys.PublicPem]));
     }
 
+    [Fact]
+    public void VersionHistoryIsCarriedForwardNewestFirst()
+    {
+        static ChannelManifest Release(long sequence, string text)
+        {
+            var release = new ChannelManifest
+            {
+                Sequence = sequence, Published = new DateTimeOffset(2026, 11, (int)sequence, 12, 0, 0, TimeSpan.Zero),
+                Game = new() { ["win-x64"] = new PackageRef { Version = $"0.1.{sequence}" } },
+            };
+            release.SetNotes("en", PatchNotes.FromJson($$"""{ "general": [{ "text": "{{text}}" }] }"""));
+            return release;
+        }
+        var first = Release(1, "First");
+        var second = Release(2, "Second");
+        second.CarryHistory(first);
+        var third = Release(3, "Third");
+        third.CarryHistory(ChannelManifest.FromJson(second.ToJson()));
+
+        var read = ChannelManifest.FromJson(third.ToJson());
+        Assert.Equal([3L, 2, 1], read.Versions().Select(version => version.Sequence));
+        Assert.Equal(["0.1.3", "0.1.2", "0.1.1"], read.Versions().Select(version => version.Version));
+        Assert.Equal("First", read.Versions()[2].NotesFor("ru")!.General[0].Text);
+        Assert.Equal(new DateTimeOffset(2026, 11, 2, 12, 0, 0, TimeSpan.Zero), read.Versions()[1].Published);
+
+        // A forged entry at or above the release's own sequence is dropped when carried and when shown.
+        second.History!.Add(new ReleaseHistoryEntry { Sequence = 9, Version = "9.9.9" });
+        third.CarryHistory(second);
+        Assert.Equal([2L, 1], third.History!.Select(entry => entry.Sequence));
+        read.History!.Insert(0, new ReleaseHistoryEntry { Sequence = 3, Version = "fake" });
+        Assert.Equal(["0.1.3", "0.1.2", "0.1.1"], read.Versions().Select(version => version.Version));
+        Assert.Throws<InvalidDataException>(() => first.CarryHistory(second));
+
+        // History is part of the signed manifest.
+        var keys = ManifestSigner.CreateKeyPair();
+        byte[] signed = Encoding.UTF8.GetBytes(third.ToJson());
+        string signature = ManifestSigner.Sign(signed, keys.PrivatePem);
+        third.History![0].Version = "0.0.1";
+        Assert.False(ManifestSigner.Verify(Encoding.UTF8.GetBytes(third.ToJson()), signature, [keys.PublicPem]));
+
+        // Old launchers that do not know the field still read the release.
+        Assert.Equal(3, System.Text.Json.JsonSerializer.Deserialize<ChannelManifest>(signed)!.Sequence);
+    }
+
+    [Fact]
+    public void VersionHistoryDropsOldNotesBeyondBudgetButKeepsVersions()
+    {
+        string line = new('x', 290);
+        string big = $$"""{ "general": [{{string.Join(",", Enumerable.Repeat($$"""{ "text": "{{line}}" }""", 390))}}] }""";
+        var previous = new ChannelManifest { Sequence = 1, Game = new() { ["win-x64"] = new PackageRef { Version = "0.1.1" } } };
+        for (long sequence = 2; sequence <= 12; sequence++)
+        {
+            var next = new ChannelManifest { Sequence = sequence, Game = new() { ["win-x64"] = new PackageRef { Version = $"0.1.{sequence}" } } };
+            next.SetNotes("en", PatchNotes.FromJson(big));
+            next.SetNotes("ru", PatchNotes.FromJson(big));
+            next.CarryHistory(previous);
+            previous = next;
+        }
+        Assert.Equal(11, previous.History!.Count);
+        Assert.NotNull(previous.History[0].Notes);
+        Assert.Null(previous.History[^2].Notes);
+        Assert.True(Encoding.UTF8.GetByteCount(previous.ToJson()) < PackageArchive.MaxManifestBytes);
+    }
+
     [Theory]
     [InlineData("""{ "sections": [{ "kind": "weapon", "id": "x" }] }""")]
     [InlineData("""{ "general": [{ "text": "x", "change": "maybe" }] }""")]

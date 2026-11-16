@@ -35,6 +35,23 @@ public sealed class PatchNotes
         return notes;
     }
 
+    /// <summary>
+    /// Notes for a language from signed raw JSON, falling back to English and then to any language; null when there
+    /// are none or they are in a format this build cannot read.
+    /// </summary>
+    public static PatchNotes? Pick(Dictionary<string, JsonElement>? notes, string language)
+    {
+        if (notes is null || notes.Count == 0) return null;
+        var raw = notes.TryGetValue(language, out var own) ? own : notes.TryGetValue("en", out var english) ? english : notes.Values.First();
+        try
+        {
+            var parsed = raw.Deserialize<PatchNotes>(Json);
+            parsed?.Validate();
+            return parsed;
+        }
+        catch (Exception error) when (error is JsonException or InvalidDataException or InvalidOperationException) { return null; }
+    }
+
     [JsonIgnore] public bool IsEmpty => General.Count == 0 && Sections.Count == 0;
 
     /// <summary>Rejects unknown kinds and change tags, empty or multi-line text, and oversized notes before signing.</summary>

@@ -91,7 +91,7 @@ internal sealed class LauncherApp
             HandleKeys(window);
             if (window.Wheel != 0 && _page == Page.Mods)
                 _modScroll = Math.Clamp(_modScroll - Math.Sign(window.Wheel), 0, Math.Max(0, _mods.Count - VisibleMods));
-            if (window.Wheel != 0 && _page == Page.Notes) _notes.Scroll(-Math.Sign(window.Wheel) * 3, BarTop);
+            if (window.Wheel != 0 && _page == Page.Notes) _notes.Wheel(-Math.Sign(window.Wheel) * 3, _mouse, BarTop);
 
             bool idle = !Busy;
             Draw(screen.Canvas, (float)_clock.Elapsed.TotalSeconds);
@@ -121,6 +121,8 @@ internal sealed class LauncherApp
         {
             if (window.WasPressed(Key.Down)) _notes.Scroll(1, BarTop);
             if (window.WasPressed(Key.Up)) _notes.Scroll(-1, BarTop);
+            if (window.WasPressed(Key.PageDown) || window.WasPressed(Key.Right)) _notes.Select(1);
+            if (window.WasPressed(Key.PageUp) || window.WasPressed(Key.Left)) _notes.Select(-1);
         }
     }
 
@@ -289,7 +291,8 @@ internal sealed class LauncherApp
         {
             case Page.Play: DrawPlay(c, time); break;
             case Page.Notes:
-                _notes.Draw(c, Sidebar + 16, Screen.W - Sidebar - 32, BarTop, _installed, _game is { } game ? Path.GetDirectoryName(game) : null);
+                _notes.Draw(c, Sidebar + 16, Screen.W - Sidebar - 32, BarTop, _installed,
+                    _game is { } game ? Path.GetDirectoryName(game) : null, _mouse, _click);
                 break;
             case Page.Mods: DrawMods(c); break;
             case Page.Settings: DrawSettings(c); break;
