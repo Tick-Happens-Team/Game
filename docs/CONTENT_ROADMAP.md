@@ -107,7 +107,7 @@ Stats are copied from the owner's table. Growth means the per-level value of the
 
 | # | Character | Idea | Likely systems | Status |
 |---|---|---|---|---|
-| 19 | Neko-senpai (Неко-семпай) | Damage-dealer counterpart to Neko-chan: where Neko-chan's aura heals allies and reduces their damage taken, Neko-senpai's aura raises allied damage. Stats, aura radius, bonus size, and growth are pending in the owner's sheet. | ally aura (S12), as for Neko-chan and Puppeteer | [ ] |
+| 19 | Succubus (Суккуб) | Planned hero. Theme, passive, stats, and growth are pending in the owner's sheet. | — | [ ] |
 
 The new heroes use these defaults where the sheet leaves values open. Diver gains one percentage point of armor per 100 pixels travelled and can still dash. Masochist converts the missing-health fraction into a proportional bonus to regeneration and movement speed, up to +100% at level 1. Skater fire patches share a damage tick, so overlapping patches from the same owner do not multiply damage. Necromancer summons use the shared companion cap. Pig keeps moving and attacking during the ghost interval with damage immunity.
 
