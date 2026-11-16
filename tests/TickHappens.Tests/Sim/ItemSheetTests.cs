@@ -83,10 +83,10 @@ public sealed class ItemSheetTests
         world.GiveItem(content.ItemIndex("dominator_helm"));
         world.StepCoop([default, default]);
 
-        TestWorld.Close(0.18f, world.Player.Stats[Stat.Armor]);
-        TestWorld.Close(0.18f, remote.Stats[Stat.Armor]);
+        TestWorld.Close(0.15f, world.Player.Stats[Stat.Armor]);
+        TestWorld.Close(0.15f, remote.Stats[Stat.Armor]);
 
-        remote.Pos = world.Player.Pos + new Vector2(800, 0);
+        remote.Pos = world.Player.Pos + new Vector2(401, 0);
         world.StepCoop([default, default]);
         TestWorld.Close(0.05f, remote.Stats[Stat.Armor]);
     }
@@ -149,6 +149,58 @@ public sealed class ItemSheetTests
         Assert.NotEqual(player.ChestOfferSecond, third);
         world.Step(new RunInput(0, 0, ChestChoice: 3));
         Assert.Equal(third, world.LastChestItem);
+    }
+
+    [Fact]
+    public void MagnetPullsDistantPickupsWithoutTakingAnotherPlayersGold()
+    {
+        var content = QuietContent();
+        var world = new RunWorld(content, character: "watchman", playerCount: 2);
+        world.SetPlayerActive(1, true);
+        int magnet = content.ItemIndex("magnet");
+        world.GiveItem(magnet);
+        float x = world.Player.Pos.X - 600;
+        for (int i = 0; i < 3; i++)
+        {
+            world.GAlive[i] = true;
+            world.GX[i] = x;
+            world.GY[i] = world.Player.Pos.Y - 8;
+            world.GKind[i] = i == 0 ? PickupKind.Xp : PickupKind.Gold;
+            world.GOwner[i] = i - 1;
+            world.GValue[i] = 1;
+        }
+
+        world.StepCoop([default, default]);
+        Assert.Equal(x, world.GX[0]);
+        Assert.Equal(x, world.GX[1]);
+        world.Player.ItemTimers[magnet] = 0;
+        world.StepCoop([default, default]);
+
+        Assert.True(world.GX[0] > x);
+        Assert.True(world.GX[1] > x);
+        Assert.Equal(x, world.GX[2]);
+    }
+
+    [Fact]
+    public void LaserExecutesTwoDistinctEnemiesAndSkipsBosses()
+    {
+        var content = QuietContent();
+        var world = new RunWorld(content);
+        int laser = content.ItemIndex("laser");
+        world.GiveItem(laser);
+        world.Player.ItemTimers[laser] = 0;
+        world.Player.AttackTimer = 100;
+        int first = world.SpawnEnemy(0, world.Player.Pos + new Vector2(150, 0));
+        int second = world.SpawnEnemy(0, world.Player.Pos + new Vector2(170, 0));
+        int survivor = world.SpawnEnemy(0, world.Player.Pos + new Vector2(190, 0));
+        int boss = world.SpawnEnemy(content.EnemyIndex("devourer"), world.Player.Pos + new Vector2(210, 0));
+
+        world.Step(default);
+
+        Assert.False(world.EAlive[first]);
+        Assert.False(world.EAlive[second]);
+        Assert.True(world.EAlive[survivor]);
+        Assert.True(world.EAlive[boss]);
     }
 
     [Fact]

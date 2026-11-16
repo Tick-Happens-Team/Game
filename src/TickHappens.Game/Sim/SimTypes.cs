@@ -87,9 +87,9 @@ public sealed class PlayerState
     public float Shield, RefundCarry;
     public int AcceleratorTicks;
     public readonly List<int> EffectItems = [];
-    public int DashChargesUsed, DashTicksTotal, BoughtChests, IllusionUntilTick;
+    public int DashChargesUsed, DashTicksTotal, BoughtChests, IllusionUntilTick, MaskIllusionUntilTick;
     public float BonusShield, AuraBlockChance, PhysicalAuraBonus;
-    public Vector2 IllusionPosition;
+    public Vector2 IllusionPosition, MaskIllusionPosition;
     public int BoarWalkTicks;
     public int GhostUntilTick, HeroAttackTick = -1;
     internal int NextHeroPassiveTick, Souls, IllusionHurtTick;

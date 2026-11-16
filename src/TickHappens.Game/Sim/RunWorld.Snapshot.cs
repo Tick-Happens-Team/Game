@@ -7,7 +7,7 @@ namespace TickHappens.Game.Sim;
 public sealed partial class RunWorld
 {
     public const int SnapshotCapacity = 64 * 1024;
-    private const byte SnapshotVersion = 9;
+    private const byte SnapshotVersion = 10;
     private const int OwnedXpPickupBase = 13;
     private int _replicaTick = -1;
     private readonly ushort[] _enemySnapshotSlots = new ushort[ushort.MaxValue / 8];
@@ -69,6 +69,8 @@ public sealed partial class RunWorld
                 }
                 w.Int(p.IllusionUntilTick);
                 WritePoint(ref w, p.IllusionPosition.X, p.IllusionPosition.Y);
+                w.Int(p.MaskIllusionUntilTick);
+                WritePoint(ref w, p.MaskIllusionPosition.X, p.MaskIllusionPosition.Y);
                 w.Int(p.NearbyChest);
                 w.Int(p.LastChestItem);
                 w.Int(p.ChestOfferFirst);
@@ -402,6 +404,8 @@ public sealed partial class RunWorld
         }
         int illusionUntil = r.Int();
         var illusionPos = ReadPoint(ref r);
+        int maskIllusionUntil = r.Int();
+        var maskIllusionPos = ReadPoint(ref r);
         int chest = r.Int(), item = r.Int();
         int firstOffer = r.Int(), secondOffer = r.Int(), thirdOffer = r.Int(), offerUntil = r.Int();
         int flags = r.Byte();
@@ -414,7 +418,7 @@ public sealed partial class RunWorld
             kills >= 0 && gold >= 0 && price > 0 && invulnerable >= 0 && dash >= 0 && cooldown >= 0 &&
             chest >= -1 && chest < MaxChestSlots && item >= -1 && item < Content.Items.Count && flags <= 7 && lastAppliedInput >= 0 &&
             dashTotal >= dash && dashChargesUsed is >= 0 and <= 9 && dashSpeed >= 0 && accelerator >= 0 &&
-            speedBonus >= 0 && shield >= 0 && bonusShield >= 0 && illusionUntil >= 0 && equipped <= Content.Items.Count &&
+            speedBonus >= 0 && shield >= 0 && bonusShield >= 0 && illusionUntil >= 0 && maskIllusionUntil >= 0 && equipped <= Content.Items.Count &&
             (firstOffer == -1 && secondOffer == -1 && thirdOffer == -1 && offerUntil == 0 ||
             firstOffer >= 0 && firstOffer < Content.Items.Count && secondOffer >= 0 &&
             secondOffer < Content.Items.Count && firstOffer != secondOffer && offerUntil > 0 &&
@@ -469,6 +473,8 @@ public sealed partial class RunWorld
             p.IllusionHealth = illusionHealth;
             p.IllusionMaxHealth = illusionMaxHealth;
             p.IllusionPosition = illusionPos;
+            p.MaskIllusionUntilTick = maskIllusionUntil;
+            p.MaskIllusionPosition = maskIllusionPos;
             p.NearbyChest = chest;
             p.LastChestItem = item;
             p.ChestOfferFirst = firstOffer;

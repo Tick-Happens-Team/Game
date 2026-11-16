@@ -230,10 +230,18 @@ public sealed partial class RunWorld
     {
         int target = HighestHealthEnemy(excludeBoss: execute);
         if (target < 0) return false;
-        Emit(execute ? EventKind.Laser : EventKind.Rifle, p.Pos.X, p.Pos.Y, x2: EX[target], y2: EY[target]);
-        if (execute) ApplyEnemyHit(target, EHp[target], kind, p.Id, p.Pos.X, p.Pos.Y, 0);
+        if (execute)
+        {
+            for (int killed = 0; killed < count && target >= 0; killed++)
+            {
+                Emit(EventKind.Laser, p.Pos.X, p.Pos.Y, x2: EX[target], y2: EY[target]);
+                ApplyEnemyHit(target, EHp[target], kind, p.Id, p.Pos.X, p.Pos.Y, 0);
+                if (killed + 1 < count) target = HighestHealthEnemy(excludeBoss: true);
+            }
+        }
         else
         {
+            Emit(EventKind.Rifle, p.Pos.X, p.Pos.Y, x2: EX[target], y2: EY[target]);
             float fraction = Content.Enemies[EDef[target]].Boss ? weapon.BossDamage : weapon.Damage;
             DamageEnemy(target, EHp[target] * fraction * count, kind, source, p.Pos.X, p.Pos.Y);
         }

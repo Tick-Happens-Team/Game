@@ -134,6 +134,17 @@ public sealed partial class RunWorld
         _gPulled[slot] = false;
     }
 
+    private void PullDistantPickups(PlayerState player)
+    {
+        for (int i = 0; i < PickupCapacity; i++)
+        {
+            if (!GAlive[i] || GKind[i] is not (PickupKind.Xp or PickupKind.Gold) ||
+                (GOwner[i] >= 0 && GOwner[i] != player.Id) || _gPulled[i]) continue;
+            _gPulled[i] = true;
+            _gPullTarget[i] = (byte)player.Id;
+        }
+    }
+
     private void StepPickups()
     {
         for (int i = 0; i < PickupCapacity; i++)
@@ -234,7 +245,7 @@ public sealed partial class RunWorld
         if (item.Effect is { } effect && p.ItemStacks[def] == 1)
         {
             p.EffectItems.Add(def);
-            if (effect.Kind is "resetCooldown" or "lowestHealthShield")
+            if (effect.Kind is "resetCooldown" or "lowestHealthShield" or "magnetPulse")
                 p.ItemTimers[def] = effect.Duration * p.Stats[Stat.Cooldown];
         }
         if (p.ItemStacks[def] == 1 && item.Weapon is { Kind: "accelerator" or "execute" or "snipe" or "dropped" or "boomerang" or "cane" } weapon)

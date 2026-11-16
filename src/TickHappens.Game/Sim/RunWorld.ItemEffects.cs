@@ -74,6 +74,18 @@ public sealed partial class RunWorld
     private float CharacterAuraRadius(PlayerState source, CharacterAura aura) =>
         CharacterAuraValue(source, aura.Radius, aura.RadiusPerLevel) * source.Stats[Stat.Area];
 
+    private float EnemyLifestealCap()
+    {
+        float cap = float.PositiveInfinity;
+        foreach (var player in _players)
+        {
+            float configuredCap = player.Stats[Stat.EnemyLifestealCap];
+            if (player.Active && player.Hp > 0 && configuredCap > 0)
+                cap = Math.Min(cap, Math.Min(0.12f, configuredCap));
+        }
+        return cap;
+    }
+
     private void StepItemEffects(PlayerState p)
     {
         foreach (int item in p.EffectItems)
@@ -98,11 +110,13 @@ public sealed partial class RunWorld
                     break;
                 case "lowestHealthShield":
                 case "resetCooldown":
+                case "magnetPulse":
                     p.ItemTimers[item] -= ItemStep(p);
                     if (p.ItemTimers[item] > 0.001f) break;
                     p.ItemTimers[item] = effect.Duration * p.Stats[Stat.Cooldown];
                     if (effect.Kind == "lowestHealthShield") ShieldLowestHealthAlly(p, effect.Value * copies);
-                    else ResetItemCooldown(p, item);
+                    else if (effect.Kind == "resetCooldown") ResetItemCooldown(p, item);
+                    else PullDistantPickups(p);
                     break;
                 case "devour":
                     p.ItemTimers[item] -= ItemStep(p);
@@ -323,10 +337,10 @@ public sealed partial class RunWorld
             if (effect.Kind is not ("icicle" or "illusion") || !RollChance(effect.Chance * player.ItemStacks[item])) continue;
             if (effect.Kind == "illusion")
             {
-                if (player.Character.Id != "illusionist" && Tick >= player.IllusionUntilTick)
+                if (Tick >= player.MaskIllusionUntilTick)
                 {
-                    player.IllusionPosition = pos;
-                    player.IllusionUntilTick = Tick + (int)MathF.Ceiling(effect.Duration * TicksPerSecond);
+                    player.MaskIllusionPosition = pos;
+                    player.MaskIllusionUntilTick = Tick + (int)MathF.Ceiling(effect.Duration * TicksPerSecond);
                 }
                 continue;
             }
@@ -340,15 +354,14 @@ public sealed partial class RunWorld
 
     private void FireIllusion(PlayerState player)
     {
-        if (player.IllusionUntilTick <= Tick) return;
-        if (player.Character.Id == "illusionist")
+        if (player.IllusionUntilTick > Tick)
         {
             var attack = player.Attack;
             FireBolts(player.Stats[Stat.Damage] * (0.25f + 0.0025f * (player.Level - 1)), Kind(attack.DamageType),
                 new DamageSourceRef(player.Id), attack.Count + (int)player.Stats[Stat.Amount], attack.Speed, attack.Range,
                 attack.Pierce, player.IllusionPosition, ProjectileStyle.Phantom);
-            return;
         }
+        if (player.MaskIllusionUntilTick <= Tick) return;
         foreach (int item in player.EffectItems)
         {
             if (!ItemEnabled(player, item)) continue;
@@ -358,9 +371,9 @@ public sealed partial class RunWorld
             var source = new DamageSourceRef(player.Id, item, SuppressProcs: true);
             float damage = player.Stats[Stat.Damage] * effect.Value;
             int count = attack.Count + (int)player.Stats[Stat.Amount];
-            if (attack.MeleeAngle > 0) SwingBasicAttack(player, player.IllusionPosition, attack, Kind(attack.DamageType), source, damage * count);
+            if (attack.MeleeAngle > 0) SwingBasicAttack(player, player.MaskIllusionPosition, attack, Kind(attack.DamageType), source, damage * count);
             else FireBolts(damage, Kind(attack.DamageType), source, count, attack.Speed, attack.Range,
-                attack.Pierce, player.IllusionPosition, ProjectileStyle.Phantom);
+                attack.Pierce, player.MaskIllusionPosition, ProjectileStyle.Phantom);
             return;
         }
     }

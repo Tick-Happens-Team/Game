@@ -605,7 +605,7 @@ internal sealed partial class RunView : IDisposable
         void Add(int id, float y) { if (n < order.Length) { order[n] = id; _depth[n++] = y; } }
         for (int i = 0; i < world.EnemyHighWater; i++)
             if (world.EAlive[i] && !world.EnemyHidden(i) && Visible(world.EX[i], world.EY[i])) Add(i, world.EY[i]);
-        const int HeroBase = -1, StatueBase = -1000, ChestBase = -2000, CompanionBase = -3000, IllusionBase = -4000;
+        const int HeroBase = -1, StatueBase = -1000, ChestBase = -2000, CompanionBase = -3000, IllusionBase = -4000, MaskIllusionBase = -5000;
         for (int i = 0; i < world.Players.Count; i++)
         {
             var player = world.Players[i];
@@ -614,6 +614,9 @@ internal sealed partial class RunView : IDisposable
             if (player.Active && player.Hp > 0 && player.IllusionUntilTick > world.Tick &&
                 Visible(player.IllusionPosition.X, player.IllusionPosition.Y))
                 Add(IllusionBase - i, player.IllusionPosition.Y);
+            if (player.Active && player.Hp > 0 && player.MaskIllusionUntilTick > world.Tick &&
+                Visible(player.MaskIllusionPosition.X, player.MaskIllusionPosition.Y))
+                Add(MaskIllusionBase - i, player.MaskIllusionPosition.Y);
         }
         for (int i = 0; i < world.Statues.Length; i++) if (Visible(world.Statues[i].X, world.Statues[i].Y)) Add(StatueBase - i, world.Statues[i].Y);
         for (int i = 0; i < world.Chests.Length; i++) if (!world.ChestOpen[i] && Visible(world.Chests[i].X, world.Chests[i].Y)) Add(ChestBase - i, world.Chests[i].Y);
@@ -667,13 +670,14 @@ internal sealed partial class RunView : IDisposable
             }
             else if (id <= IllusionBase)
             {
-                var owner = world.Players[IllusionBase - id];
+                bool mask = id <= MaskIllusionBase;
+                var owner = world.Players[(mask ? MaskIllusionBase : IllusionBase) - id];
                 var sprite = _heroSprites[world.Content.CharacterIndex(owner.Character.Id)];
                 int frame = HeroFrame(sprite, owner, world.Tick, alpha, walking: false);
-                var position = owner.IllusionPosition;
+                var position = mask ? owner.MaskIllusionPosition : owner.IllusionPosition;
                 _batch.Draw(sprite, frame, position.X - ox, position.Y - oy,
                     owner.FacingLeft, tint: 0xFFC69999u, emissionBoost: 40);
-                DrawSummonHealth(sprite, position, owner.IllusionHealth, owner.IllusionMaxHealth);
+                if (!mask) DrawSummonHealth(sprite, position, owner.IllusionHealth, owner.IllusionMaxHealth);
             }
             else if (id <= CompanionBase)
             {
