@@ -9,7 +9,9 @@ param(
     [Parameter(Mandatory)][string]$DownloadBase,
     [Parameter(Mandatory)][string]$Output,
     [string]$EosSdkArchive,
-    [string]$EosConfig
+    [string]$EosConfig,
+    # Directory of <language>.json patch notes signed into channel.json.
+    [string]$NotesDirectory
 )
 
 $ErrorActionPreference = 'Stop'
@@ -86,4 +88,9 @@ $base = $DownloadBase.TrimEnd('/')
 dotnet run --project $tool -c Release --no-build -- pack game $GameVersion $gameCommit $game "$release/game-win-x64.zip" "$base/game-win-x64.zip"
 dotnet run --project $tool -c Release --no-build -- pack assets $AssetsVersion $assetsCommit $assets "$release/assets.zip" "$base/assets.zip"
 dotnet run --project $tool -c Release --no-build -- pack launcher $LauncherVersion $gameCommit $launcher "$release/launcher-win-x64.zip" "$base/launcher-win-x64.zip"
-dotnet run --project $tool -c Release --no-build -- channel $Sequence $LauncherVersion "$release/game-win-x64.zip.json" "$release/assets.zip.json" "$release/launcher-win-x64.zip.json" $key "$release/channel.json"
+$channelArgs = @(
+    'channel', $Sequence, $LauncherVersion, "$release/game-win-x64.zip.json",
+    "$release/assets.zip.json", "$release/launcher-win-x64.zip.json", $key, "$release/channel.json"
+)
+if ($NotesDirectory) { $channelArgs += (Resolve-Path -LiteralPath $NotesDirectory).Path }
+dotnet run --project $tool -c Release --no-build -- @channelArgs

@@ -110,6 +110,28 @@ public sealed class ChannelManifest
     [JsonPropertyName("game")] public Dictionary<string, PackageRef> Game { get; set; } = [];
     [JsonPropertyName("assets")] public PackageRef Assets { get; set; } = new();
     [JsonPropertyName("launcher")] public Dictionary<string, PackageRef> Launcher { get; set; } = [];
+    /// <summary>
+    /// Patch notes by language code ("en", "ru"), signed with the rest of the manifest. Kept as raw JSON so that a
+    /// notes format this launcher does not understand hides the notes instead of rejecting the whole release.
+    /// </summary>
+    [JsonPropertyName("notes")] public Dictionary<string, JsonElement>? Notes { get; set; }
+
+    public void SetNotes(string language, PatchNotes notes) =>
+        (Notes ??= [])[language] = JsonSerializer.SerializeToElement(notes, PatchNotes.Json);
+
+    /// <summary>Notes for a language, falling back to English and then to any language; null when there are none or they are unreadable.</summary>
+    public PatchNotes? NotesFor(string language)
+    {
+        if (Notes is null || Notes.Count == 0) return null;
+        var raw = Notes.TryGetValue(language, out var own) ? own : Notes.TryGetValue("en", out var english) ? english : Notes.Values.First();
+        try
+        {
+            var notes = raw.Deserialize<PatchNotes>(PatchNotes.Json);
+            notes?.Validate();
+            return notes;
+        }
+        catch (Exception error) when (error is JsonException or InvalidDataException or InvalidOperationException) { return null; }
+    }
 
     public static ChannelManifest FromJson(string json) =>
         JsonSerializer.Deserialize<ChannelManifest>(json, PackageManifest.Json) ?? throw new InvalidDataException("empty channel manifest");

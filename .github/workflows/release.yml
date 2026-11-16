@@ -1,25 +1,13 @@
 name: Release
 
 # Builds, signs and publishes the Windows game, launcher and assets packages to GitHub Releases.
-# Runs only by hand from stable, inside the protected release environment.
+# Every push to stable ships a release: launchers pick it up on their next check (start or every 15 minutes).
+# Versions are VERSION (major.minor) plus the release sequence; patch notes come from patchnotes/<language>.json.
 on:
+  push:
+    branches: [stable]
+    paths-ignore: ['docs/**', '**.md']
   workflow_dispatch:
-    inputs:
-      game_version:
-        description: Game version (major.minor.patch); the release tag is v<game_version>
-        required: true
-      launcher_version:
-        description: Launcher version (major.minor.patch)
-        required: true
-      assets_version:
-        description: Assets pack version (major.minor.patch)
-        required: true
-      assets_commit:
-        description: Full Assets commit SHA from Assets/stable
-        required: true
-      sequence:
-        description: Release sequence, larger than the current latest release
-        required: true
 
 permissions:
   contents: read
@@ -36,52 +24,77 @@ jobs:
     permissions:
       contents: write
     env:
-      GAME_VERSION: ${{ inputs.game_version }}
-      LAUNCHER_VERSION: ${{ inputs.launcher_version }}
-      ASSETS_VERSION: ${{ inputs.assets_version }}
-      ASSETS_COMMIT: ${{ inputs.assets_commit }}
-      SEQUENCE: ${{ inputs.sequence }}
       GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Validate inputs
-        run: |
-          foreach ($name in 'GAME_VERSION', 'LAUNCHER_VERSION', 'ASSETS_VERSION') {
-            if ((Get-Item "env:$name").Value -cnotmatch '^\d+\.\d+\.\d+$') { throw "$name must be major.minor.patch." }
-          }
-          if ($env:ASSETS_COMMIT -cnotmatch '^[0-9a-f]{40}$') { throw 'assets_commit must be a full lowercase commit SHA.' }
-          if ($env:SEQUENCE -notmatch '^[1-9]\d*$') { throw 'sequence must be a positive integer.' }
-
-      - name: Reject stale sequence
-        run: |
-          $latest = gh release view --repo $env:GITHUB_REPOSITORY --json tagName --jq .tagName 2>$null
-          if ($LASTEXITCODE -eq 0 -and $latest) {
-            gh release download $latest --repo $env:GITHUB_REPOSITORY --pattern channel.json --dir $env:RUNNER_TEMP/latest
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            $current = (Get-Content -Raw "$env:RUNNER_TEMP/latest/channel.json" | ConvertFrom-Json).sequence
-            if ([long]$env:SEQUENCE -le [long]$current) { throw "Sequence $env:SEQUENCE must exceed the latest release sequence $current." }
-          }
-          $global:LASTEXITCODE = 0
-
       - name: Check out Game
         uses: actions/checkout@v5
         with:
           path: Game
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Check out Assets
         uses: actions/checkout@v5
         with:
           repository: Tick-Happens-Team/Assets
-          ref: ${{ inputs.assets_commit }}
+          ref: stable
           path: Assets
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Require the Assets commit on stable
-        working-directory: Assets
+      - name: Plan versions and patch notes
+        working-directory: Game
         run: |
-          git merge-base --is-ancestor $env:ASSETS_COMMIT origin/stable
-          if ($LASTEXITCODE -ne 0) { throw 'assets_commit is not part of Assets/stable.' }
+          $base = (Get-Content -Raw VERSION).Trim()
+          if ($base -cnotmatch '^\d+\.\d+$') { throw 'VERSION must be major.minor.' }
+          $previous = $null
+          $sequence = 1
+          $latest = gh release view --repo $env:GITHUB_REPOSITORY --json tagName --jq .tagName 2>$null
+          if ($LASTEXITCODE -eq 0 -and $latest) {
+            gh release download $latest --repo $env:GITHUB_REPOSITORY --pattern channel.json --dir $env:RUNNER_TEMP/latest
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            $previous = Get-Content -Raw "$env:RUNNER_TEMP/latest/channel.json" | ConvertFrom-Json
+            $sequence = [long]$previous.sequence + 1
+          }
+          $global:LASTEXITCODE = 0
+          $version = "$base.$sequence"
+
+          # The launcher only self-updates when its own code changed since the previous release.
+          $launcherPaths = 'src/TickHappens.Launcher', 'src/TickHappens.Distribution', 'src/TickHappens.Engine',
+            'src/TickHappens.Localization', 'tools/release-public.pem', 'Directory.Build.props'
+          $launcherVersion = $version
+          $range = 'HEAD'
+          if ($previous) {
+            $previousCommit = git rev-list -n 1 $latest
+            if ($LASTEXITCODE -ne 0) { throw "Tag $latest is missing from the Game history." }
+            $range = "$previousCommit..HEAD"
+            git diff --quiet $previousCommit HEAD -- @launcherPaths
+            if ($LASTEXITCODE -eq 0) { $launcherVersion = $previous.launcher.'win-x64'.version }
+            elseif ($LASTEXITCODE -ne 1) { exit $LASTEXITCODE }
+            $global:LASTEXITCODE = 0
+          }
+
+          # Patch notes are hand-written in patchnotes/<language>.json and ship only when they changed in this release.
+          $notes = New-Item -ItemType Directory -Path (Join-Path $env:RUNNER_TEMP notes) -Force
+          foreach ($file in Get-ChildItem -Path patchnotes -Filter *.json -ErrorAction SilentlyContinue) {
+            $changed = $true
+            if ($previous) {
+              git diff --quiet $previousCommit HEAD -- "patchnotes/$($file.Name)"
+              $changed = $LASTEXITCODE -eq 1
+              $global:LASTEXITCODE = 0
+            }
+            if ($changed) { Copy-Item -LiteralPath $file.FullName -Destination (Join-Path $notes $file.Name) }
+          }
+
+          $assetsCommit = git -C ../Assets rev-parse HEAD
+          "GAME_VERSION=$version" >> $env:GITHUB_ENV
+          "ASSETS_VERSION=$version" >> $env:GITHUB_ENV
+          "LAUNCHER_VERSION=$launcherVersion" >> $env:GITHUB_ENV
+          "SEQUENCE=$sequence" >> $env:GITHUB_ENV
+          "ASSETS_COMMIT=$assetsCommit" >> $env:GITHUB_ENV
+          "NOTES_DIR=$notes" >> $env:GITHUB_ENV
+          Write-Host "Release v$version (sequence $sequence), launcher $launcherVersion, Assets $assetsCommit"
+          Get-ChildItem $notes | ForEach-Object { Write-Host "Patch notes: $($_.Name)" }
 
       - name: Check out the EOS SDK build subset
         uses: actions/checkout@v5
@@ -119,7 +132,8 @@ jobs:
             ./tools/Pack-LauncherRelease.ps1 -GameVersion $env:GAME_VERSION -LauncherVersion $env:LAUNCHER_VERSION `
               -AssetsVersion $env:ASSETS_VERSION -Sequence $env:SEQUENCE -PublicKey tools/release-public.pem `
               -AssetsRoot ../Assets -DownloadBase "https://github.com/$env:GITHUB_REPOSITORY/releases/download/v$env:GAME_VERSION" `
-              -Output .tmp/release -EosSdkArchive ../eos-sdk/eos-sdk-csharp-1.19.2.1-win64.zip -EosConfig $eosConfig
+              -Output .tmp/release -EosSdkArchive ../eos-sdk/eos-sdk-csharp-1.19.2.1-win64.zip -EosConfig $eosConfig `
+              -NotesDirectory $env:NOTES_DIR
           }
           finally { Remove-Item -LiteralPath $eosConfig -Force }
           $files = 'launcher-win-x64.zip', 'game-win-x64.zip', 'assets.zip', 'channel.json', 'channel.json.sig'
@@ -138,8 +152,16 @@ jobs:
             if ($existing -ne 'true') { throw "Release $tag is already published. Use a new version." }
             gh release upload $tag @files --repo $env:GITHUB_REPOSITORY --clobber
           } else {
+            $notesFile = Join-Path $env:RUNNER_TEMP notes.md
+            dotnet run --project ../../../tools/TickHappens.ReleaseTool -c Release --no-build -- notes $env:NOTES_DIR $notesFile
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            $body = @(Get-Content -Raw $notesFile) + @('',
+              'Download `launcher-win-x64.zip`, extract it anywhere and run `TickHappens.Launcher.exe`. The launcher installs the game and keeps it updated.',
+              '', "Game $env:GAME_VERSION, launcher $env:LAUNCHER_VERSION, Assets $env:ASSETS_COMMIT. Release sequence $env:SEQUENCE.")
+            $bodyFile = Join-Path $env:RUNNER_TEMP release-notes.md
+            [IO.File]::WriteAllLines($bodyFile, [string[]]$body)
             gh release create $tag @files --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --draft `
-              --title "TickHappens $env:GAME_VERSION" --notes "Game $env:GAME_VERSION, launcher $env:LAUNCHER_VERSION, assets $env:ASSETS_VERSION (Assets $env:ASSETS_COMMIT). Release sequence $env:SEQUENCE."
+              --title "TickHappens $env:GAME_VERSION" --notes-file $bodyFile
           }
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
