@@ -61,12 +61,12 @@ public sealed class ContentLoaderTests
         Assert.Equal(2.75f, octarine.Stats.DamagePerLevel);
         var cooldown = Assert.Single(octarine.Passives);
         Assert.Equal("cooldown", cooldown.Stat);
-        Assert.Equal(-0.12f, cooldown.Pct);
-        Assert.Equal(-0.0025f, cooldown.PerLevel!.Pct);
+        Assert.Equal(-0.10f, cooldown.Pct);
+        Assert.Equal(-0.005f, cooldown.PerLevel!.Pct);
 
         var swordsman = Character(content, "swordsman");
         Assert.Equal(18f, swordsman.Stats.MoveSpeed);
-        Assert.Equal(0.10f, swordsman.Stats.Armor);
+        Assert.Equal(0.08f, swordsman.Stats.Armor);
         Assert.Equal(0.005f, Assert.Single(swordsman.Passives).PerLevel!.Add);
 
         var mage = Character(content, "celestial_mage");
@@ -84,20 +84,20 @@ public sealed class ContentLoaderTests
 
         var nekochan = Character(content, "nekochan");
         Assert.Equal(135f, nekochan.Stats.MaxHp);
-        Assert.Equal(3.5f, nekochan.Stats.MaxHpPerLevel);
+        Assert.Equal(3.25f, nekochan.Stats.MaxHpPerLevel);
         Assert.Equal(0.25f, nekochan.Stats.Regen);
         Assert.Equal(35f, nekochan.Stats.MoveSpeed);
         Assert.Equal(35f, nekochan.Stats.AttackSpeed);
         Assert.Equal(0.025f, nekochan.Stats.Armor);
         Assert.Equal(0.025f, nekochan.Stats.MagicResist);
         Assert.Equal(15f, nekochan.Stats.Damage);
-        Assert.Equal(2f, nekochan.Stats.DamagePerLevel);
+        Assert.Equal(2.25f, nekochan.Stats.DamagePerLevel);
         var aura = Assert.IsType<CharacterAura>(nekochan.Aura);
-        Assert.Equal(200f, aura.Radius);
-        Assert.Equal(1.25f, aura.RadiusPerLevel);
-        Assert.Equal(0.08f, aura.DamageReduction);
-        Assert.Equal(0.003f, aura.DamageReductionPerLevel);
-        Assert.Equal(1.75f, aura.Regen);
+        Assert.Equal(175f, aura.Radius);
+        Assert.Equal(1.5f, aura.RadiusPerLevel);
+        Assert.Equal(0.07f, aura.DamageReduction);
+        Assert.Equal(0.0035f, aura.DamageReductionPerLevel);
+        Assert.Equal(1.5f, aura.Regen);
         Assert.Equal(0.25f, aura.RegenPerLevel);
         Assert.Equal(1.5f, aura.SelfMultiplier);
     }

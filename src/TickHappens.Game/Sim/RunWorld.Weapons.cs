@@ -208,7 +208,7 @@ public sealed partial class RunWorld
             float length = delta.Length();
             float edge = Math.Max(0, length - Content.Enemies[EDef[i]].Radius);
             var nearestPoint = length > 0.01f ? origin + delta * (edge / length) : origin;
-            if (!cone.Contains(nearestPoint, out _) || Vector2.Dot(delta, player.Facing) < 0) continue;
+            if (!cone.Contains(nearestPoint, out _)) continue;
             hit = true;
             DamageEnemy(i, damage, kind, source, origin.X, origin.Y);
         }
