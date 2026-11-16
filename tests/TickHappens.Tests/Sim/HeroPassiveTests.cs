@@ -222,7 +222,13 @@ public sealed class HeroPassiveTests
         vampire.Player.Hp = 100;
         int enemy = vampire.SpawnEnemy(0, vampire.Player.Pos + new Vector2(30, 0));
         vampire.DamageEnemy(enemy, 10, DamageKind.Pure, new DamageSourceRef(0), 0, 0);
-        TestWorld.Close(101, vampire.Player.Hp);
+        TestWorld.Close(100.5f, vampire.Player.Hp);
+
+        TestWorld.LevelTo(vampire, 2);
+        vampire.Player.Hp = 100;
+        enemy = vampire.SpawnEnemy(0, vampire.Player.Pos + new Vector2(30, 0));
+        vampire.DamageEnemy(enemy, 10, DamageKind.Pure, new DamageSourceRef(0), 0, 0);
+        TestWorld.Close(100.535f, vampire.Player.Hp);
     }
 
     private static void Step(RunWorld world, int ticks)
