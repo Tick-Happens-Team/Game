@@ -413,7 +413,7 @@ public sealed partial class RunWorld
         float dmg = amount * (1 - Resist(kind, p.Stats[Stat.Armor], p.Stats[Stat.MagicResist])) * p.Stats[Stat.DamageTaken];
         if (kind == DamageKind.Physical && p.Stats[Stat.PhysicalBlock] > 0 && Tick >= p.PhysicalBlockTick)
         {
-            p.PhysicalBlockTick = Tick + (int)MathF.Round(10 * p.Stats[Stat.Cooldown] * TicksPerSecond);
+            p.PhysicalBlockTick = Tick + (int)MathF.Round(12 * p.Stats[Stat.Cooldown] * TicksPerSecond);
             return 0;
         }
         if (!continuous && kind == DamageKind.Physical && p.Character.Id == "swordsman" && enemy >= 0 &&
@@ -429,7 +429,7 @@ public sealed partial class RunWorld
         dmg -= bonusAbsorbed;
         float absorbed = Math.Min(dmg, p.Shield);
         p.Shield -= absorbed;
-        p.ShieldRechargeTick = Tick + 8 * TicksPerSecond;
+        p.ShieldRechargeTick = Tick + 6 * TicksPerSecond;
         dmg = Math.Min(p.Hp, dmg - absorbed);
         p.Hp -= dmg;
         if (!continuous) p.InvulnTicks = (int)MathF.Round(Rules.InvulnerableSeconds * TicksPerSecond);
@@ -600,10 +600,7 @@ public sealed partial class RunWorld
         bool hasCompanions = false;
         foreach (ref readonly var companion in Companions)
             if (companion.Active && companion.Health > 0) { hasCompanions = true; break; }
-        float enemyLifestealCap = float.PositiveInfinity;
-        foreach (var ally in _players)
-            if (ally.Active && ally.Hp > 0 && ally.Stats[Stat.EnemyLifestealCap] > 0)
-                enemyLifestealCap = 0.2f;
+        float enemyLifestealCap = EnemyLifestealCap();
         for (int i = 0; i < _enemyHigh; i++)
         {
             if (!EAlive[i]) continue;

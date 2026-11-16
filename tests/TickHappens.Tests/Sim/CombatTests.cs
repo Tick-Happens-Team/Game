@@ -27,12 +27,12 @@ public sealed class CombatTests
         int enemy = world.SpawnEnemy(content.EnemyIndex("duskslime"), world.Player.Pos + new Vector2(100, 0));
         int item = content.ItemIndex("sprats");
 
-        TestWorld.Close(1.15f, world.OutgoingMultiplier(DamageKind.Physical, fromItem: true));
+        TestWorld.Close(1.10f, world.OutgoingMultiplier(DamageKind.Physical, fromItem: true));
         TestWorld.Close(1f, world.OutgoingMultiplier(DamageKind.Physical, fromItem: false));
 
         float hp = world.EHp[enemy];
         world.DamageEnemy(enemy, 10f, DamageKind.Physical, new DamageSourceRef(world.Player.Id, item), 0, 0);
-        TestWorld.Close(hp - 11.5f, world.EHp[enemy]); // 10 × 1.15
+        TestWorld.Close(hp - 11f, world.EHp[enemy]); // 10 × 1.10
 
         hp = world.EHp[enemy];
         world.DamageEnemy(enemy, 10f, DamageKind.Physical, new DamageSourceRef(world.Player.Id), 0, 0);
@@ -93,11 +93,11 @@ public sealed class CombatTests
     }
 
     [Theory]
-    [InlineData("octarine", 2f)]
+    [InlineData("octarine", 1.75f)]
     [InlineData("swordsman", 3f)]
     [InlineData("smith", 2.75f)]
-    [InlineData("goflin", 2f)]
-    [InlineData("celestial_mage", 1f)]
+    [InlineData("goflin", 1.75f)]
+    [InlineData("celestial_mage", 1.25f)]
     [InlineData("watchman", 5f)]
     public void CoreCharacterRegeneratesHealthUpToItsMaximum(string character, float hpPerSecond)
     {

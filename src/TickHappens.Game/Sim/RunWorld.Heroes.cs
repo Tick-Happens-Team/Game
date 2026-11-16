@@ -51,7 +51,7 @@ public sealed partial class RunWorld
     {
         if (player.Character.Id != "cybernetic_cube") return;
         int stat = _rng.Int(CubeStats.Length);
-        player.CubeBonuses[stat] += _rng.Range(0.01f, 0.10f);
+        player.CubeBonuses[stat] += _rng.Range(0.01f, 0.08f);
     }
 
     private void OnHeroDamaged(PlayerState player, float damage)
@@ -100,9 +100,9 @@ public sealed partial class RunWorld
         switch (player.Character.Id)
         {
             case "miner":
-                while (player.PendingBlastDamage >= 50)
+                while (player.PendingBlastDamage >= 80)
                 {
-                    player.PendingBlastDamage -= 50;
+                    player.PendingBlastDamage -= 80;
                     float radius = 50 + 2.5f * level;
                     AreaItemHit(player.Pos, radius, 10 + 2.5f * level, DamageKind.Physical,
                         new DamageSourceRef(player.Id, SuppressProcs: true));
@@ -110,7 +110,7 @@ public sealed partial class RunWorld
                 }
                 break;
             case "skater":
-                if (Tick % TrailInterval == 0) StepFireTrail(player, 5 + 3 * level);
+                if (Tick % TrailInterval == 0) StepFireTrail(player, 5 + 2.75f * level);
                 break;
             case "necromancer":
                 if (Tick >= player.NextHeroPassiveTick)
@@ -132,7 +132,7 @@ public sealed partial class RunWorld
                     player.IllusionPosition = Vector2.Clamp(player.Pos - player.Facing * 22,
                         new Vector2(12), new Vector2(Rules.ArenaSize - 12));
                     player.IllusionUntilTick = Tick + 8 * TicksPerSecond;
-                    player.IllusionHealth = player.IllusionMaxHealth = 0.3f * MaxHealthFor(player);
+                    player.IllusionHealth = player.IllusionMaxHealth = 0.4f * MaxHealthFor(player);
                     Emit(EventKind.Pulse, player.IllusionPosition.X, player.IllusionPosition.Y, 20);
                 }
                 break;

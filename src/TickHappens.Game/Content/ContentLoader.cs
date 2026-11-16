@@ -165,11 +165,13 @@ public static class ContentLoader
                 if (effect.Kind is not ("armorAura" or "attackSpeedAura" or "healthAura" or "physicalAura" or
                     "lifestealAura" or "summonRegenAura" or "healShare" or "lowestHealthShield" or
                     "weldingBlock" or "rearSlow" or "poison" or "icicle" or "revive" or "extraChestChoice" or
-                    "illusion" or "resetCooldown" or "devour"))
+                    "illusion" or "resetCooldown" or "magnetPulse" or "devour"))
                     e.Add($"{w}: unknown effect kind '{effect.Kind}'");
                 if (effect.Value < 0 || effect.Secondary < 0 || effect.Chance is < 0 or > 1 ||
                     effect.Duration < 0 || effect.Radius < 0 || effect.Threshold < 0)
                     e.Add($"{w}: invalid effect parameters");
+                if (effect.Kind == "magnetPulse" && effect.Duration <= 0)
+                    e.Add($"{w}: magnetPulse needs a positive interval");
                 if (effect.Kind == "weldingBlock" && effect.Value is <= 0 or >= 360)
                     e.Add($"{w}: weldingBlock needs a vision angle in (0, 360)");
                 if (it.Weapon != null || it.Companion != null) e.Add($"{w}: effect needs its own item cooldown");

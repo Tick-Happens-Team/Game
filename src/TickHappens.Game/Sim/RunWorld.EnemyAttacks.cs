@@ -218,9 +218,7 @@ public sealed partial class RunWorld
                 float damage = HurtPlayer(hit, shot.Damage, shot.Kind, previous.X, previous.Y, sourceAlive ? source : -1);
                 if (sourceAlive && damage > 0)
                 {
-                    float cap = float.PositiveInfinity;
-                    foreach (var player in _players)
-                        if (player.Active && player.Hp > 0 && player.Stats[Stat.EnemyLifestealCap] > 0) cap = 0.2f;
+                    float cap = EnemyLifestealCap();
                     HealFromEnemyHit(source, Content.Enemies[EDef[source]], damage, cap);
                 }
             }

@@ -14,7 +14,7 @@ public sealed class ContentLoaderTests
         var content = TestContent.LoadCore();
 
         Assert.Equal(CharacterIds.Length, content.Characters.Count);
-        Assert.Equal(62, content.Items.Count);
+        Assert.Equal(63, content.Items.Count);
         Assert.Equal(new[] { "gloombat", "amberslime", "duskslime", "rot", "spark", "kamikaze",
             "jumper", "witch", "guardian", "butcher", "siphoner", "skeleton_swordsman", "screamer",
             "dark_mage", "ninja", "she_wolf", "devourer", "timekeeper", "phantom", "thief", "prospector",
@@ -53,21 +53,21 @@ public sealed class ContentLoaderTests
         Assert.Equal(CharacterIds, content.Characters.Select(c => c.Id).ToArray());
 
         var octarine = Character(content, "octarine");
-        Assert.Equal(150f, octarine.Stats.MaxHp);
+        Assert.Equal(135f, octarine.Stats.MaxHp);
         Assert.Equal(5f, octarine.Stats.MaxHpPerLevel);
         Assert.Equal(0.05f, octarine.Stats.Armor);
-        Assert.Equal(0.10f, octarine.Stats.MagicResist);
-        Assert.Equal(15f, octarine.Stats.Damage);
+        Assert.Equal(0.15f, octarine.Stats.MagicResist);
+        Assert.Equal(18f, octarine.Stats.Damage);
         Assert.Equal(2.75f, octarine.Stats.DamagePerLevel);
         var cooldown = Assert.Single(octarine.Passives);
         Assert.Equal("cooldown", cooldown.Stat);
-        Assert.Equal(-0.15f, cooldown.Pct);
-        Assert.Equal(-0.0015f, cooldown.PerLevel!.Pct);
+        Assert.Equal(-0.12f, cooldown.Pct);
+        Assert.Equal(-0.0025f, cooldown.PerLevel!.Pct);
 
         var swordsman = Character(content, "swordsman");
         Assert.Equal(18f, swordsman.Stats.MoveSpeed);
         Assert.Equal(0.10f, swordsman.Stats.Armor);
-        Assert.Equal(0.01f, Assert.Single(swordsman.Passives).PerLevel!.Add);
+        Assert.Equal(0.005f, Assert.Single(swordsman.Passives).PerLevel!.Add);
 
         var mage = Character(content, "celestial_mage");
         Assert.NotNull(mage.Attack);
@@ -83,15 +83,15 @@ public sealed class ContentLoaderTests
         Assert.Null(perMinute.PerLevel);
 
         var nekochan = Character(content, "nekochan");
-        Assert.Equal(175f, nekochan.Stats.MaxHp);
+        Assert.Equal(135f, nekochan.Stats.MaxHp);
         Assert.Equal(3.5f, nekochan.Stats.MaxHpPerLevel);
-        Assert.Equal(0.15f, nekochan.Stats.Regen);
-        Assert.Equal(45f, nekochan.Stats.MoveSpeed);
+        Assert.Equal(0.25f, nekochan.Stats.Regen);
+        Assert.Equal(35f, nekochan.Stats.MoveSpeed);
         Assert.Equal(35f, nekochan.Stats.AttackSpeed);
         Assert.Equal(0.025f, nekochan.Stats.Armor);
         Assert.Equal(0.025f, nekochan.Stats.MagicResist);
         Assert.Equal(15f, nekochan.Stats.Damage);
-        Assert.Equal(1.5f, nekochan.Stats.DamagePerLevel);
+        Assert.Equal(2f, nekochan.Stats.DamagePerLevel);
         var aura = Assert.IsType<CharacterAura>(nekochan.Aura);
         Assert.Equal(200f, aura.Radius);
         Assert.Equal(1.25f, aura.RadiusPerLevel);
@@ -99,7 +99,7 @@ public sealed class ContentLoaderTests
         Assert.Equal(0.003f, aura.DamageReductionPerLevel);
         Assert.Equal(1.75f, aura.Regen);
         Assert.Equal(0.25f, aura.RegenPerLevel);
-        Assert.Equal(1.75f, aura.SelfMultiplier);
+        Assert.Equal(1.5f, aura.SelfMultiplier);
     }
 
     [Fact]

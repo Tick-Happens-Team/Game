@@ -20,7 +20,7 @@ public sealed class RunProgressionTests
         Assert.Equal(5, p.Level);
         Assert.Equal(table.MaxHp + 4 * table.MaxHpPerLevel, p.Stats.Base(Stat.MaxHp));
         Assert.Equal(table.Damage + 4 * table.DamagePerLevel, p.Stats.Base(Stat.Damage));
-        TestWorld.Close(170f, world.MaxHealth);
+        TestWorld.Close(155f, world.MaxHealth);
         TestWorld.Close(120f, p.Hp); // 100 + the 20 max HP gained on the way to level 5
     }
 
@@ -34,9 +34,9 @@ public sealed class RunProgressionTests
         var world = new RunWorld(content);
         int enemyDef = content.EnemyIndex("amberslime");
 
-        AssertDrop(10);
+        AssertDrop(15);
         for (int i = 0; i < 4 * 60 * RunWorld.TicksPerSecond; i++) world.Step(default);
-        AssertDrop(12);
+        AssertDrop(18);
 
         void AssertDrop(int expected)
         {
@@ -55,11 +55,11 @@ public sealed class RunProgressionTests
     {
         var world = new RunWorld(TestContent.LoadCore(), seed: 1, character: "octarine");
 
-        TestWorld.Close(1f - 0.15f, world.Player.Stats[Stat.Cooldown]);
+        TestWorld.Close(1f - 0.12f, world.Player.Stats[Stat.Cooldown]);
 
         TestWorld.LevelTo(world, 5);
 
-        TestWorld.Close(1f - 0.15f - 0.0015f * 4, world.Player.Stats[Stat.Cooldown]);
+        TestWorld.Close(1f - 0.12f - 0.0025f * 4, world.Player.Stats[Stat.Cooldown]);
     }
 
     [Fact]
@@ -71,7 +71,7 @@ public sealed class RunProgressionTests
 
         TestWorld.LevelTo(world, 5);
 
-        TestWorld.Close(0.10f + 0.01f * 4, world.Player.Stats[Stat.Armor]);
+        TestWorld.Close(0.10f + 0.005f * 4, world.Player.Stats[Stat.Armor]);
     }
 
     [Fact]
@@ -79,11 +79,11 @@ public sealed class RunProgressionTests
     {
         var world = new RunWorld(TestContent.LoadCore(), seed: 1, character: "goflin");
 
-        TestWorld.Close(1f + 0.10f, world.Player.Stats[Stat.GoldGain]);
+        TestWorld.Close(1f + 0.15f, world.Player.Stats[Stat.GoldGain]);
 
         TestWorld.LevelTo(world, 5);
 
-        TestWorld.Close(1f + 0.10f + 0.0075f * 4, world.Player.Stats[Stat.GoldGain]);
+        TestWorld.Close(1f + 0.15f + 0.0075f * 4, world.Player.Stats[Stat.GoldGain]);
     }
 
     [Fact]
@@ -94,7 +94,7 @@ public sealed class RunProgressionTests
 
         TestWorld.Close(p.Character.Stats.MaxHp * 0.35f, world.MaxHealth);
         TestWorld.Close(world.MaxHealth, p.Hp);
-        TestWorld.Close(1.25f, p.Stats[Stat.MagicalDamage]);
+        TestWorld.Close(1.35f, p.Stats[Stat.MagicalDamage]);
         Assert.True(ContentLoader.TryParseDamage(p.Attack.DamageType, out var kind));
         Assert.Equal(DamageKind.Magical, kind);
     }
@@ -105,7 +105,7 @@ public sealed class RunProgressionTests
         var content = TestContent.LoadCore();
         var world = new RunWorld(content, seed: 5, character: "watchman");
         var p = world.Player;
-        TestWorld.Close(3.75f, p.Stats[Stat.Damage]);
+        TestWorld.Close(4f, p.Stats[Stat.Damage]);
         TestWorld.Close(0.05f, p.Stats[Stat.PhysicalCrit]);
         TestWorld.Close(0.05f, p.Stats[Stat.MagicalCrit]);
         TestWorld.Close(2f, p.Stats[Stat.CritDamage]);
@@ -117,11 +117,11 @@ public sealed class RunProgressionTests
         Assert.True(world.StatueActive[0], "standing on the statue must activate it");
         float minutes = world.Minutes;
         Assert.True(minutes >= content.Rules.Statue.Minutes, $"minutes {minutes} should include the statue bonus");
-        TestWorld.Close(3.75f + 0.75f * minutes, p.Stats[Stat.Damage]);
+        TestWorld.Close(4f + 0.75f * minutes, p.Stats[Stat.Damage]);
 
         TestWorld.LevelTo(world, 2);
 
-        TestWorld.Close(3.75f + 0.35f + 0.75f * minutes, p.Stats[Stat.Damage]);
+        TestWorld.Close(4f + 0.35f + 0.75f * minutes, p.Stats[Stat.Damage]);
         TestWorld.Close(0.06f, p.Stats[Stat.PhysicalCrit]);
         TestWorld.Close(0.06f, p.Stats[Stat.MagicalCrit]);
     }
@@ -139,8 +139,8 @@ public sealed class RunProgressionTests
         world.GiveItem(sprats);
 
         Assert.Equal(2, p.ItemStacks[sprats]);
-        TestWorld.Close(196f, world.MaxHealth);
-        TestWorld.Close(146f, p.Hp);
+        TestWorld.Close(155f, world.MaxHealth);
+        TestWorld.Close(120f, p.Hp);
     }
 
     [Fact]
@@ -152,7 +152,7 @@ public sealed class RunProgressionTests
         world.GiveItem(content.ItemIndex("heavy_shackles"));
 
         TestWorld.Close(15f, world.Player.Stats[Stat.MoveSpeed]);
-        TestWorld.Close(1.25f, world.Player.Stats[Stat.Might]);
+        TestWorld.Close(1.30f, world.Player.Stats[Stat.Might]);
         TestWorld.Close(45f, world.MoveSpeedPx);
     }
 
@@ -171,7 +171,7 @@ public sealed class RunProgressionTests
             octarine.Step(default);
         }
 
-        Assert.Equal(11, goflin.Player.Wallet.Gold); // floor(10 × 1.10): fractions are carried between pickups
+        Assert.Equal(11, goflin.Player.Wallet.Gold); // floor(10 × 1.15): fractions are carried between pickups
         Assert.Equal(10, octarine.Player.Wallet.Gold);
         Assert.True(goflin.Player.Wallet.Gold > octarine.Player.Wallet.Gold);
     }

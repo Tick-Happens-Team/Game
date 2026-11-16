@@ -14,7 +14,7 @@ public sealed class NekochanTests
         world.SetPlayerActive(1, true);
         world.StepCoop([default, default]);
 
-        TestWorld.Close(1 - 0.08f * 1.75f - 0.08f, world.Player.Stats[Stat.DamageTaken]);
+        TestWorld.Close(1 - 0.08f * 1.5f - 0.08f, world.Player.Stats[Stat.DamageTaken]);
     }
 
     [Fact]
@@ -29,15 +29,15 @@ public sealed class NekochanTests
         ally.Pos = self.Pos + new Vector2(150, 0);
         world.StepCoop([default, default]);
 
-        TestWorld.Close(1 - 0.08f * 1.75f, self.Stats[Stat.DamageTaken]);
-        TestWorld.Close(0.15f + 1.75f * 1.75f, self.Stats[Stat.Regen]);
+        TestWorld.Close(1 - 0.08f * 1.5f, self.Stats[Stat.DamageTaken]);
+        TestWorld.Close(0.25f + 1.75f * 1.5f, self.Stats[Stat.Regen]);
         TestWorld.Close(0.92f, ally.Stats[Stat.DamageTaken]);
-        TestWorld.Close(2f + 1.75f, ally.Stats[Stat.Regen]);
+        TestWorld.Close(1.75f + 1.75f, ally.Stats[Stat.Regen]);
 
         ally.Pos = self.Pos + new Vector2(201, 0);
         world.StepCoop([default, default]);
         TestWorld.Close(1f, ally.Stats[Stat.DamageTaken]);
-        TestWorld.Close(2f, ally.Stats[Stat.Regen]);
+        TestWorld.Close(1.75f, ally.Stats[Stat.Regen]);
     }
 
     [Fact]
@@ -54,8 +54,8 @@ public sealed class NekochanTests
         world.StepCoop([default, default]);
 
         TestWorld.Close(1 - (0.08f + 4 * 0.003f), ally.Stats[Stat.DamageTaken]);
-        TestWorld.Close(2f + 1.75f + 4 * 0.25f, ally.Stats[Stat.Regen]);
-        TestWorld.Close(1 - (0.08f + 4 * 0.003f) * 1.75f, self.Stats[Stat.DamageTaken]);
+        TestWorld.Close(1.75f + 1.75f + 4 * 0.25f, ally.Stats[Stat.Regen]);
+        TestWorld.Close(1 - (0.08f + 4 * 0.003f) * 1.5f, self.Stats[Stat.DamageTaken]);
     }
 
     [Fact]
@@ -71,7 +71,7 @@ public sealed class NekochanTests
         world.SpawnEnemy(0, p.Pos);
         world.Step(default);
 
-        float expected = content.Enemies[0].Damage * world.DamageScale * (1 - 0.025f) * (1 - 0.08f * 1.75f);
+        float expected = content.Enemies[0].Damage * world.DamageScale * (1 - 0.025f) * (1 - 0.08f * 1.5f);
         Assert.Equal(expected, full - p.Hp, 2);
     }
 
@@ -99,7 +99,7 @@ public sealed class NekochanTests
         ally.Hp = 50;
         for (int i = 0; i < RunWorld.TicksPerSecond; i++) world.StepCoop([default, default]);
 
-        Assert.Equal(50 + 2f + 1.75f, ally.Hp, 2);
+        Assert.Equal(50 + 1.75f + 1.75f, ally.Hp, 2);
     }
 
     private static ContentSet QuietContent()
