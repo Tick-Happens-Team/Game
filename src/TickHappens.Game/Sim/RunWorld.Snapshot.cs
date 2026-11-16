@@ -7,7 +7,7 @@ namespace TickHappens.Game.Sim;
 public sealed partial class RunWorld
 {
     public const int SnapshotCapacity = 64 * 1024;
-    private const byte SnapshotVersion = 8;
+    private const byte SnapshotVersion = 9;
     private const int OwnedXpPickupBase = 13;
     private int _replicaTick = -1;
     private readonly ushort[] _enemySnapshotSlots = new ushort[ushort.MaxValue / 8];
@@ -56,6 +56,7 @@ public sealed partial class RunWorld
                 w.Byte(p.TimekeeperSlowed ? (byte)1 : (byte)0);
                 switch (p.Character.Id)
                 {
+                    case "pig": w.Byte((byte)p.BoarWalkTicks); break;
                     case "diver": w.Float(p.HeroDistance); break;
                     case "necromancer": w.Int(p.Souls); break;
                     case "illusionist":
@@ -379,6 +380,8 @@ public sealed partial class RunWorld
         int slowUntil = r.Int(), rootUntil = r.Int(), stolen = r.Int();
         bool timekeeperSlowed = r.Flag();
         string hero = Content.Characters[character].Id;
+        int boarWalk = hero == "pig" ? r.Byte() : 0;
+        Require(boarWalk <= BoarChargeTicks);
         float distance = hero == "diver" ? r.Float() : 0;
         int souls = hero == "necromancer" ? r.Int() : 0;
         Span<float> cube = stackalloc float[CubeStats.Length];
@@ -458,6 +461,7 @@ public sealed partial class RunWorld
             p.EnemyRootUntil = rootUntil;
             p.StolenItem = stolen;
             p.TimekeeperSlowed = timekeeperSlowed;
+            p.BoarWalkTicks = boarWalk;
             p.HeroDistance = distance;
             p.Souls = souls;
             if (hero == "cybernetic_cube") cube.CopyTo(p.CubeBonuses);

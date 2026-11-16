@@ -258,6 +258,7 @@ public sealed class WaveTable
     [JsonPropertyName("maxAlive")] public int MaxAlive { get; set; } = 800;
     [JsonPropertyName("waves")] public List<WaveDef> Waves { get; set; } = [];
     [JsonPropertyName("bossIntervalMinutes")] public int BossIntervalMinutes { get; set; }
+    [JsonPropertyName("xpPerMinute")] public float XpPerMinute { get; set; }
     [JsonPropertyName("goldPerMinute")] public int GoldPerMinute { get; set; }
     [JsonPropertyName("elites")] public List<EliteDef> Elites { get; set; } = [];
 }

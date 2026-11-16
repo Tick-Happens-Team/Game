@@ -2,11 +2,11 @@
   {
     "id": "octarine", "sprite": "char_octarine",
     "stats": { "maxHp": 150, "maxHpPerLevel": 5, "regen": 2, "moveSpeed": 25, "attackSpeed": 25, "armor": 0.05, "magicResist": 0.10, "damage": 15, "damagePerLevel": 2.75 },
-    "passives": [ { "stat": "cooldown", "pct": -0.10, "perLevel": { "pct": -0.0015 } } ]
+    "passives": [ { "stat": "cooldown", "pct": -0.15, "perLevel": { "pct": -0.0015 } } ]
   },
   {
     "id": "swordsman", "sprite": "char_swordsman",
-    "stats": { "maxHp": 300, "maxHpPerLevel": 5, "regen": 3, "moveSpeed": 18, "attackSpeed": 20, "armor": 0.10, "magicResist": 0.03, "damage": 20, "damagePerLevel": 1 },
+    "stats": { "maxHp": 300, "maxHpPerLevel": 5, "regen": 3, "moveSpeed": 18, "attackSpeed": 20, "armor": 0.10, "magicResist": 0.03, "damage": 20, "damagePerLevel": 1.5 },
     "passives": [ { "stat": "armor", "perLevel": { "add": 0.01 } } ]
   },
   {
@@ -44,7 +44,7 @@
   },
   {
     "id": "pig",
-    "name": "Свинья",
+    "name": "Кабан",
     "sprite": "char_pig",
     "stats": {
       "maxHp": 200,
@@ -55,10 +55,10 @@
       "armor": 0.075,
       "magicResist": 0.08,
       "damage": 5,
-      "damagePerLevel": 8.25
+      "damagePerLevel": 1.25
     },
-    "passive": "Удерживается в мире как призрак на 5 с после смертельного удара.",
-    "growth": "+0,25 с за уровень."
+    "passive": "Таранит врагов, отталкивая их и нанося 5% от максимального здоровья. Через 5 с ходьбы получает +25% скорости и +10% урона тарана. После смертельного удара остаётся призраком на 5 с.",
+    "growth": "+0,1 с в форме призрака за уровень."
   },
   {
     "id": "miner",
@@ -72,10 +72,10 @@
       "attackSpeed": 20,
       "armor": 0.06,
       "magicResist": 0.04,
-      "damage": 10,
+      "damage": 15,
       "damagePerLevel": 1
     },
-    "passive": "Взрывается за каждые 50 потерянных ОЗ, нанося 5 урона в радиусе 50.",
+    "passive": "Взрывается за каждые 50 потерянных ОЗ, нанося 10 урона в радиусе 50.",
     "growth": "+2,5 урона и радиуса за уровень."
   },
   {
@@ -153,7 +153,7 @@
       "attackSpeed": 30,
       "armor": 0.1,
       "magicResist": 0.1,
-      "damage": 8,
+      "damage": 10,
       "damagePerLevel": 0.5
     },
     "passive": "Каждый уровень повышает одну случайную характеристику на 1–10%.",
@@ -164,7 +164,7 @@
     "name": "Мазохист",
     "sprite": "char_masochist",
     "stats": {
-      "maxHp": 100,
+      "maxHp": 150,
       "maxHpPerLevel": 4,
       "regen": 1,
       "moveSpeed": 20,
@@ -190,7 +190,7 @@
       "armor": 0.07,
       "magicResist": 0.07,
       "damage": 15,
-      "damagePerLevel": 1
+      "damagePerLevel": 2
     },
     "passive": "Фиксированная скорость движения. Пройденное расстояние повышает броню.",
     "growth": "+0,25 п. п. отражения урона за уровень.",
@@ -256,20 +256,20 @@
       "maxHp": 150,
       "maxHpPerLevel": 5,
       "regen": 3,
-      "moveSpeed": 25,
-      "attackSpeed": 15,
+      "moveSpeed": 30,
+      "attackSpeed": 20,
       "armor": 0.1,
       "magicResist": 0.05,
       "damage": 15,
-      "damagePerLevel": 1
+      "damagePerLevel": 2
     },
     "attack": {
       "damageType": "physical",
       "range": 30,
-      "meleeAngle": 120,
+      "meleeAngle": 350,
       "rangePerLevel": 0.25
     },
-    "passive": "Экскалибур заменяет снаряды физическим ударом перед Артуром. Базовый радиус 30.",
+    "passive": "Экскалибур заменяет снаряды физическим ударом по дуге в 350 градусов. Базовый радиус 30.",
     "growth": "+0,25 к радиусу Экскалибура за уровень."
   }
 ]

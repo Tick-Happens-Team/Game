@@ -17,7 +17,7 @@ public sealed partial class CoopSession : IDisposable
     // Fits LiteNetLib's initial 1024-byte MTU including its reliable header.
     public const int MaxPacketBytes = 1000;
     public const int MaxSnapshotBytes = 256 * 1024;
-    public const byte ProtocolVersion = 13;
+    public const byte ProtocolVersion = 14;
     private const int HeaderBytes = 2;
     private const int RunHeaderBytes = HeaderBytes + sizeof(uint);
     public const int MaxEventBytes = MaxPacketBytes - RunHeaderBytes;

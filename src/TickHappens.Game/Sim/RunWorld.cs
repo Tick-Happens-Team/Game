@@ -50,7 +50,7 @@ public sealed partial class RunWorld
     private readonly DamageKind[] _enemyKind;
     private readonly float[] _enemySlow;
     private readonly int[] _enemySlowUntil, _enemyStunUntil;
-    private readonly int[,] _acceleratorContact;
+    private readonly int[,] _acceleratorContact, _boarContact;
     private readonly int[] _acceleratorItem = [-1, -1, -1, -1];
     private float _spawnAcc;
     private int _nextElite, _bossesSpawned;
@@ -83,6 +83,7 @@ public sealed partial class RunWorld
         _enemyAttackReady = new int[EnemyCapacity];
         _enemyBlasts = new Queue<EnemyBlast>(EnemyCapacity);
         _acceleratorContact = new int[playerCount, EnemyCapacity];
+        _boarContact = new int[playerCount, EnemyCapacity];
         _enemySlow = new float[EnemyCapacity];
         _enemySlowUntil = new int[EnemyCapacity];
         _enemyStunUntil = new int[EnemyCapacity];
@@ -353,6 +354,9 @@ public sealed partial class RunWorld
             }
         }
         Vector2 move;
+        if (p.Character.Id == "pig")
+            p.BoarWalkTicks = dir != Vector2.Zero && p.DashTicks == 0 && p.EnemyRootUntil <= Tick
+                ? Math.Min(BoarChargeTicks, p.BoarWalkTicks + 1) : 0;
         if (p.DashTicks > 0)
         {
             p.DashTicks--;
@@ -364,6 +368,7 @@ public sealed partial class RunWorld
             float speedBonus = p.DashSpeedTicks > 0 ? p.Stats[Stat.DashSpeedBonus] : 0;
             if (p.AcceleratorTicks > 0) speedBonus += p.AcceleratorSpeedBonus;
             float speed = MovementSpeed(p) * (p.Character.Id == "diver" ? 1 : 1 + speedBonus);
+            if (p.BoarWalkTicks == BoarChargeTicks) speed *= 1.25f;
             if (p.TimekeeperSlowed) speed *= 0.5f;
             if (p.EnemySlowUntil > Tick) speed *= 0.75f;
             if (p.EnemyRootUntil > Tick) speed = 0;
@@ -374,6 +379,7 @@ public sealed partial class RunWorld
         var max = new Vector2(a - 12);
         p.Pos = Vector2.Clamp(MoveWithTeammateCollision(p, Vector2.Clamp(p.Pos + move, min, max)), min, max);
         p.Walking = p.Pos != p.Prev;
+        if (!p.Walking) p.BoarWalkTicks = 0;
         if (!predict)
         {
             if (p.Character.Id == "diver") p.HeroDistance += Vector2.Distance(p.Prev, p.Pos);
@@ -406,6 +412,13 @@ public sealed partial class RunWorld
         {
             p.PhysicalBlockTick = Tick + (int)MathF.Round(10 * p.Stats[Stat.Cooldown] * TicksPerSecond);
             return 0;
+        }
+        if (!continuous && kind == DamageKind.Physical && p.Character.Id == "swordsman" && enemy >= 0 &&
+            EAlive[enemy] && Content.Enemies[EDef[enemy]].ShotRange == 0)
+        {
+            float contact = PlayerRadius + Content.Enemies[EDef[enemy]].Radius + ContactTolerance;
+            if (Vector2.DistanceSquared(p.Pos, new(EX[enemy], EY[enemy])) <= contact * contact && RollChance(0.17f))
+                return 0;
         }
         if (TryBlockOrRedirect(p, enemy, kind, dmg)) return 0;
         float bonusAbsorbed = Math.Min(dmg, p.BonusShield);
@@ -587,7 +600,7 @@ public sealed partial class RunWorld
             if (!EAlive[i]) continue;
             dist = Vector2.Distance(p, new Vector2(EX[i], EY[i]));
             if (_enemySlowUntil[i] > Tick) speed *= 1 - _enemySlow[i];
-            if (_enemyAttackTicks[i] > 0) speed *= 0.2f;
+            if (_enemyAttackTicks[i] > 0 && d.Behavior != "screamer") speed *= 0.2f;
             else if (d.ShotRange > 0)
                 speed *= dist < d.ShotRange * 0.5f ? -1 : dist <= d.ShotRange * 0.85f ? 0 : 1;
             var direction = goal - new Vector2(EX[i], EY[i]);
@@ -606,10 +619,15 @@ public sealed partial class RunWorld
             for (int j = 0; j < _players.Length; j++)
             {
                 var runner = _players[j];
+                bool boar = runner.Character.Id == "pig";
+                bool canAccelerate = runner.AcceleratorTicks > 0 && _acceleratorContact[j, i] != EUid[i];
+                if (!runner.Active || runner.Hp <= 0 || (!boar && !canAccelerate)) continue;
+
                 float contactRadius = d.Radius + PlayerRadius + ContactTolerance;
-                if (!runner.Active || runner.Hp <= 0 || runner.AcceleratorTicks <= 0 ||
-                    _acceleratorContact[j, i] == EUid[i] ||
-                    Vector2.DistanceSquared(runner.Pos, new Vector2(EX[i], EY[i])) >= contactRadius * contactRadius) continue;
+                bool touching = Vector2.DistanceSquared(runner.Pos, end) <= contactRadius * contactRadius;
+                if (boar) StepBoarContact(runner, i, touching);
+                if (!EAlive[i]) break;
+                if (!touching || !canAccelerate) continue;
                 _acceleratorContact[j, i] = EUid[i];
                 int item = _acceleratorItem[j];
                 DamageEnemy(i, Content.Items[item].Weapon!.Damage * runner.ItemStacks[item], DamageKind.Physical,
@@ -765,7 +783,11 @@ public sealed partial class RunWorld
         if (deathEffects) QueueEnemyDeathEffect(i, d, credit);
         bool hasKiller = (uint)credit < (uint)_players.Length;
         if (d.Xp > 0 && (deathEffects || hasKiller))
-            DropPickup(PickupKind.Xp, EX[i], EY[i], d.Xp, hasKiller ? credit : -1);
+        {
+            double scale = 1 + (int)Minutes * (double)Content.Waves.XpPerMinute;
+            int xp = (int)Math.Min(ushort.MaxValue, Math.Round(d.Xp * scale, MidpointRounding.AwayFromZero));
+            DropPickup(PickupKind.Xp, EX[i], EY[i], xp, hasKiller ? credit : -1);
+        }
         if (hasKiller)
         {
             var killer = _players[credit];

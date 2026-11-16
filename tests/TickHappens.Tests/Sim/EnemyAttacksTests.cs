@@ -16,7 +16,7 @@ public sealed class EnemyAttacksTests
         world.Content.Enemies[rotDef].Xp = 0;
         int rot = world.SpawnEnemy(rotDef, center);
         Kill(world, rot);
-        Assert.Equal(50f, world.EnemyClouds[0].Radius);
+        Assert.Equal(200f / 3, world.EnemyClouds[0].Radius);
         var replica = IsolatedWorld();
         byte[] snapshot = new byte[RunWorld.SnapshotCapacity];
         Assert.True(replica.TryApplySnapshot(snapshot.AsSpan(0, world.WriteSnapshot(snapshot))));

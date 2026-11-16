@@ -12,7 +12,7 @@ public enum EventKind : byte
 {
     Hit, Kill, Bolt, Pulse, Chain, Blast, LevelUp, Statue, Chest, PlayerHurt, Dash, Pickup, Elite, Melee, ItemBeam, Flame, Frost, BossReward,
     DroneBlast, HeroFireTrail, EnemyBlast,
-    EagleDive, BoarStomp, RocketImpact, WoodShockwave, WildAura, Laser, Rifle, CaneStrike, Revival, EnemyQuake,
+    EagleDive, BoarStomp, RocketImpact, WoodShockwave, WildAura, Laser, Rifle, CaneStrike, Revival, EnemyQuake, EnemyTeleport,
 }
 
 public enum BlastStyle { Default, SodaSplash }
@@ -89,6 +89,7 @@ public sealed class PlayerState
     public int DashChargesUsed, DashTicksTotal, BoughtChests, IllusionUntilTick;
     public float BonusShield, AuraBlockChance, PhysicalAuraBonus;
     public Vector2 IllusionPosition;
+    public int BoarWalkTicks;
     public int GhostUntilTick, HeroAttackTick = -1;
     internal int NextHeroPassiveTick, Souls, IllusionHurtTick;
     internal float IllusionHealth, IllusionMaxHealth, PendingBlastDamage, HeroDistance, PuppeteerDamageBonus;

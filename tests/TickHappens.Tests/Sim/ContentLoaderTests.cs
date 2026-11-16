@@ -61,7 +61,7 @@ public sealed class ContentLoaderTests
         Assert.Equal(2.75f, octarine.Stats.DamagePerLevel);
         var cooldown = Assert.Single(octarine.Passives);
         Assert.Equal("cooldown", cooldown.Stat);
-        Assert.Equal(-0.10f, cooldown.Pct);
+        Assert.Equal(-0.15f, cooldown.Pct);
         Assert.Equal(-0.0015f, cooldown.PerLevel!.Pct);
 
         var swordsman = Character(content, "swordsman");

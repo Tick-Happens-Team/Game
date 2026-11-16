@@ -164,6 +164,9 @@ public sealed partial class RunWorld
                     state.Expires = Tick + 10 * TicksPerSecond;
                     Emit(EventKind.Pulse, pos.X, pos.Y, 36);
                 }
+                _enemyAttackTicks[slot] = state.Expires > Tick
+                    ? (byte)Math.Clamp((state.Expires - Tick + 1) * EnemyWindupTicks / (10 * TicksPerSecond), 1, EnemyWindupTicks)
+                    : (byte)0;
                 if (state.Expires > 0 && Tick >= state.Expires)
                 {
                     state.Expires = 0;
@@ -179,7 +182,11 @@ public sealed partial class RunWorld
                 }
                 break;
             case "teleporter":
-                if (AbilityReady(ref state.Ready, 4)) MoveEnemyInstantly(slot, EnemyPointAround(target, 80, 145));
+                if (AbilityReady(ref state.Ready, 4))
+                {
+                    MoveEnemyInstantly(slot, EnemyPointAround(target, 80, 145));
+                    Emit(EventKind.EnemyTeleport, pos.X, pos.Y, x2: EX[slot], y2: EY[slot]);
+                }
                 break;
             case "ninja":
                 _enemyHidden[slot] = Tick >= state.SecondaryReady && range > 24;

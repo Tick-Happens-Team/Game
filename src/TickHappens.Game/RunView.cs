@@ -28,7 +28,7 @@ internal sealed partial class RunView : IDisposable
     private readonly AtlasSprite[] _enemySprites;
     private readonly AtlasSprite?[] _companionSprites;
     private readonly SpriteAnim[] _enemyAnims;
-    private readonly SpriteAnim?[] _enemyAttackAnims;
+    private readonly SpriteAnim?[] _enemyAttackAnims, _enemyCloseAnims;
     private readonly uint[] _enemyTint;
     private readonly int _freeChestFrame, _rareChestFrame, _bossChestFrame;
     private readonly List<IPixelEffect> _effects = [];
@@ -83,14 +83,14 @@ internal sealed partial class RunView : IDisposable
         _rareChestFrame = _chest.FrameNames.IndexOf("rare");
         _bossChestFrame = _chest.FrameNames.IndexOf("boss");
         _soda = atlas.Sprites.GetValueOrDefault("prop_soda_r");
-        _enemySprites = [.. content.Enemies.Select(e => atlas.Sprites.GetValueOrDefault(
-            e.Id == "phantom_illusion" ? "enemy_phantom_r" : $"enemy_{e.Id}_r") ?? S(e.Sprite))];
+        _enemySprites = [.. content.Enemies.Select(e => S(e.Sprite))];
         _companionSprites = [.. content.Items.Select(item => item.Companion is { } c &&
             atlas.Sprites.TryGetValue(c.Sprite, out var sprite) && sprite.Anims.ContainsKey("move") ? sprite : null)];
-        _enemyAnims = [.. content.Enemies.Select((e, i) => _enemySprites[i].Anims.TryGetValue(ReferenceEquals(_enemySprites[i], S(e.Sprite)) ? e.Anim : "move", out var a) ? a
+        _enemyAnims = [.. content.Enemies.Select((e, i) => _enemySprites[i].Anims.TryGetValue(e.Anim, out var a) ? a
             : throw new InvalidDataException($"sprite '{e.Sprite}' has no animation '{e.Anim}'"))];
         _enemyAttackAnims = [.. _enemySprites.Select(s => s.Anims.GetValueOrDefault("attack"))];
-        _enemyTint = [.. content.Enemies.Select((e, i) => ReferenceEquals(_enemySprites[i], S(e.Sprite)) && e.Tint is { } t ? TintFromHex(t) : 0xFFFFFFFFu)];
+        _enemyCloseAnims = [.. _enemySprites.Select(s => s.Anims.GetValueOrDefault("lunge"))];
+        _enemyTint = [.. content.Enemies.Select(e => e.Tint is { } t ? TintFromHex(t) : 0xFFFFFFFFu)];
 
         var shaders = AssetPaths.Get("shaders");
         var albedo = RgbaImage.Load(AssetPaths.Get("atlas", "main.png"));
@@ -233,14 +233,20 @@ internal sealed partial class RunView : IDisposable
                         _effects.Add(new ExplosionEffect(new ExplosionOptions { X = e.X * 2, Y = e.Y * 2, Size = 0.85f, Seed = e.Seed }));
                     Burst(e.X, e.Y, 22, 90, 0xFFFFE4ACu, 0xFF2855D5u, 1.2f);
                     break;
+                case EventKind.EnemyTeleport:
+                    Burst(e.X, e.Y, 16, 45, 0xFFE4A1FFu, 0xFF852FCCu, 1.05f);
+                    Burst(e.X2, e.Y2, 18, 54, 0xFFE4A1FFu, 0xFF852FCCu, 1.15f);
+                    AddFlash(e.X2, e.Y2, 44, 0.65f, 0.22f, 0.65f, 0.18f);
+                    break;
                 case EventKind.EnemyBlast:
                     if (_effects.Count < MaxCpuEffects)
                         _effects.Add(new ExplosionEffect(new ExplosionOptions
                         {
                             X = e.X * 2, Y = e.Y * 2, Size = e.Value / 65, Seed = e.Seed,
+                            Surface = 0xFF368C32u, Fire = 0,
                         }));
-                    Burst(e.X, e.Y, 34, 135, 0xFF62DDFFu, 0xFF2048F2u, 1.6f);
-                    AddFlash(e.X, e.Y, e.Value * 1.4f, 1.25f, 0.55f, 0.22f, 0.24f);
+                    Burst(e.X, e.Y, 34, 135, 0xFF87F9C6u, 0xFF259450u, 1.6f);
+                    AddFlash(e.X, e.Y, e.Value * 1.4f, 0.38f, 1.25f, 0.25f, 0.24f);
                     break;
                 case EventKind.Chain:
                 {
@@ -612,6 +618,8 @@ internal sealed partial class RunView : IDisposable
                 var pos = world.EnemyPos(id, alpha);
                 int def = world.EDef[id];
                 var anim = _enemyAnims[def];
+                if (_enemyCloseAnims[def] is { } close && LivingPlayerWithin(world, pos, 72))
+                    anim = close;
                 int frame = anim.Frames[(int)((_time + id * 0.37f) * anim.Fps) % anim.Frames.Count];
                 int windup = world.EnemyWindup(id);
                 if (windup > 0 && _enemyAttackAnims[def] is { } attack)
@@ -623,9 +631,14 @@ internal sealed partial class RunView : IDisposable
                 var enemy = world.Content.Enemies[def];
                 float scale = EnemyScale(enemy, _enemySprites[def].W);
                 bool goldFever = enemy.Behavior == "prospector" && world.EHp[id] <= world.EMaxHp[id] * 0.35f;
-                if (goldFever) tint = 0xFF9BE6FFu;
+                if (goldFever)
+                {
+                    tint = 0xFF9BE6FFu;
+                    scale *= 0.95f;
+                }
+                byte emission = goldFever ? (byte)48 : enemy.DetonateRange > 0 && windup > 0 ? (byte)70 : (byte)0;
                 _batch.Draw(_enemySprites[def], frame, pos.X - ox, pos.Y - oy, flipX: pos.X > hero.X,
-                    tint: tint, emissionBoost: goldFever ? (byte)48 : (byte)0, scale: scale);
+                    tint: tint, emissionBoost: emission, scale: scale);
             }
             else if (id > StatueBase)
             {
@@ -638,7 +651,8 @@ internal sealed partial class RunView : IDisposable
                 int frame = HeroFrame(sprite, player, world.Tick, alpha, player.Walking);
                 var position = _displayPlayers[player.Id];
                 _batch.Draw(sprite, frame, position.X - ox, position.Y - oy, player.FacingLeft,
-                    tint: ReferenceEquals(player, p) ? 0xFFFFFFFFu : 0xFFE6F4BCu);
+                    tint: ReferenceEquals(player, p) ? 0xFFFFFFFFu : 0xFFE6F4BCu,
+                    emissionBoost: player.BoarWalkTicks == RunWorld.BoarChargeTicks && !ghost ? (byte)70 : (byte)0);
             }
             else if (id <= IllusionBase)
             {
@@ -854,6 +868,17 @@ internal sealed partial class RunView : IDisposable
         coopHud?.Draw(_renderer, world, frameDt, itemPanel?.IsOpen == true);
         overlay?.Invoke(_renderer);
         _renderer.Finish();
+    }
+
+    private static bool LivingPlayerWithin(RunWorld world, Vector2 position, float radius)
+    {
+        for (int i = 0; i < world.Players.Count; i++)
+        {
+            var player = world.Players[i];
+            if (player.Active && player.Hp > 0 && Vector2.DistanceSquared(player.Pos, position) <= radius * radius)
+                return true;
+        }
+        return false;
     }
 
     private static float EnemyScale(EnemyDef enemy, int spriteWidth)

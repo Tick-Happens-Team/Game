@@ -1,3 +1,4 @@
+using System.Numerics;
 using TickHappens.Game;
 using TickHappens.Game.Content;
 using TickHappens.Game.Sim;
@@ -24,15 +25,41 @@ public sealed class RunProgressionTests
     }
 
     [Fact]
+    public void EnemyXpDropGrowsWithElapsedRunMinutesAndRetainsItsOwner()
+    {
+        var content = TestContent.LoadCore();
+        foreach (var wave in content.Waves.Waves) wave.PerSecond = 0;
+        content.Waves.Elites.Clear();
+        content.Waves.BossIntervalMinutes = 0;
+        var world = new RunWorld(content);
+        int enemyDef = content.EnemyIndex("amberslime");
+
+        AssertDrop(10);
+        for (int i = 0; i < 4 * 60 * RunWorld.TicksPerSecond; i++) world.Step(default);
+        AssertDrop(12);
+
+        void AssertDrop(int expected)
+        {
+            var position = world.Player.Pos + new Vector2(40, 0);
+            int enemy = world.SpawnEnemy(enemyDef, position);
+            world.DamageEnemy(enemy, 10_000, DamageKind.Pure, new DamageSourceRef(0), position.X, position.Y);
+            int pickup = Assert.Single(Enumerable.Range(0, RunWorld.PickupCapacity),
+                i => world.GAlive[i] && world.GKind[i] == PickupKind.Xp);
+            Assert.Equal(expected, world.GValue[pickup]);
+            Assert.Equal(world.Player.Id, world.GOwner[pickup]);
+        }
+    }
+
+    [Fact]
     public void OctarineCooldownPassiveScalesWithLevel()
     {
         var world = new RunWorld(TestContent.LoadCore(), seed: 1, character: "octarine");
 
-        TestWorld.Close(1f - 0.10f, world.Player.Stats[Stat.Cooldown]);
+        TestWorld.Close(1f - 0.15f, world.Player.Stats[Stat.Cooldown]);
 
         TestWorld.LevelTo(world, 5);
 
-        TestWorld.Close(1f - 0.10f - 0.0015f * 4, world.Player.Stats[Stat.Cooldown]);
+        TestWorld.Close(1f - 0.15f - 0.0015f * 4, world.Player.Stats[Stat.Cooldown]);
     }
 
     [Fact]
