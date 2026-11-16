@@ -27,8 +27,7 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
     private readonly RunInput[] _inputHistory = new RunInput[InputHistoryLength];
     private int _lastSubmittedInput;
     private readonly RunInput[] _inputs = new RunInput[4];
-    private readonly int[] _lastInput = new int[4];
-    private readonly int[] _receivedInputSequence = new int[4];
+    private readonly HostInputBuffer[] _guestInputs = [new(), new(), new(), new()];
     private LanTransport? _lan;
 #if TICKHAPPENS_EOS
     private EosTransport? _transport;
@@ -52,7 +51,7 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
     private bool _sendResumeSnapshot;
     private long? _lastSnapshotAt;
     private int _lastMeasuredSnapshotTick;
-    private double _snapshotInterval, _snapshotJitter;
+    private double _snapshotInterval, _snapshotJitter, _snapshotSpan;
     private float _correction;
     private bool _relay;
     private Vector2 _viewCorrection;
@@ -90,18 +89,10 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
     public int? PlayerHero(int slot) => _session?.Profile(slot)?.Hero;
     public string PlayerName(int slot) => _session?.Profile(slot)?.Nickname is { Length: > 0 } name
         ? name : Localizer.Format("online.player", slot + 1);
+    /// <summary>Round trip between that player and the host; the host has none.</summary>
     public int? Ping(int slot) => _session?.Ping(slot);
-    public int? LocalPing
-    {
-        get
-        {
-            if (!IsHost) return Ping(0);
-            int? highest = null;
-            for (int slot = 1; slot < CoopSession.MaxPlayers; slot++)
-                if (Ping(slot) is int ping && ping > (highest ?? -1)) highest = ping;
-            return highest;
-        }
-    }
+    /// <summary>This player's own round trip to the host; null on the host.</summary>
+    public int? LocalPing => !IsHost && LocalSlot is int slot ? Ping(slot) : null;
     public Vector2 ViewCorrection => _viewCorrection;
 
     public void SetPaused(bool paused) => _session?.SetPaused(paused);
@@ -117,7 +108,16 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
     public bool Playing => _started && World is not null;
     public float Alpha => Interrupted || World?.Phase == RunPhase.Dead
         ? 1
-        : Math.Clamp((float)(_accumulator / (RunWorld.Dt * (IsHost ? 1 : SnapshotTicks))), 0, 1);
+        : Math.Clamp((float)(_accumulator / (IsHost ? RunWorld.Dt : InterpolationSeconds)), 0, 1);
+
+    // Guests move remote entities from where they are drawn to the newest snapshot over the measured snapshot
+    // interval plus its jitter. A late or lost snapshot then slows the motion instead of stopping it and making
+    // up the distance at double speed when the next one arrives.
+    private double InterpolationSeconds => Math.Clamp(
+        (_snapshotSpan + _snapshotJitter) / 1000, RunWorld.Dt * SnapshotTicks, MaxInterpolationSeconds);
+    private const double MaxInterpolationSeconds = 0.3;
+    // Larger prediction errors snap: blending them would show the hero sliding through the world.
+    private const float MaxBlendedCorrection = 96;
     public float LocalAlpha => IsHost || Interrupted || World?.Phase == RunPhase.Dead
         ? Alpha
         : Math.Clamp((float)(_inputTime / RunWorld.Dt), 0, 1);
@@ -274,9 +274,15 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
         session.LatencySample += LogLatency;
         if (session.IsHost)
         {
-            session.PeerJoined += slot => World?.SetPlayerActive(slot, true);
+            session.PeerJoined += slot =>
+            {
+                _guestInputs[slot].Reset();
+                World?.SetPlayerActive(slot, true);
+            };
             session.PeerResumed += slot =>
             {
+                // A resumed guest opens a new session and numbers its inputs from 1 again.
+                _guestInputs[slot].Reset();
                 if (World is null) return;
                 World.RestoreCoopPlayer(slot);
                 _sendResumeSnapshot = true;
@@ -284,20 +290,13 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
             session.PeerLeft += slot =>
             {
                 _inputs[slot] = default;
-                _receivedInputSequence[slot] = 0;
+                _guestInputs[slot].Reset();
                 World?.SetPlayerActive(slot, false);
             };
             session.InputReceived += (slot, sequence, input) =>
             {
                 if (World is null || World.Phase == RunPhase.Dead) return;
-                _inputs[slot] = input with
-                {
-                    Dash = _inputs[slot].Dash || input.Dash,
-                    ChestChoice = input.ChestChoice != 0 ? input.ChestChoice : _inputs[slot].ChestChoice,
-                    OpenChest = input.OpenChest || _inputs[slot].OpenChest,
-                };
-                _lastInput[slot] = World.Tick;
-                _receivedInputSequence[slot] = sequence;
+                _guestInputs[slot].Enqueue(sequence, input);
             };
             Status = Localizer.Get("online.waitingPlayers");
         }
@@ -336,10 +335,11 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
 
                 int firstPending = Math.Max(world.Player.LastAppliedInput + 1, _lastSubmittedInput - InputHistoryLength + 1);
                 for (int sequence = firstPending; sequence <= _lastSubmittedInput; sequence++)
-                    world.PredictLocalMovement(_inputHistory[sequence % InputHistoryLength]);
+                    world.PredictLocalMovement(_inputHistory[sequence % InputHistoryLength], sequence);
                 Vector2 corrected = Vector2.Lerp(world.Player.Prev, world.Player.Pos, LocalAlpha);
                 Vector2 offset = previous - corrected;
-                _viewCorrection = running && offset.LengthSquared() < 48 * 48 ? offset : Vector2.Zero;
+                _viewCorrection = running && offset.LengthSquared() < MaxBlendedCorrection * MaxBlendedCorrection
+                    ? offset : Vector2.Zero;
                 if (running) _correction = Math.Max(_correction, offset.Length());
                 MeasureSnapshot(world.Tick);
             }
@@ -482,13 +482,14 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
                 int nextEvent = World!.Events.Count;
                 while (_accumulator + 1e-8 >= RunWorld.Dt)
                 {
+                    // Each guest input is applied on exactly one tick, as the guest's prediction assumes.
                     for (int slot = 1; slot < _inputs.Length; slot++)
                     {
-                        if (World.Tick - _lastInput[slot] > RunWorld.TicksPerSecond / 3) _inputs[slot] = default;
-                        World.Players[slot].LastAppliedInput = _receivedInputSequence[slot];
+                        _inputs[slot] = _guestInputs[slot].Next();
+                        World.Players[slot].LastAppliedInput = _guestInputs[slot].Applied;
                     }
                     World.StepCoop(_inputs);
-                    for (int slot = 0; slot < _inputs.Length; slot++) _inputs[slot] = _inputs[slot] with { Dash = false, ChestChoice = 0, OpenChest = false };
+                    _inputs[0] = _inputs[0] with { Dash = false, ChestChoice = 0, OpenChest = false };
                     bool ended = World.Phase == RunPhase.Dead;
                     if (ended || _sendResumeSnapshot || World.Tick % SnapshotTicks == 0)
                     {
@@ -520,7 +521,7 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
                     {
                         _lastSubmittedInput = sequence;
                         _inputHistory[sequence % InputHistoryLength] = sample;
-                        World!.PredictLocalMovement(sample);
+                        World!.PredictLocalMovement(sample, sequence);
                     }
                     _dashQueued = _openChestQueued = false;
                     _chestChoiceQueued = 0;
@@ -542,6 +543,9 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
             _snapshotInterval = Stopwatch.GetElapsedTime(previous, now).TotalMilliseconds;
             double expected = (tick - _lastMeasuredSnapshotTick) * 1000d / RunWorld.TicksPerSecond;
             _snapshotJitter += (Math.Abs(_snapshotInterval - expected) - _snapshotJitter) / 4;
+            // Per expected snapshot step, so a lost snapshot does not double the estimate.
+            double perStep = _snapshotInterval * SnapshotTicks / Math.Max(1, tick - _lastMeasuredSnapshotTick);
+            _snapshotSpan += (perStep - _snapshotSpan) / 8;
         }
         _lastMeasuredSnapshotTick = tick;
         _lastSnapshotAt = now;
@@ -634,14 +638,14 @@ internal sealed class OnlineGame(ContentSet content, int lanPort = LanTransport.
         _viewCorrection = Vector2.Zero;
         _lastSnapshotAt = null;
         _snapshotInterval = _snapshotJitter = _correction = 0;
+        _snapshotSpan = SnapshotTicks * 1000d / RunWorld.TicksPerSecond;
         _dashQueued = _openChestQueued = _sendResumeSnapshot = false;
         _accumulator = _inputTime = _resultsTime = 0;
         _lastSubmittedInput = _baselineBytes = 0;
         _baselineTick = -1;
         _chestChoiceQueued = 0;
         Array.Clear(_inputs);
-        Array.Clear(_lastInput);
-        Array.Clear(_receivedInputSequence);
+        foreach (var buffer in _guestInputs) buffer.Reset();
     }
 
     private void SetError(Exception error)

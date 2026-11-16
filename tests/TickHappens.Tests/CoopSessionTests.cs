@@ -374,6 +374,38 @@ public sealed class CoopSessionTests
         Assert.Null(host.Ping(1));
     }
 
+    [Fact]
+    public void EachPlayerSeesTheirOwnPingAndTheHostHasNone()
+    {
+        var clock = new ManualClock();
+        var wire = new Loopback();
+        using var host = new CoopSession(wire.Connect("host"), Digest, clock: clock);
+        using var first = new CoopSession(wire.Connect("first"), Digest, "host", clock);
+        using var second = new CoopSession(wire.Connect("second"), Digest, "host", clock);
+        first.Join();
+        second.Join();
+        wire.Flush();
+
+        // The host's pings to both guests come back after one second.
+        clock.Seconds = 1;
+        host.Poll();
+        clock.Seconds = 2;
+        wire.Flush();
+        // The first guest's own ping to the host takes three seconds.
+        first.Poll();
+        clock.Seconds = 5;
+        wire.Flush();
+        // The host shares its table; the pongs in this flush arrive at once and pull the host's values down.
+        host.Poll();
+        wire.Flush();
+
+        Assert.Null(host.Ping(0));
+        Assert.Equal(750, host.Ping(1));
+        Assert.Null(first.Ping(0));
+        Assert.Equal(3000, first.Ping(1));
+        Assert.Equal(1000, first.Ping(2));
+    }
+
     private sealed class ManualClock : TimeProvider
     {
         public int Seconds { get; set; }

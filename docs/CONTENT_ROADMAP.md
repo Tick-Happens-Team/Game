@@ -14,7 +14,7 @@ Status markers follow the main [roadmap](../ROADMAP.md): `[x]` verified, `[ ]` p
 - **Damage types:** `physical`, `magical` and `pure` are supported. Physical and magical damage use the corresponding defences, while pure damage bypasses them.
 - **VFX:** explosion, impact, slash, lightning, sparkle, pickup, and GPU particles.
 
-Milestone M1 is playable: stat model v2 (S0), hero basic attack (S1), the damage pipeline with types and percentage defences (S2), chest loot by rarity with stacking items (S13), six C1 heroes with sprites and the character select screen. The item catalog implements all 63 sheet entries. The five cursed rewards are wired to bosses and drop once per defeated boss. Each boss also leaves a free, one-use chest. The playable roster uses the hero sheet’s base stats and growth.
+Milestone M1 is playable: stat model v2 (S0), hero basic attack (S1), the damage pipeline with types and percentage defences (S2), chest loot by rarity with stacking items (S13), six C1 heroes with sprites and the character select screen. The item catalog implements all 65 sheet entries. The five cursed rewards are wired to bosses and drop once per defeated boss. Each boss also leaves a free, one-use chest. The playable roster uses the hero sheet’s base stats and growth.
 
 ## 2. Engine systems
 
@@ -113,7 +113,7 @@ The heroes use these defaults where the sheet leaves values open. Diver gains on
 
 ## 5. Items ordered by ease
 
-There are 63 items: 58 in the chest rarity pool and five cursed boss drops. The chest rolls use 58% common, 25% rare, 10% epic, 5% mythic, and 2% legendary as rarity weights. Each chest offers two distinct items while the run continues. Press 1 or 2 within 10 seconds. The first option is granted on timeout. Heart of the Gold Vein adds key 3 and a third item to every second chest opened while held. A damage type of «—» means the item deals no damage.
+There are 65 items: 60 in the chest rarity pool and five cursed boss drops. The chest rolls use 58% common, 25% rare, 10% epic, 5% mythic, and 2% legendary as rarity weights. Each chest offers two distinct items while the run continues. Press 1 or 2 within 10 seconds. The first option is granted on timeout. Heart of the Gold Vein adds key 3 and a third item to every second chest opened while held. A damage type of «—» means the item deals no damage.
 
 Values the sheet leaves open use tunable defaults in `items.json`. Jetpack increases dash distance and duration by 75%. Wooden Stick pulses every 5 s, Magic Projectile fires every 3 s, and Poor Man's Shield refreshes every 12 s. Sword reaches 75, Fan 150, and Leader's Heart 250. Cane checks its chance on a basic attack once its cooldown is ready. Repeated summons have per-item caps and a shared 64-entity simulation cap.
 
@@ -204,6 +204,8 @@ Values the sheet leaves open use tunable defaults in `items.json`. Jetpack incre
 | Dumbbell | Epic | +50 HP to allies and +25 HP to summons within 150 | aura | [x] |
 | Шипастые ботинки | Mythic | +30 attack speed to allies within 300; 9% chance to redirect a physical hit above 35 to its source | aura plus reflect (S9) | [x] |
 | Dominator Helm | Legendary | +10% armor to allies within 400 and 15% chance to block a physical hit on an ally; applies to all allies | aura plus block (S9) | [x] |
+| Hookah | Epic | +10 percentage points of magic resistance for the owner, allies and summons within 200 | aura with locally rendered mist | [x] |
+| Archmage's Cloak | Rare | +8 percentage points of magic resistance | stat modifier | [x] |
 
 ### Tier I7: cursed boss drops (E6, S13)
 
@@ -215,7 +217,7 @@ Values the sheet leaves open use tunable defaults in `items.json`. Jetpack incre
 | Разбитые часы | Хранитель времени | every 11 s resets one item that is on cooldown | periodic cooldown reset (S5) | [~] |
 | Сердце Пожирателя | Пожиратель | below 15% HP, devours a random non-boss enemy and restores 20% of max HP; 35 s cooldown | HP threshold trigger, filtered execute, and heal (S4–S6) | [~] |
 
-**Coverage:** 6 + 12 + 13 + 10 + 7 + 10 + 5 = 63 items.
+**Coverage:** 60 chest items and five cursed rewards.
 
 ## 6. Enemies ordered by ease
 
@@ -254,7 +256,7 @@ The owner's roster has 24 enemies: 10 normal, 9 elite, 5 bosses. They replace th
 | Rot | normal | 80 | 8 | physical | 10 | 15 | 0% | 0% | 10 | 5% | slow melee chaser; on death leaves a rot cloud for 4 s (radius 200 sheet units, 15 magical dps) | [x] |
 | Kamikaze | normal | 50 | 50 | magical | 25 | — | 0% | 0% | 7 | 0% | winds up within 22 px of the player and self-destructs; its death explosion damages players and enemies within 55 px | [x] |
 | Screamer | normal | 75 | — | — | 25 | — | 0% | 0% | 10 | 0% | screams from behind the horde; if alive after 10 s, buffs all existing enemies by +50 HP and +5 Move speed | [~] |
-| Siphoner | normal | 100 | 5 | magical | 20 | drains 15 HP/s | 5% | 5% | 20 | 0% | drains the player's HP from range and turns it into its own max HP | [~] |
+| Siphoner | normal | 25 | 0 | magical | 7 | drains 2 HP/s | 5% | 5% | 20 | 0% | drains the player's HP within 135 px and converts actual damage dealt into its own max HP | [x] |
 
 ### Tier E3: ranged and special movement (E1, E3, E5)
 
@@ -343,5 +345,4 @@ Art for every character, enemy and summon goes through recipes (`art-recipe` ski
 5. **Boss schedule.** Every five run-clock minutes, in roster order. The five bosses debut individually. Subsequent rounds repeat the order in pairs.
 6. **XP target.** What level should a typical 15-minute run reach? Enemy XP is now 7–500 per kill.
 7. **Gold.** Each successful enemy gold drop adds one coin per completed run-clock minute to its base amount.
-8. **Siphoner.** What is the range of its drain?
 9. **Сердце золотой жилы.** Standard chests offer two items while movement continues. With the heart, every second chest offers three.

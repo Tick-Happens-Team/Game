@@ -14,7 +14,7 @@ public sealed class ContentLoaderTests
         var content = TestContent.LoadCore();
 
         Assert.Equal(CharacterIds.Length, content.Characters.Count);
-        Assert.Equal(63, content.Items.Count);
+        Assert.Equal(65, content.Items.Count);
         Assert.Equal(new[] { "gloombat", "amberslime", "duskslime", "rot", "spark", "kamikaze",
             "jumper", "witch", "guardian", "butcher", "siphoner", "skeleton_swordsman", "screamer",
             "dark_mage", "ninja", "she_wolf", "devourer", "timekeeper", "phantom", "thief", "prospector",
@@ -33,6 +33,14 @@ public sealed class ContentLoaderTests
                 Assert.True(content.EnemyIndex(enemy) >= 0,
                     $"wave {wave.From}-{wave.To} mixes unknown enemy '{enemy}'");
         }
+
+        var spawnable = content.Waves.Waves.Where(wave => wave.PerSecond > 0)
+            .SelectMany(wave => wave.Mix.Where(entry => entry.Value > 0).Select(entry => entry.Key))
+            .Concat(content.Waves.Elites.Where(elite => elite.Count > 0).Select(elite => elite.Enemy))
+            .Concat(content.Enemies.Where(enemy => enemy.Boss && content.Waves.BossIntervalMinutes > 0).Select(enemy => enemy.Id))
+            .ToHashSet();
+        foreach (var enemy in content.Enemies.Where(enemy => enemy.Id is not ("phantom_illusion" or "gold_vein")))
+            Assert.Contains(enemy.Id, spawnable);
 
         foreach (var elite in content.Waves.Elites)
             Assert.True(content.EnemyIndex(elite.Enemy) >= 0,
@@ -84,21 +92,21 @@ public sealed class ContentLoaderTests
 
         var nekochan = Character(content, "nekochan");
         Assert.Equal(135f, nekochan.Stats.MaxHp);
-        Assert.Equal(3.25f, nekochan.Stats.MaxHpPerLevel);
+        Assert.Equal(3f, nekochan.Stats.MaxHpPerLevel);
         Assert.Equal(0.45f, nekochan.Stats.Regen);
-        Assert.Equal(35f, nekochan.Stats.MoveSpeed);
+        Assert.Equal(38f, nekochan.Stats.MoveSpeed);
         Assert.Equal(35f, nekochan.Stats.AttackSpeed);
         Assert.Equal(0.025f, nekochan.Stats.Armor);
         Assert.Equal(0.05f, nekochan.Stats.MagicResist);
-        Assert.Equal(16f, nekochan.Stats.Damage);
-        Assert.Equal(2.25f, nekochan.Stats.DamagePerLevel);
+        Assert.Equal(15f, nekochan.Stats.Damage);
+        Assert.Equal(2f, nekochan.Stats.DamagePerLevel);
         var aura = Assert.IsType<CharacterAura>(nekochan.Aura);
         Assert.Equal(175f, aura.Radius);
         Assert.Equal(1.5f, aura.RadiusPerLevel);
         Assert.Equal(0.10f, aura.DamageReduction);
         Assert.Equal(0.0035f, aura.DamageReductionPerLevel);
-        Assert.Equal(1.5f, aura.Regen);
-        Assert.Equal(0.3f, aura.RegenPerLevel);
+        Assert.Equal(1.75f, aura.Regen);
+        Assert.Equal(0.35f, aura.RegenPerLevel);
         Assert.Equal(1.75f, aura.SelfMultiplier);
     }
 

@@ -150,7 +150,7 @@ public sealed partial class RunWorld
             case "siphoner":
                 if (range < 135 && AbilityReady(ref state.Ready, 0.2f))
                 {
-                    float drain = HurtPlayer(player, 1, DamageKind.Magical, pos.X, pos.Y, slot, continuous: true);
+                    float drain = HurtPlayer(player, def.SiphonDps * 0.2f, DamageKind.Magical, pos.X, pos.Y, slot, continuous: true);
                     EMaxHp[slot] += drain;
                     HealEnemy(slot, drain);
                     if (drain > 0)

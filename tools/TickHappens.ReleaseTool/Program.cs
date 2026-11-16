@@ -20,9 +20,16 @@ try
         case ["pack", var kind, var version, var commit, var source, var zipPath, var url]:
             Pack(kind, version, commit, source, zipPath, url);
             return 0;
-        case ["channel", var sequence, var minimum, var game, var assets, var launcher, var publicKey, var output, .. var rest]
-            when rest.Length <= 1:
+        case ["channel", var sequence, var minimum, var game, var assets, var launcher, var publicKey, var output, .. var rest]:
         {
+            string? notesDirectory = null;
+            var previous = new List<string>();
+            for (int i = 0; i < rest.Length; i++)
+            {
+                if (rest[i] == "--previous" && i + 1 < rest.Length) previous.Add(rest[++i]);
+                else if (notesDirectory is null && !rest[i].StartsWith("--", StringComparison.Ordinal)) notesDirectory = rest[i];
+                else throw new ArgumentException("Unexpected channel argument: " + rest[i]);
+            }
             string key = Environment.GetEnvironmentVariable("TICKHAPPENS_RELEASE_PRIVATE_KEY")
                 ?? throw new InvalidOperationException("Set TICKHAPPENS_RELEASE_PRIVATE_KEY to the private PEM.");
             var manifest = new ChannelManifest
@@ -34,8 +41,10 @@ try
                 Assets = ReadReference(assets),
                 Launcher = new() { ["win-x64"] = ReadReference(launcher) },
             };
-            if (rest.Length == 1 && ReadNotes(rest[0]) is { } notes)
+            if (notesDirectory is not null && ReadNotes(notesDirectory) is { } notes)
                 foreach (var (language, text) in notes) manifest.SetNotes(language, text);
+            if (previous.Count != 0)
+                manifest.CarryHistory(previous.Select(path => ReadPrevious(path, File.ReadAllText(publicKey))));
             if (manifest.Sequence < 1 || SemVer.Parse(manifest.Launcher["win-x64"].Version) < SemVer.Parse(minimum))
                 throw new InvalidDataException("Invalid release sequence or launcher minimum.");
             string json = manifest.ToJson();
@@ -51,8 +60,10 @@ try
     Console.Error.WriteLine("""
         keygen PRIVATE.pem PUBLIC.pem
         pack game|assets|launcher VERSION COMMIT SOURCE ZIP URL
-        channel SEQUENCE MIN_LAUNCHER GAME.zip.json ASSETS.zip.json LAUNCHER.zip.json PUBLIC.pem channel.json [NOTES_DIR]
+        channel SEQUENCE MIN_LAUNCHER GAME.zip.json ASSETS.zip.json LAUNCHER.zip.json PUBLIC.pem channel.json [NOTES_DIR] [--previous PREVIOUS.json]...
           NOTES_DIR holds <language>.json patch notes (en.json, ru.json); see patchnotes/README.md.
+          PREVIOUS.json is an earlier release's channel.json with its .sig beside it; repeat it for every published release
+          so the version history includes releases from before manifests carried one.
         notes NOTES_DIR OUTPUT.md
         """);
     return 2;
@@ -153,6 +164,16 @@ static Dictionary<string, string> Strings(string language)
 {
     using var stream = typeof(TickHappens.Localization.Localizer).Assembly.GetManifestResourceStream(language + ".json");
     return stream is null ? [] : System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(stream) ?? [];
+}
+
+// The previous release must carry a valid signature from the same key, so the history cannot be forged in CI.
+static ChannelManifest ReadPrevious(string path, string publicKey)
+{
+    string json = File.ReadAllText(path, Encoding.UTF8);
+    string signature = File.ReadAllText(path + ".sig").Trim();
+    if (!ManifestSigner.Verify(Encoding.UTF8.GetBytes(json), signature, [publicKey]))
+        throw new InvalidDataException("The previous channel.json signature is invalid.");
+    return ChannelManifest.FromJson(json);
 }
 
 static PackageRef ReadReference(string path) =>

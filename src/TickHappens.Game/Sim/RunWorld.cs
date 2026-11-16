@@ -310,10 +310,18 @@ public sealed partial class RunWorld
     }
 
     // ---------------------------------------------------------------- player
-    internal void PredictLocalMovement(RunInput input)
+    /// <summary>
+    /// Moves the local hero of a replica ahead of the host. With the input's <paramref name="sequence"/> the step runs
+    /// at the host tick that will apply it (the snapshot tick plus the inputs after the acknowledged one), so slows
+    /// and roots end on the same tick on both sides.
+    /// </summary>
+    internal void PredictLocalMovement(RunInput input, int sequence = 0)
     {
-        if (_replicaTick >= 0 && Phase == RunPhase.Playing && Player.Active && Player.Hp > 0)
-            StepPlayer(Player, input, predict: true);
+        if (_replicaTick < 0 || Phase != RunPhase.Playing || !Player.Active || Player.Hp <= 0) return;
+        int snapshotTick = Tick;
+        if (sequence > Player.LastAppliedInput) Tick = snapshotTick + (sequence - Player.LastAppliedInput);
+        try { StepPlayer(Player, input, predict: true); }
+        finally { Tick = snapshotTick; }
     }
 
     private static float MovementSpeed(PlayerState player) => player.Character.Id == "diver"
@@ -429,7 +437,7 @@ public sealed partial class RunWorld
         dmg -= bonusAbsorbed;
         float absorbed = Math.Min(dmg, p.Shield);
         p.Shield -= absorbed;
-        p.ShieldRechargeTick = Tick + 6 * TicksPerSecond;
+        p.ShieldRechargeTick = Tick + 4 * TicksPerSecond;
         dmg = Math.Min(p.Hp, dmg - absorbed);
         p.Hp -= dmg;
         if (!continuous) p.InvulnTicks = (int)MathF.Round(Rules.InvulnerableSeconds * TicksPerSecond);

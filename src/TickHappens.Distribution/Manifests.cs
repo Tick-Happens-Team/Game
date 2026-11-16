@@ -116,26 +116,86 @@ public sealed class ChannelManifest
     /// </summary>
     [JsonPropertyName("notes")] public Dictionary<string, JsonElement>? Notes { get; set; }
 
+    /// <summary>
+    /// Earlier releases of this channel, newest first, carried forward by the release tool from the previous signed
+    /// manifest so the launcher can show the version history without another download.
+    /// </summary>
+    [JsonPropertyName("history")] public List<ReleaseHistoryEntry>? History { get; set; }
+
+    /// <summary>Releases kept in <see cref="History"/>, and the most bytes of notes they may carry.</summary>
+    public const int MaxHistory = 200, MaxHistoryNotesBytes = 1 << 20;
+
     public void SetNotes(string language, PatchNotes notes) =>
         (Notes ??= [])[language] = JsonSerializer.SerializeToElement(notes, PatchNotes.Json);
 
     /// <summary>Notes for a language, falling back to English and then to any language; null when there are none or they are unreadable.</summary>
-    public PatchNotes? NotesFor(string language)
+    public PatchNotes? NotesFor(string language) => PatchNotes.Pick(Notes, language);
+
+    /// <summary>This release as a history entry.</summary>
+    public ReleaseHistoryEntry ToHistoryEntry() => new()
     {
-        if (Notes is null || Notes.Count == 0) return null;
-        var raw = Notes.TryGetValue(language, out var own) ? own : Notes.TryGetValue("en", out var english) ? english : Notes.Values.First();
-        try
+        Sequence = Sequence, Published = Published, Notes = Notes,
+        Version = Game.TryGetValue("win-x64", out var game) ? game.Version : Game.Values.FirstOrDefault()?.Version ?? "",
+    };
+
+    /// <summary>
+    /// Sets <see cref="History"/> from earlier signed releases and the histories they carry: only lower sequences,
+    /// newest first, one entry per sequence (a release's own manifest wins over a copy carried by a later one), at most
+    /// <see cref="MaxHistory"/> entries. Older entries lose their notes once the notes budget is spent, so the manifest
+    /// stays small while the version list stays complete. Passing every published release backfills releases that
+    /// were published before manifests carried a history.
+    /// </summary>
+    public void CarryHistory(params IEnumerable<ChannelManifest> previous)
+    {
+        var releases = previous.ToList();
+        if (releases.Any(release => release.Sequence >= Sequence))
+            throw new InvalidDataException("Earlier releases must have a lower sequence.");
+        var bySequence = new Dictionary<long, ReleaseHistoryEntry>();
+        foreach (var entry in releases.Select(release => release.ToHistoryEntry())
+            .Concat(releases.SelectMany(release => release.History ?? [])))
+            if (entry.Sequence >= 1 && entry.Sequence < Sequence) bySequence.TryAdd(entry.Sequence, entry);
+        var history = new List<ReleaseHistoryEntry>();
+        long budget = MaxHistoryNotesBytes;
+        foreach (var entry in bySequence.Values.OrderByDescending(entry => entry.Sequence).Take(MaxHistory))
         {
-            var notes = raw.Deserialize<PatchNotes>(PatchNotes.Json);
-            notes?.Validate();
-            return notes;
+            var kept = new ReleaseHistoryEntry { Sequence = entry.Sequence, Version = entry.Version, Published = entry.Published, Notes = entry.Notes };
+            if (kept.Notes is { Count: > 0 } notes)
+            {
+                long size = JsonSerializer.SerializeToUtf8Bytes(notes, PackageManifest.Json).LongLength;
+                if (size > budget) kept.Notes = null;
+                else budget -= size;
+            }
+            history.Add(kept);
         }
-        catch (Exception error) when (error is JsonException or InvalidDataException or InvalidOperationException) { return null; }
+        History = history.Count == 0 ? null : history;
+    }
+
+    /// <summary>This release and its history, newest first, ignoring entries that are not older than this release.</summary>
+    public List<ReleaseHistoryEntry> Versions()
+    {
+        var versions = new List<ReleaseHistoryEntry> { ToHistoryEntry() };
+        var seen = new HashSet<long> { Sequence };
+        foreach (var entry in History ?? [])
+            if (entry.Sequence < Sequence && entry.Sequence >= 1 && seen.Add(entry.Sequence)) versions.Add(entry);
+        versions.Sort((a, b) => b.Sequence.CompareTo(a.Sequence));
+        return versions;
     }
 
     public static ChannelManifest FromJson(string json) =>
         JsonSerializer.Deserialize<ChannelManifest>(json, PackageManifest.Json) ?? throw new InvalidDataException("empty channel manifest");
     public string ToJson() => JsonSerializer.Serialize(this, PackageManifest.Json);
+}
+
+/// <summary>One earlier release in a channel's version history: its game version, date and patch notes.</summary>
+public sealed class ReleaseHistoryEntry
+{
+    [JsonPropertyName("sequence")] public long Sequence { get; set; }
+    [JsonPropertyName("version")] public string Version { get; set; } = "";
+    [JsonPropertyName("published")] public DateTimeOffset Published { get; set; }
+    /// <summary>Patch notes by language code as raw JSON, like <see cref="ChannelManifest.Notes"/>.</summary>
+    [JsonPropertyName("notes")] public Dictionary<string, JsonElement>? Notes { get; set; }
+
+    public PatchNotes? NotesFor(string language) => PatchNotes.Pick(Notes, language);
 }
 
 /// <summary>Points at a package archive and its manifest by URL and hash.</summary>

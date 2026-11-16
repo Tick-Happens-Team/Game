@@ -1,16 +1,20 @@
 {
   "general": [
     {
-      "text": "The launcher fills a maximized window and keeps pixels sharp",
+      "text": "Fixed character rubber-banding in co-op: the host applies every input exactly once, and packet loss no longer eats a dash",
+      "change": "fix",
+      "details": [
+        "Slows and roots end on the same tick for the host and the player",
+        "Other players and enemies move smoothly even when snapshots arrive late"
+      ]
+    },
+    {
+      "text": "Co-op rooms show the right ping: everyone sees their own round trip to the host",
       "change": "fix"
     },
     {
-      "text": "Idle animation: hero bodies, heads, arms and weapons now move together",
-      "change": "fix"
-    },
-    {
-      "text": "Tall heroes no longer stick out of their row on the hero select list",
-      "change": "fix"
+      "text": "The launcher has a version history: the Patch notes page opens the changes of any earlier release",
+      "change": "new"
     },
     {
       "text": "Co-op only works between players on the same version: update before playing together"
@@ -19,93 +23,25 @@
   "sections": [
     {
       "kind": "hero",
-      "id": "octarine",
-      "changes": [
-        {
-          "text": "Octarine is now the Florist: a strange fellow made of flowers with a rose growing from his head",
-          "change": "rework"
-        }
-      ]
-    },
-    {
-      "kind": "hero",
-      "id": "swordsman",
-      "changes": [
-        {
-          "text": "Block chance per level increased from 0.5 to 0.65 percentage points",
-          "change": "buff"
-        }
-      ]
-    },
-    {
-      "kind": "hero",
-      "id": "smith",
-      "changes": [
-        {
-          "text": "Item damage per level increased from 0.25% to 0.35%",
-          "change": "buff"
-        }
-      ]
-    },
-    {
-      "kind": "hero",
-      "id": "goflin",
-      "changes": [
-        {
-          "text": "Base damage increased from 5 to 8",
-          "change": "buff"
-        },
-        {
-          "text": "Gold bonus increased from 20% to 25%",
-          "change": "buff"
-        },
-        {
-          "text": "Each coin in the wallet adds 0.1 damage",
-          "change": "new"
-        }
-      ]
-    },
-    {
-      "kind": "hero",
-      "id": "celestial_mage",
-      "changes": [
-        {
-          "text": "Base HP increased from 185 to 200",
-          "change": "buff"
-        },
-        {
-          "text": "HP penalty reduced from 60% to 50%",
-          "change": "buff"
-        }
-      ]
-    },
-    {
-      "kind": "hero",
       "id": "nekochan",
       "changes": [
+        { "text": "Move speed increased from 35 to 38", "change": "buff" },
+        { "text": "Base damage reduced from 16 to 15", "change": "nerf" },
+        { "text": "Damage per level reduced from 2.25 to 2", "change": "nerf" },
+        { "text": "Health per level reduced from 3.25 to 3", "change": "nerf" }
+      ],
+      "groups": [
         {
-          "text": "Regeneration increased from 0.25 to 0.45 HP/s",
-          "change": "buff"
-        },
-        {
-          "text": "Magic resist increased from 2.5% to 5%",
-          "change": "buff"
-        },
-        {
-          "text": "Damage increased from 15 to 16",
-          "change": "buff"
-        },
-        {
-          "text": "Aura damage reduction increased from 7% to 10%",
-          "change": "buff"
-        },
-        {
-          "text": "Aura regeneration per level increased from 0.25 to 0.3 HP/s",
-          "change": "buff"
-        },
-        {
-          "text": "Neko-chan's own bonus multiplier increased from x1.5 to x1.75",
-          "change": "buff"
+          "title": "Passive",
+          "entries": [
+            {
+              "name": "Aura",
+              "changes": [
+                { "text": "Ally regeneration increased from 1.5 to 1.75 HP/s", "change": "buff" },
+                { "text": "Regeneration per level increased from 0.3 to 0.35 HP/s", "change": "buff" }
+              ]
+            }
+          ]
         }
       ]
     },
@@ -113,196 +49,233 @@
       "kind": "hero",
       "id": "pig",
       "changes": [
-        {
-          "text": "New look: the Boar walks upright on its hind hooves, and its red horns catch fire while the speed bonus is active",
-          "change": "rework"
-        },
-        {
-          "text": "Regeneration reduced from 3 to 2.5 HP/s",
-          "change": "nerf"
-        },
-        {
-          "text": "Armor reduced from 5.5% to 5%",
-          "change": "nerf"
-        },
-        {
-          "text": "Damage per level increased from 2.5 to 5.5",
-          "change": "buff"
-        },
-        {
-          "text": "Ghost form per level increased from 0.1 to 0.2 s",
-          "change": "buff"
-        }
+        { "text": "Base damage increased from 5 to 7", "change": "buff" },
+        { "text": "Health reduced from 200 to 175", "change": "nerf" },
+        { "text": "Damage per level reduced from 5.5 to 5.25", "change": "nerf" }
       ]
     },
     {
-      "kind": "hero",
-      "id": "miner",
+      "kind": "item",
+      "id": "hookah",
       "changes": [
         {
-          "text": "HP reduced from 300 to 285",
-          "change": "nerf"
-        },
-        {
-          "text": "HP per level increased from 3 to 3.25",
-          "change": "buff"
-        },
-        {
-          "text": "Armor increased from 10% to 15%",
-          "change": "buff"
-        },
-        {
-          "text": "Magic resist increased from 5% to 10%",
-          "change": "buff"
-        },
-        {
-          "text": "Damage increased from 10 to 12",
-          "change": "buff"
-        },
-        {
-          "text": "Blast damage increased from 10 to 15",
-          "change": "buff"
-        },
-        {
-          "text": "Blast radius per level reduced from 2.5 to 2.25",
-          "change": "nerf"
-        }
-      ]
-    },
-    {
-      "kind": "hero",
-      "id": "necromancer",
-      "changes": [
-        {
-          "text": "Armor increased from 0% to 3%",
-          "change": "buff"
-        },
-        {
-          "text": "Damage per level increased from 1 to 1.1",
-          "change": "buff"
-        }
-      ]
-    },
-    {
-      "kind": "hero",
-      "id": "vampire",
-      "changes": [
-        {
-          "text": "HP per level reduced from 1.5 to 1.45",
-          "change": "nerf"
-        },
-        {
-          "text": "Magic resist increased from 0% to 5%",
-          "change": "buff"
-        },
-        {
-          "text": "Damage reduced from 18 to 17",
-          "change": "nerf"
-        },
-        {
-          "text": "Lifesteal increased from 3.5% to 3.65%",
-          "change": "buff"
-        }
-      ]
-    },
-    {
-      "kind": "hero",
-      "id": "puppeteer",
-      "changes": [
-        {
-          "text": "New look: a tall, gaunt man in a Victorian theatre costume with a wooden mask and long fingers",
-          "change": "rework"
-        }
-      ]
-    },
-    {
-      "kind": "hero",
-      "id": "masochist",
-      "changes": [
-        {
-          "text": "Regeneration increased from 0.25 to 0.35 HP/s",
-          "change": "buff"
-        },
-        {
-          "text": "Each percent of missing HP gives +0.1 HP/s and +0.5 move speed",
-          "change": "rework"
-        },
-        {
-          "text": "Maximum bonuses grow by 0.01 HP/s and 0.03 move speed per level",
-          "change": "rework"
-        }
-      ]
-    },
-    {
-      "kind": "hero",
-      "id": "diver",
-      "changes": [
-        {
-          "text": "Move speed reduced from 10 to 9",
-          "change": "nerf"
-        },
-        {
-          "text": "Damage reflection per level increased from 0.25 to 1 percentage point",
-          "change": "buff"
-        },
-        {
-          "text": "+1 HP/s regeneration per level",
+          "text": "New epic item: its mist gives the hero, allies and summons within 200 another 10 percentage points of magic resistance",
           "change": "new"
         }
       ]
     },
     {
-      "kind": "hero",
-      "id": "skater",
+      "kind": "item",
+      "id": "archmage_cloak",
       "changes": [
-        {
-          "text": "Fire trail lasts 5 s instead of 3",
-          "change": "buff"
-        },
-        {
-          "text": "Trail radius grows by 0.5 per level",
-          "change": "new"
-        }
+        { "text": "New rare item: another 8 percentage points of magic resistance", "change": "new" }
       ]
     },
     {
-      "kind": "hero",
-      "id": "illusionist",
+      "kind": "item",
+      "id": "fork",
       "changes": [
-        {
-          "text": "HP increased from 125 to 145",
-          "change": "buff"
-        },
-        {
-          "text": "Magic resist reduced from 15% to 10%",
-          "change": "nerf"
-        },
-        {
-          "text": "Damage increased from 12 to 13.25",
-          "change": "buff"
-        },
-        {
-          "text": "A copy appears every 16 s instead of 15",
-          "change": "nerf"
-        },
-        {
-          "text": "Copy damage increased from 25% to 30%",
-          "change": "buff"
-        },
-        {
-          "text": "Copy cooldown drops by 0.05 s per level",
-          "change": "new"
-        }
+        { "text": "Physical crit chance increased from 33 to 44 percentage points", "change": "buff" }
       ]
     },
     {
-      "kind": "hero",
-      "id": "king_arthur",
+      "kind": "item",
+      "id": "needle",
       "changes": [
-        {
-          "text": "Excalibur radius per level reduced from 5 to 3",
-          "change": "nerf"
-        }
+        { "text": "Crit damage reduced from 12% to 9%", "change": "nerf" }
+      ]
+    },
+    {
+      "kind": "item",
+      "id": "star_of_david",
+      "changes": [
+        { "text": "Gold refund reduced from 25% to 24%", "change": "nerf" }
+      ]
+    },
+    {
+      "kind": "item",
+      "id": "hyena_tooth",
+      "changes": [
+        { "text": "Experience increased from 100 to 120 per 3 minutes of run time", "change": "buff" }
+      ]
+    },
+    {
+      "kind": "item",
+      "id": "garlic",
+      "changes": [
+        { "text": "Enemy lifesteal is capped at 8% instead of 12%", "change": "buff" }
+      ]
+    },
+    {
+      "kind": "item",
+      "id": "nettle",
+      "changes": [
+        { "text": "Damage reflection increased from 16% to 18%", "change": "buff" }
+      ]
+    },
+    {
+      "kind": "item",
+      "id": "grandmas_compote",
+      "changes": [
+        { "text": "The shield recharges after 4 seconds without damage instead of 6", "change": "buff" }
+      ]
+    },
+    {
+      "kind": "item",
+      "id": "laser",
+      "changes": [
+        { "text": "Cooldown reduced from 9 to 8.5 seconds", "change": "buff" }
+      ]
+    },
+    {
+      "kind": "item",
+      "id": "galactic_rifle",
+      "changes": [
+        { "text": "Boss damage increased from 5% to 8% of their health", "change": "buff" }
+      ]
+    },
+    {
+      "kind": "item",
+      "id": "wooden_stick",
+      "changes": [
+        { "text": "Minimum damage increased from 25 to 29", "change": "buff" },
+        { "text": "Slow reduced from 14–55% to 10–25%", "change": "nerf" }
+      ]
+    },
+    {
+      "kind": "item",
+      "id": "satanic_bible",
+      "changes": [
+        { "text": "Chance to turn an enemy into a demon increased from 16% to 32%", "change": "buff" },
+        { "text": "The demon lives 6 seconds instead of 7", "change": "nerf" }
+      ]
+    },
+    {
+      "kind": "item",
+      "id": "garden_gnome",
+      "changes": [
+        { "text": "Gnome health reduced from 150 to 85", "change": "nerf" },
+        { "text": "Up to two gnomes per copy of the item instead of three", "change": "nerf" }
+      ]
+    },
+    {
+      "kind": "item",
+      "id": "bait",
+      "changes": [
+        { "text": "Boar health reduced from 125 to 85", "change": "nerf" }
+      ]
+    },
+    {
+      "kind": "item",
+      "id": "fpv_drone",
+      "changes": [
+        { "text": "The drone respawns after 8 seconds instead of 10", "change": "buff" }
+      ]
+    },
+    {
+      "kind": "item",
+      "id": "motivation_mask",
+      "changes": [
+        { "text": "Physical damage bonus increased from 7% to 10%", "change": "buff" },
+        { "text": "Radius reduced from 300 to 250", "change": "nerf" }
+      ]
+    },
+    {
+      "kind": "item",
+      "id": "poor_mans_shield",
+      "changes": [
+        { "text": "Shield increased from 50 to 65", "change": "buff" }
+      ]
+    },
+    {
+      "kind": "item",
+      "id": "vampire_hood",
+      "changes": [
+        { "text": "Radius reduced from 185 to 180", "change": "nerf" }
+      ]
+    },
+    {
+      "kind": "item",
+      "id": "fb_ring",
+      "changes": [
+        { "text": "Radius reduced from 225 to 215", "change": "nerf" }
+      ]
+    },
+    {
+      "kind": "item",
+      "id": "welding_mask",
+      "changes": [
+        { "text": "Vision cone widened from 50 to 51 degrees", "change": "buff" }
+      ]
+    },
+    {
+      "kind": "item",
+      "id": "magnet",
+      "changes": [
+        { "text": "Triggers every 40 seconds instead of 50", "change": "buff" }
+      ]
+    },
+    {
+      "kind": "item",
+      "id": "phantom_mask",
+      "changes": [
+        { "text": "The copy deals 35% damage instead of 25%", "change": "buff" }
+      ]
+    },
+    {
+      "kind": "item",
+      "id": "broken_clock",
+      "changes": [
+        { "text": "Resets a cooldown every 9 seconds instead of 11", "change": "buff" }
+      ]
+    },
+    {
+      "kind": "enemy",
+      "id": "siphoner",
+      "title": "Siphoner",
+      "changes": [
+        { "text": "Drains 2 health per second instead of 5", "change": "nerf" },
+        { "text": "Health reduced from 100 to 25", "change": "nerf" },
+        { "text": "Speed reduced from 20 to 7", "change": "nerf" }
+      ]
+    },
+    {
+      "kind": "enemy",
+      "id": "rot",
+      "title": "Rot",
+      "changes": [
+        { "text": "Health increased from 80 to 85", "change": "buff" },
+        { "text": "Lifesteal reduced from 5% to 3%", "change": "nerf" }
+      ]
+    },
+    {
+      "kind": "enemy",
+      "id": "skeleton_swordsman",
+      "title": "Skeleton Swordsman",
+      "changes": [
+        { "text": "Armor reduced from 85% to 75%", "change": "nerf" }
+      ]
+    },
+    {
+      "kind": "enemy",
+      "id": "butcher",
+      "title": "Butcher",
+      "changes": [
+        { "text": "Magic resistance reduced from 15% to 14%", "change": "nerf" }
+      ]
+    },
+    {
+      "kind": "enemy",
+      "id": "phantom",
+      "changes": [
+        { "text": "Lifesteal reduced from 25% to 20%", "change": "nerf" }
+      ]
+    },
+    {
+      "kind": "enemy",
+      "id": "ancient_cultist",
+      "changes": [
+        { "text": "Lifesteal reduced from 35% to 22%", "change": "nerf" }
       ]
     }
   ]

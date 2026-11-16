@@ -162,7 +162,7 @@ public static class ContentLoader
             foreach (var m in it.Mods) CheckStat(w, m.Stat);
             if (it.Effect is { } effect)
             {
-                if (effect.Kind is not ("armorAura" or "attackSpeedAura" or "healthAura" or "physicalAura" or
+                if (effect.Kind is not ("armorAura" or "magicResistAura" or "attackSpeedAura" or "healthAura" or "physicalAura" or
                     "lifestealAura" or "summonRegenAura" or "healShare" or "lowestHealthShield" or
                     "weldingBlock" or "rearSlow" or "poison" or "icicle" or "revive" or "extraChestChoice" or
                     "illusion" or "resetCooldown" or "magnetPulse" or "devour"))
@@ -170,6 +170,8 @@ public static class ContentLoader
                 if (effect.Value < 0 || effect.Secondary < 0 || effect.Chance is < 0 or > 1 ||
                     effect.Duration < 0 || effect.Radius < 0 || effect.Threshold < 0)
                     e.Add($"{w}: invalid effect parameters");
+                if (effect.Kind == "magicResistAura" && (effect.Value <= 0 || effect.Radius <= 0))
+                    e.Add($"{w}: magicResistAura needs positive value and radius");
                 if (effect.Kind == "magnetPulse" && effect.Duration <= 0)
                     e.Add($"{w}: magnetPulse needs a positive interval");
                 if (effect.Kind == "weldingBlock" && effect.Value is <= 0 or >= 360)
@@ -205,8 +207,8 @@ public static class ContentLoader
                     e.Add($"{w}: {wp.Kind} needs area > 0");
                 if (wp.Kind is "sustainedCone" or "dropped" && (wp.Duration <= 0 || wp.Duration >= wp.Cooldown))
                     e.Add($"{w}: {wp.Kind} needs a positive duration shorter than its cooldown");
-                if (wp.Kind is "wood" or "aura" && (wp.Slow is <= 0 or >= 1 || wp.MinDamage < 0 || wp.MinDamage > wp.Damage))
-                    e.Add($"{w}: {wp.Kind} needs slow in (0, 1) and minDamage between 0 and damage");
+                if (wp.Kind is "wood" or "aura" && (wp.Slow is <= 0 or >= 1 || wp.MinSlow is { } minSlow && (minSlow < 0 || minSlow > wp.Slow) || wp.MinDamage < 0 || wp.MinDamage > wp.Damage))
+                    e.Add($"{w}: {wp.Kind} needs slow in (0, 1), minSlow between 0 and slow, and minDamage between 0 and damage");
                 if (wp.Kind is "rocket" or "attackChain" or "cane" && wp.Chance is <= 0 or > 1)
                     e.Add($"{w}: {wp.Kind} needs chance in (0, 1]");
                 if (wp.Kind is "boomerang" or "bounce" or "rocket" && (wp.Speed <= 0 || wp.Range <= 0))
@@ -225,6 +227,7 @@ public static class ContentLoader
             CheckDamage(w, en.DamageType);
             CheckResist(w, "armor", en.Armor);
             CheckResist(w, "magicResist", en.MagicResist);
+            if (!float.IsFinite(en.SiphonDps) || en.SiphonDps < 0) e.Add($"{w}: siphonDps must be finite and nonnegative");
             if (en.AttackSpeed < 0 || en.ShotRange < 0 || en.ShotSpeed < 0 ||
                 en.DetonateRange < 0 || en.BlastRadius < 0 || en.CloudRadius < 0 || en.CloudSeconds < 0 || en.CloudDps < 0)
                 e.Add($"{w}: attack and death effect parameters must be nonnegative");

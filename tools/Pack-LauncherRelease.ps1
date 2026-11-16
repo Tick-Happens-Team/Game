@@ -11,7 +11,9 @@ param(
     [string]$EosSdkArchive,
     [string]$EosConfig,
     # Directory of <language>.json patch notes signed into channel.json.
-    [string]$NotesDirectory
+    [string]$NotesDirectory,
+    # channel.json of earlier releases, each with channel.json.sig beside it, for the launcher's version history.
+    [string[]]$PreviousChannel
 )
 
 $ErrorActionPreference = 'Stop'
@@ -93,4 +95,5 @@ $channelArgs = @(
     "$release/assets.zip.json", "$release/launcher-win-x64.zip.json", $key, "$release/channel.json"
 )
 if ($NotesDirectory) { $channelArgs += (Resolve-Path -LiteralPath $NotesDirectory).Path }
+foreach ($channel in $PreviousChannel | Where-Object { $_ }) { $channelArgs += '--previous', (Resolve-Path -LiteralPath $channel).Path }
 dotnet run --project $tool -c Release --no-build -- @channelArgs
