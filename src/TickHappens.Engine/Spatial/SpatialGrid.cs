@@ -8,7 +8,7 @@ public sealed class SpatialGrid
 {
     private readonly float _cell, _minX, _minY;
     private readonly int _cols, _rows;
-    private readonly int[] _cellStart;
+    private readonly int[] _cellStart, _cellFill;
     private int[] _cellOf = [];
     private int[] _items = [];
 
@@ -20,6 +20,7 @@ public sealed class SpatialGrid
         _cols = Math.Max(1, (int)MathF.Ceiling(width / cellSize));
         _rows = Math.Max(1, (int)MathF.Ceiling(height / cellSize));
         _cellStart = new int[_cols * _rows + 1];
+        _cellFill = new int[_cols * _rows];
     }
 
     private int CellX(float x) => Math.Clamp((int)((x - _minX) / _cell), 0, _cols - 1);
@@ -37,11 +38,11 @@ public sealed class SpatialGrid
             _cellStart[c + 1]++;
         }
         for (int c = 0; c < _cols * _rows; c++) _cellStart[c + 1] += _cellStart[c];
-        Span<int> fill = _cols * _rows <= 16384 ? stackalloc int[_cols * _rows] : new int[_cols * _rows];
+        _cellStart.AsSpan(0, _cellFill.Length).CopyTo(_cellFill);
         for (int i = 0; i < n; i++)
         {
             int c = _cellOf[i];
-            _items[_cellStart[c] + fill[c]++] = i;
+            _items[_cellFill[c]++] = i;
         }
     }
 

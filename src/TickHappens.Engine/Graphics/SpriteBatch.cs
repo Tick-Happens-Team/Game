@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using Silk.NET.OpenGL;
 using TickHappens.Engine.Assets;
 
@@ -76,15 +76,22 @@ public sealed unsafe class SpriteBatch : IDisposable
         Sprites = 0;
     }
 
-    public void Draw(AtlasSprite s, int frame, float x, float y, bool flipX = false, uint tint = 0xFFFFFFFF, byte emissionBoost = 0)
+    public void Draw(AtlasSprite s, int frame, float x, float y, bool flipX = false, uint tint = 0xFFFFFFFF, byte emissionBoost = 0, float scale = 1)
     {
         if (_count == MaxInstances) throw new InvalidOperationException("sprite batch overflow; call Flush");
         var f = s.Frames[frame];
         _items[_count++] = new SpriteInstance
         {
-            X = MathF.Floor(x - s.Origin[0]), Y = MathF.Floor(y - s.Origin[1]), W = s.W, H = s.H,
+            X = MathF.Floor(x - s.Origin[0] * scale), Y = MathF.Floor(y - s.Origin[1] * scale), W = s.W * scale, H = s.H * scale,
             U = f[0], V = f[1], Uw = s.W, Vh = s.H, Tint = tint, Flags = (flipX ? 1u : 0u) | ((uint)emissionBoost << 8),
         };
+    }
+
+    /// <summary>Queues a bare rectangle (no atlas texels) for shaders that draw procedurally, such as contact shadows.</summary>
+    public void DrawRect(float x, float y, float w, float h, uint tint = 0xFFFFFFFF)
+    {
+        if (_count == MaxInstances) throw new InvalidOperationException("sprite batch overflow; call Flush");
+        _items[_count++] = new SpriteInstance { X = MathF.Floor(x), Y = MathF.Floor(y), W = w, H = h, Uw = w, Vh = h, Tint = tint };
     }
 
     /// <summary>Draws the accumulated sprites into the currently bound G-buffer.</summary>

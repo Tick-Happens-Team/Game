@@ -1,4 +1,4 @@
-using Silk.NET.OpenGL;
+﻿using Silk.NET.OpenGL;
 using TickHappens.Engine.Vfx;
 
 namespace TickHappens.Engine.Graphics;
@@ -27,6 +27,21 @@ public sealed class RenderSettings
     public int DebugView;
     /// <summary>Opacity of cosmetic VFX color over actors (readability control for crowded screens).</summary>
     public float VfxOpacity = 1f;
+
+    /// <summary>Directional key light (moon/sun) toward the light, z up; its color is added on top of ambient.</summary>
+    public float SunX = -0.45f, SunY = -0.6f, SunZ = 0.65f, SunR, SunG, SunB;
+    /// <summary>Drifting cloud shadows over the ground (0 = off, 1 = full darkening of key and ambient light).</summary>
+    public float Clouds;
+    /// <summary>Color grade after tonemapping: contrast and saturation around neutral, a lift of the blacks,
+    /// split toning toward shadow / highlight tints, and vignette strength.</summary>
+    public float Contrast = 1f, Saturation = 1f, Lift, Split, Vignette = 0.14f;
+    public float ShadowTintR = 1, ShadowTintG = 1, ShadowTintB = 1, HighlightTintR = 1, HighlightTintG = 1, HighlightTintB = 1;
+    /// <summary>Diorama blur toward the top and bottom of the screen, in art pixels (0 = off).</summary>
+    public float TiltShift;
+    /// <summary>Per-frame chromatic aberration in art pixels at the screen edge (0 = off).</summary>
+    public float Aberration;
+    /// <summary>Per-frame additive full-screen flash (linear color).</summary>
+    public float FlashR, FlashG, FlashB;
 }
 
 /// <summary>
@@ -41,7 +56,7 @@ public sealed unsafe class PixelRenderer : IDisposable
     private readonly GL _gl;
     private readonly RenderTarget _gbuf, _lit;
     private readonly RenderTarget[] _bloom = new RenderTarget[BloomLevels];
-    private readonly Texture2D _vfxColor, _vfxLight;
+    private readonly Texture2D _vfxColor, _vfxLight, _ui;
     private readonly ShaderProgram _light, _down, _up, _final;
     private readonly uint _emptyVao;
     private readonly float[] _lightData = new float[MaxLights * 12];
@@ -55,12 +70,27 @@ public sealed unsafe class PixelRenderer : IDisposable
     public int OriginX { get; private set; }
     public int OriginY { get; private set; }
     public PixelFrame VfxFrame { get; }
+    /// <summary>Screen-space UI layer at art resolution (view size, no margin, no camera offset); cleared in BeginFrame, drawn last, unlit, no bloom.</summary>
+    public PixelFrame UiFrame { get; }
+    public int ViewW { get; private set; } = BaseW;
+    public int ViewH { get; private set; } = BaseH;
+    /// <summary>Smallest world view the integer scale may show (art pixels). Smaller values bring the camera closer.</summary>
+    public int MinViewW { get; set; } = BaseW;
+    public int MinViewH { get; set; } = BaseH;
+    /// <summary>The UI keeps the 640×360 layout at its own integer scale, independent of the world zoom.</summary>
+    public int UiScale { get; private set; } = 1;
+    public int UiW { get; private set; } = BaseW;
+    public int UiH { get; private set; } = BaseH;
     public RenderTarget GBuffer => _gbuf;
     public RenderTarget Lit => _lit;
     public int LightCount { get; private set; }
 
     private float _fracX, _fracY;
     private int _windowW, _windowH;
+
+    private int _visionX, _visionY;
+    private float _visionFacingX, _visionFacingY, _visionCos, _visionInvFade;
+    private bool _visionEnabled;
 
     public PixelRenderer(GL gl, string shaderDir)
     {
@@ -81,6 +111,8 @@ public sealed unsafe class PixelRenderer : IDisposable
         _vfxColor = new Texture2D(gl, TargetW, TargetH);
         _vfxLight = new Texture2D(gl, TargetW, TargetH);
         VfxFrame = new PixelFrame(TargetW, TargetH);
+        _ui = new Texture2D(gl, BaseW, BaseH);
+        UiFrame = new PixelFrame(BaseW, BaseH);
     }
 
     /// <summary>Chooses the integer scale and target size for the window and positions the camera (world px, view center).</summary>
@@ -88,7 +120,8 @@ public sealed unsafe class PixelRenderer : IDisposable
     {
         _windowW = windowW;
         _windowH = windowH;
-        Scale = Math.Max(1, Math.Min(windowW / BaseW, windowH / BaseH));
+        Scale = Math.Max(1, Math.Min(windowW / MinViewW, windowH / MinViewH));
+        UiScale = Math.Max(1, Math.Min(windowW / BaseW, windowH / BaseH));
         int viewW = (windowW + Scale - 1) / Scale, viewH = (windowH + Scale - 1) / Scale;
         int tw = viewW + Margin * 2, th = viewH + Margin * 2;
         if (tw != TargetW || th != TargetH)
@@ -102,6 +135,16 @@ public sealed unsafe class PixelRenderer : IDisposable
             _vfxLight.Resize(tw, th);
             VfxFrame.Resize(tw, th);
         }
+        ViewW = viewW;
+        ViewH = viewH;
+        int uiW = (windowW + UiScale - 1) / UiScale, uiH = (windowH + UiScale - 1) / UiScale;
+        if (uiW != UiW || uiH != UiH)
+        {
+            UiW = uiW;
+            UiH = uiH;
+            _ui.Resize(uiW, uiH);
+            UiFrame.Resize(uiW, uiH);
+        }
         float left = camCenterX - viewW / 2f, top = camCenterY - viewH / 2f;
         OriginX = (int)MathF.Floor(left) - Margin;
         OriginY = (int)MathF.Floor(top) - Margin;
@@ -109,6 +152,8 @@ public sealed unsafe class PixelRenderer : IDisposable
         _fracY = top - MathF.Floor(top);
         VfxFrame.Ox = OriginX;
         VfxFrame.Oy = OriginY;
+        Array.Clear(UiFrame.Color);
+        _visionEnabled = false;
 
         _gbuf.Bind();
         _gl.ClearColor(0, 0, 0, 0);
@@ -120,6 +165,22 @@ public sealed unsafe class PixelRenderer : IDisposable
     {
         _vfxColor.Upload(VfxFrame.Color);
         _vfxLight.Upload(VfxFrame.Light);
+    }
+
+    /// <summary>Converts a world position to UI-layer pixels (for labels that follow world objects).</summary>
+    public (int X, int Y) WorldToUi(float x, float y) =>
+        ((int)MathF.Floor((x - OriginX - Margin - _fracX) * Scale / UiScale), (int)MathF.Floor((y - OriginY - Margin - _fracY) * Scale / UiScale));
+
+    /// <summary>Dims the scene outside a view cone while keeping the immediate area and UI visible.</summary>
+    public void SetVisionCone(float x, float y, float facingX, float facingY, float halfAngle)
+    {
+        (_visionX, _visionY) = WorldToUi(x, y);
+        _visionFacingX = facingX;
+        _visionFacingY = facingY;
+        _visionCos = MathF.Cos(halfAngle);
+        _visionInvFade = 1 / Math.Max(0.00001f,
+            _visionCos - MathF.Cos(Math.Min(MathF.PI, halfAngle + MathF.PI / 18f)));
+        _visionEnabled = true;
     }
 
     /// <summary>Lighting pass: writes the HDR lit scene. Lights are in world pixels.</summary>
@@ -152,6 +213,10 @@ public sealed unsafe class PixelRenderer : IDisposable
         _light.Set("uVfxOpacity", Settings.VfxOpacity);
         _light.Set("uTime", time);
         _light.Set("uLightCount", LightCount);
+        _light.Set("uOrigin", OriginX, OriginY);
+        _light.Set("uSunDir", Settings.SunX, Settings.SunY, Settings.SunZ);
+        _light.Set("uSunColor", Settings.SunR, Settings.SunG, Settings.SunB);
+        _light.Set("uClouds", Settings.Clouds);
         // Pack as vec4 pairs: [x, y, radius, height], [r, g, b, 0]
         Span<float> packed = stackalloc float[MaxLights * 8];
         for (int i = 0; i < LightCount; i++)
@@ -160,11 +225,32 @@ public sealed unsafe class PixelRenderer : IDisposable
         DrawFullscreen();
     }
 
+    /// <summary>Starts a multiply pass into the G-buffer albedo only (contact shadows under actors): draws keep
+    /// normals and emission and darken the albedo by the fragment color. Call <see cref="EndAlbedoMultiply"/> after.</summary>
+    public void BeginAlbedoMultiply()
+    {
+        _gbuf.Bind();
+        _gl.Enable(EnableCap.Blend);
+        _gl.BlendFunc(0, BlendingFactor.DstColor, BlendingFactor.Zero);
+        _gl.ColorMask(1, false, false, false, false);
+        _gl.ColorMask(2, false, false, false, false);
+    }
+
+    public void EndAlbedoMultiply()
+    {
+        _gl.ColorMask(1, true, true, true, true);
+        _gl.ColorMask(2, true, true, true, true);
+        _gl.BlendFunc(BlendingFactor.One, BlendingFactor.Zero);
+        _gl.Disable(EnableCap.Blend);
+    }
+
     /// <summary>Binds the HDR lit target for additive passes (GPU particles).</summary>
     public void BindLit() => _lit.Bind();
 
     public void Finish()
     {
+        // Upload first: Texture2D.Upload binds to whatever unit is active, which must not clobber the final pass bindings.
+        _ui.Upload(UiFrame.Color);
         // Bloom: progressive downsample with soft threshold on the first level, then additive upsample.
         if (Settings.Bloom)
         {
@@ -202,6 +288,8 @@ public sealed unsafe class PixelRenderer : IDisposable
         _bloom[0].Colors[0].Bind(1);
         _final.Set("uScene", 0);
         _final.Set("uBloom", 1);
+        _ui.Bind(2);
+        _final.Set("uUi", 2);
         _final.Set("uBloomStrength", Settings.Bloom ? Settings.BloomStrength : 0f);
         _final.Set("uScale", Scale);
         _final.Set("uWindow", _windowW, _windowH);
@@ -209,6 +297,21 @@ public sealed unsafe class PixelRenderer : IDisposable
         // Sub-pixel camera: shift the upscaled image by the fractional part (smooth scrolling, crisp pixels).
         _final.Set("uOffset", Margin + _fracX, Margin + _fracY);
         _final.Set("uRawView", Settings.DebugView);
+        _final.Set("uUiScale", UiScale);
+        _final.Set("uVisionScale", _visionEnabled ? UiScale / (float)Scale : 0f);
+        if (_visionEnabled)
+        {
+            _final.Set("uVisionPose", _visionX, _visionY, _visionFacingX, _visionFacingY);
+            _final.Set("uVisionEdge", _visionCos, _visionInvFade);
+        }
+        var g = Settings;
+        _final.Set("uGrade", g.Contrast, g.Saturation, g.Lift, g.Split);
+        _final.Set("uShadowTint", g.ShadowTintR, g.ShadowTintG, g.ShadowTintB);
+        _final.Set("uHighlightTint", g.HighlightTintR, g.HighlightTintG, g.HighlightTintB);
+        _final.Set("uVignette", g.Vignette);
+        _final.Set("uTiltShift", g.TiltShift);
+        _final.Set("uAberration", g.Aberration);
+        _final.Set("uFlash", g.FlashR, g.FlashG, g.FlashB);
         DrawFullscreen();
     }
 
@@ -238,6 +341,7 @@ public sealed unsafe class PixelRenderer : IDisposable
         foreach (var b in _bloom) b.Dispose();
         _vfxColor.Dispose();
         _vfxLight.Dispose();
+        _ui.Dispose();
         _light.Dispose();
         _down.Dispose();
         _up.Dispose();

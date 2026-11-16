@@ -69,11 +69,21 @@ public sealed class PackageManifest
         foreach (var f in Files)
         {
             string p = f.Path;
-            if (p.Length == 0 || p.Contains('\\') || p.StartsWith('/') || p.Contains(':') || p.Split('/').Any(seg => seg is "" or "." or ".."))
+            if (p.Split('/').Any(UnsafeSegment) || p.Equals(InstallLayout.ManifestFileName, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException($"unsafe path in manifest: '{p}'");
             if (!seen.Add(p)) throw new InvalidDataException($"duplicate path (case-insensitive) in manifest: '{p}'");
             if (f.Size < 0 || f.Sha256.Length != 64) throw new InvalidDataException($"bad entry for '{p}'");
         }
+    }
+
+    private static bool UnsafeSegment(string segment)
+    {
+        if (segment.Length == 0 || segment.EndsWith('.') || segment.EndsWith(' ') ||
+            segment.Any(c => c < 32 || "<>:\"\\|?*".Contains(c))) return true;
+        string device = segment.Split('.')[0].TrimEnd().ToUpperInvariant();
+        return device is "CON" or "NUL" or "PRN" or "AUX" or "CONIN$" or "CONOUT$" ||
+            (device.Length == 4 && (device.StartsWith("COM") || device.StartsWith("LPT")) &&
+            "0123456789¹²³".Contains(device[3]));
     }
 }
 
@@ -99,6 +109,29 @@ public sealed class ChannelManifest
     [JsonPropertyName("minLauncher")] public string MinLauncher { get; set; } = "0.1.0";
     [JsonPropertyName("game")] public Dictionary<string, PackageRef> Game { get; set; } = [];
     [JsonPropertyName("assets")] public PackageRef Assets { get; set; } = new();
+    [JsonPropertyName("launcher")] public Dictionary<string, PackageRef> Launcher { get; set; } = [];
+    /// <summary>
+    /// Patch notes by language code ("en", "ru"), signed with the rest of the manifest. Kept as raw JSON so that a
+    /// notes format this launcher does not understand hides the notes instead of rejecting the whole release.
+    /// </summary>
+    [JsonPropertyName("notes")] public Dictionary<string, JsonElement>? Notes { get; set; }
+
+    public void SetNotes(string language, PatchNotes notes) =>
+        (Notes ??= [])[language] = JsonSerializer.SerializeToElement(notes, PatchNotes.Json);
+
+    /// <summary>Notes for a language, falling back to English and then to any language; null when there are none or they are unreadable.</summary>
+    public PatchNotes? NotesFor(string language)
+    {
+        if (Notes is null || Notes.Count == 0) return null;
+        var raw = Notes.TryGetValue(language, out var own) ? own : Notes.TryGetValue("en", out var english) ? english : Notes.Values.First();
+        try
+        {
+            var notes = raw.Deserialize<PatchNotes>(PatchNotes.Json);
+            notes?.Validate();
+            return notes;
+        }
+        catch (Exception error) when (error is JsonException or InvalidDataException or InvalidOperationException) { return null; }
+    }
 
     public static ChannelManifest FromJson(string json) =>
         JsonSerializer.Deserialize<ChannelManifest>(json, PackageManifest.Json) ?? throw new InvalidDataException("empty channel manifest");

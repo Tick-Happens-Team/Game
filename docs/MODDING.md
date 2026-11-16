@@ -35,17 +35,46 @@ Use stable lowercase IDs, SemVer versions, a game compatibility range, and an al
 
 ## Content
 
-| Path under `content/` | Data |
+The built-in `core` mod (`Game/content/core/`) uses exactly this format. Validation errors name the file, id and field.
+
+| File under `content/` | Data |
 |---|---|
-| `characters/*.json` | Sprite, stats, starter weapon, passive rule |
-| `weapons/*.json` | Attack pattern, upgrades, VFX recipe |
-| `items/*.json` | StatBlock modifiers |
-| `enemies/*.json` | Sprite, stats, behavior, drops |
-| `waves/*.json` | Wave additions indexed by RunClock |
+| `characters.json` | `id`, `name`, `sprite`, designer `passive` and `growth` text, table `stats` (`maxHp`/`maxHpPerLevel`, `moveSpeed` Move speed, `attackSpeed` Attack speed, `armor` and `magicResist` as fractions, `damage`/`damagePerLevel`), optional basic `attack` override (damage type, speed, range, pierce, count), `passives`, optional ally `aura` |
+| `items.json` | `id`, `name`, `rarity` (common, rare, epic, mythic, legendary), `description`, stat `mods` applied once per copy, optional `weapon` (kind `bolt`, `pulse`, `chain` or `blast`, damage type and parameters) |
+| `enemies.json` | `id`, sprite and animation, optional tint, HP, `speed` in Move speed, damage and type, `armor`/`magicResist`, `lifesteal`, radius, XP, gold chance, `boss` flag. Optional `attackSpeed` enables a windup and cooldown. `shotRange` and `shotSpeed` enable a ranged attack. `blastRadius` makes the enemy explode on death, and `detonateRange` enables proximity detonation. Set `cloudRadius`, `cloudSeconds` and `cloudDps` to leave a magical damage zone on death. |
+| `waves.json` | Wave mix by run-clock minute, HP and damage growth, max alive, timed elites |
+| `rules.json` | Arena, XP curve, unit scales (`units`), basic attack defaults, dash, statues, chests with `rarityWeights` (price growth fixed at 1.5) |
 | `sprites/*.png` and `*.sprite.json` | Frames, origin, animations, emission, normals |
 | `sfx/*.ogg` | Sound effects |
 
-Mods compose parameterized engine behaviors. For example, `{"rule":"on_level_up","effect":"add_stat","stat":"armor","value":1}`. Formula expressions use a deterministic AST with no loops or I/O. StyleLint applies to mod sprites, with TH001–TH003 blocking errors. The loader builds the atlas at runtime.
+Enemy HP scales by `1 + hpPerMinute × minutes + hpPerMinuteSquared × minutes²` at spawn.
+Omitting `hpPerMinuteSquared` keeps linear HP growth.
+
+A passive is a level-scaled stat formula: `{"stat": "armor", "add": 0, "pct": 0, "perLevel": {"add": 0.01}, "per": "runMinute"}`. Its value is `base + perLevel × (level − 1)`; with `"per": "runMinute"` it is multiplied by the run clock in minutes. Stats are `(base + Σadd) × (1 + Σpct)`. Damage passes through might, the type multiplier and, for items, item damage, then the target's armor (physical) or magic resist (magical), capped at 90%. Pure damage ignores defences. Units: px/s = Move speed × 3; attacks per second = Attack speed / 25. Standard items come from chests and stack. Cursed items use `rarity: "cursed"` and a `bossDrop` enemy ID. They are excluded from chest rolls and drop for the player credited with the matching boss kill. See [the content roadmap](CONTENT_ROADMAP.md) for the systems that later tiers add.
+
+An ally `aura` covers every living player within its radius, the owner included, and allied summons: `{"radius": 200, "radiusPerLevel": 1.25, "damageReduction": 0.08, "damageReductionPerLevel": 0.003, "regen": 1.75, "regenPerLevel": 0.25, "selfMultiplier": 1.75}`. Each value grows as `base + perLevel × (level − 1)`, the radius scales with the owner's `area`, and the owner receives `selfMultiplier` × the reduction and regen. Reduction lowers the `damageTaken` stat (default 1, floor 0.1) applied after defences; several auras stack additively.
+
+Mods compose parameterized engine behaviors; new behaviors arrive as engine systems listed in the content roadmap. Formula expressions use a deterministic AST with no loops or I/O. StyleLint applies to mod sprites, with TH001–TH003 blocking errors. The loader builds the atlas at runtime.
+
+### Combat effect parameters
+
+An item can define stat `mods`, `xpOnPickup` (XP per run minute), one `weapon`, a `companion` or an `effect`. See the built-in item catalog for supported kinds and parameter examples. Companions use an atlas sprite with a `move` animation. Only the host simulates companions, loot offers and combat. Guests receive their render state in snapshots.
+
+Item weapons fire automatically on their own cooldown. The `count` parameter sets the base number of projectiles, chain targets, or blasts. Each extra item copy and each point of `amount` adds one to this count. For `pulse`, count (with a minimum of one) multiplies the damage of the single area hit. A `blast` centers on the in-range enemy with the most enemies inside the blast radius, preferring the nearer center when densities match.
+
+The prototype measures distances in world pixels between ground pivots. Circle and cone boundaries are inclusive. Cone angle is the full opening angle and facing follows the last movement direction. Linear radial falloff goes from full strength at the center to zero at the edge. Use the resolved radius multiplier for item and weapon areas. Chest reach and gold pickup use separate distances. The balance sheet values remain design inputs until the playable scale is confirmed.
+
+| Design examples | Runtime parameters and behavior |
+|---|---|
+| Wooden Stick, Aura, Totem, Motivation Mask | Radius, origin, ally/enemy filter, tick interval, and optional distance falloff. Aura bonuses need to expire on exit. |
+| Flamethrower, Fan, Sword | Cone radius and full angle. Use facing or its reverse as the direction. |
+| Trident, Magic Projectile, Electric Gloves | Projectile travel distance and speed are separate from hit and bounce radius. A bounce searches from its last impact, with an explicit hop limit and repeat-target rule. |
+| Soda, Icicle, Galactic Rifle | Delayed effects carry a location or target and a due tick. Specify whether to reselect a missing target. |
+| Rocket, Finisher, Shield, Nettle, Shared Heart, Star of David | Typed hit, kill, received damage, heal, and gold-spend events. Give secondary effects explicit proc and reflection rules to prevent loops. |
+| Garden Gnome, Death Eagle, Bait | Summon owner, lifetime, and attack cadence. Keep owner credit on the final hit for enemy gold. |
+| Jetpack, Jar of Wind, Snack Bar, Whoopee Cushion | Dash duration, charges, cooldown, and dash-triggered passive effects. |
+
+The current code supplies area geometry, directional facing, resolved radius and typed damage multipliers, and hit attribution. The remaining behaviors in the table are requirements for the content loader and combat systems. Quantize authored durations to simulation ticks and use seeded rolls for random targets and proc chances.
 
 ## Catalog and client
 

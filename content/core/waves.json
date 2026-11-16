@@ -1,0 +1,143 @@
+{
+  "hpPerMinute": 0.18,
+  "hpPerMinuteSquared": 0.045,
+  "damagePerMinute": 0.14,
+  "xpPerMinute": 0.05,
+  "maxAlive": 900,
+  "waves": [
+    {
+      "from": 0,
+      "to": 0.75,
+      "perSecond": 1.4,
+      "mix": {
+        "gloombat": 1
+      }
+    },
+    {
+      "from": 0.75,
+      "to": 1,
+      "perSecond": 3.4,
+      "mix": {
+        "gloombat": 3,
+        "amberslime": 2
+      }
+    },
+    {
+      "from": 1,
+      "to": 2,
+      "perSecond": 3.4,
+      "mix": {
+        "gloombat": 3,
+        "amberslime": 2,
+        "rot": 1,
+        "spark": 1,
+        "skeleton_swordsman": 1
+      }
+    },
+    {
+      "from": 2,
+      "to": 3,
+      "perSecond": 3.4,
+      "mix": {
+        "gloombat": 3,
+        "amberslime": 2,
+        "rot": 1,
+        "spark": 1,
+        "kamikaze": 1,
+        "jumper": 1,
+        "siphoner": 1
+      }
+    },
+    {
+      "from": 3,
+      "to": 6,
+      "perSecond": 6.2,
+      "mix": {
+        "gloombat": 2,
+        "amberslime": 3,
+        "rot": 1,
+        "spark": 1,
+        "kamikaze": 1,
+        "jumper": 2,
+        "siphoner": 1,
+        "skeleton_swordsman": 2,
+        "screamer": 0.5,
+        "junior_cultist": 1,
+        "cultist_shaman": 0.5
+      }
+    },
+    {
+      "from": 6,
+      "to": 10,
+      "perSecond": 9.6,
+      "mix": {
+        "gloombat": 3,
+        "amberslime": 5,
+        "rot": 1,
+        "spark": 1,
+        "kamikaze": 1,
+        "jumper": 2,
+        "siphoner": 1,
+        "skeleton_swordsman": 2,
+        "screamer": 0.5,
+        "junior_cultist": 2,
+        "cultist_shaman": 1,
+        "witch": 0.4,
+        "butcher": 0.4,
+        "guardian": 0.4,
+        "dark_mage": 0.4
+      }
+    },
+    {
+      "from": 10,
+      "to": 999,
+      "perSecond": 14.5,
+      "mix": {
+        "gloombat": 2,
+        "amberslime": 5,
+        "rot": 1,
+        "spark": 1,
+        "kamikaze": 1,
+        "jumper": 2,
+        "siphoner": 1,
+        "skeleton_swordsman": 2,
+        "screamer": 0.5,
+        "junior_cultist": 2,
+        "cultist_shaman": 1,
+        "witch": 0.4,
+        "butcher": 0.4,
+        "guardian": 0.4,
+        "dark_mage": 0.4,
+        "ninja": 0.35,
+        "she_wolf": 0.35,
+        "thief": 0.35,
+        "senior_cultist": 0.35,
+        "ogre": 0.35
+      }
+    }
+  ],
+  "elites": [
+    {
+      "at": 2.5,
+      "enemy": "duskslime",
+      "count": 1
+    },
+    {
+      "at": 5,
+      "enemy": "duskslime",
+      "count": 2
+    },
+    {
+      "at": 8,
+      "enemy": "duskslime",
+      "count": 4
+    },
+    {
+      "at": 12,
+      "enemy": "duskslime",
+      "count": 6
+    }
+  ],
+  "bossIntervalMinutes": 5,
+  "goldPerMinute": 1
+}

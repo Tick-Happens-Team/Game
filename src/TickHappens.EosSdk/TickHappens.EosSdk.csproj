@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <Nullable>disable</Nullable>
+    <DefineConstants>$(DefineConstants);EOS_PLATFORM_WINDOWS_64</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(TickHappensEosSdk)/Source/Core/**/*.cs" />
+    <Compile Include="$(TickHappensEosSdk)/Source/Generated/**/*.cs" />
+    <Compile Include="$(TickHappensEosSdk)/Source/Overrides/**/*.cs" />
+    <None Include="$(TickHappensEosSdk)/Bin/EOSSDK-Win64-Shipping.dll" Link="EOSSDK-Win64-Shipping.dll"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="$(TickHappensEosSdk)/../ThirdPartyNotices/ThirdPartySoftwareNotice.txt"
+          Condition="Exists('$(TickHappensEosSdk)/../ThirdPartyNotices/ThirdPartySoftwareNotice.txt')"
+          Link="EOS-ThirdPartySoftwareNotice.txt" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="ValidateEosSdk" BeforeTargets="CoreCompile">
+    <Error Condition="!Exists('$(TickHappensEosSdk)/Source/Generated/Platform/PlatformInterface.cs') Or
+                      !Exists('$(TickHappensEosSdk)/Bin/EOSSDK-Win64-Shipping.dll')"
+           Text="Set TickHappensEosSdk to the EOS C# SDK directory containing Source and Bin." />
+  </Target>
+</Project>
