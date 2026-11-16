@@ -139,19 +139,25 @@ public sealed class ChannelManifest
     };
 
     /// <summary>
-    /// Sets <see cref="History"/> to the previous release followed by its own history: only lower sequences, newest
-    /// first, without duplicates, at most <see cref="MaxHistory"/> entries. Older entries lose their notes once the
-    /// notes budget is spent, so the manifest stays small while the version list stays complete.
+    /// Sets <see cref="History"/> from earlier signed releases and the histories they carry: only lower sequences,
+    /// newest first, one entry per sequence (a release's own manifest wins over a copy carried by a later one), at most
+    /// <see cref="MaxHistory"/> entries. Older entries lose their notes once the notes budget is spent, so the manifest
+    /// stays small while the version list stays complete. Passing every published release backfills releases that
+    /// were published before manifests carried a history.
     /// </summary>
-    public void CarryHistory(ChannelManifest previous)
+    public void CarryHistory(params IEnumerable<ChannelManifest> previous)
     {
-        if (previous.Sequence >= Sequence) throw new InvalidDataException("The previous release must have a lower sequence.");
+        var releases = previous.ToList();
+        if (releases.Any(release => release.Sequence >= Sequence))
+            throw new InvalidDataException("Earlier releases must have a lower sequence.");
+        var bySequence = new Dictionary<long, ReleaseHistoryEntry>();
+        foreach (var entry in releases.Select(release => release.ToHistoryEntry())
+            .Concat(releases.SelectMany(release => release.History ?? [])))
+            if (entry.Sequence >= 1 && entry.Sequence < Sequence) bySequence.TryAdd(entry.Sequence, entry);
         var history = new List<ReleaseHistoryEntry>();
-        var seen = new HashSet<long>();
         long budget = MaxHistoryNotesBytes;
-        foreach (var entry in (IEnumerable<ReleaseHistoryEntry>)[previous.ToHistoryEntry(), .. previous.History ?? []])
+        foreach (var entry in bySequence.Values.OrderByDescending(entry => entry.Sequence).Take(MaxHistory))
         {
-            if (entry.Sequence >= Sequence || entry.Sequence < 1 || !seen.Add(entry.Sequence)) continue;
             var kept = new ReleaseHistoryEntry { Sequence = entry.Sequence, Version = entry.Version, Published = entry.Published, Notes = entry.Notes };
             if (kept.Notes is { Count: > 0 } notes)
             {
@@ -161,8 +167,6 @@ public sealed class ChannelManifest
             }
             history.Add(kept);
         }
-        history.Sort((a, b) => b.Sequence.CompareTo(a.Sequence));
-        if (history.Count > MaxHistory) history.RemoveRange(MaxHistory, history.Count - MaxHistory);
         History = history.Count == 0 ? null : history;
     }
 

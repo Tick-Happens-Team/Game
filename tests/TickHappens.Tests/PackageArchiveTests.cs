@@ -126,6 +126,17 @@ public sealed class PackageArchiveTests : IDisposable
         Assert.Equal(["0.1.3", "0.1.2", "0.1.1"], read.Versions().Select(version => version.Version));
         Assert.Throws<InvalidDataException>(() => first.CarryHistory(second));
 
+        // Releases published before manifests carried a history are backfilled from their own signed manifests,
+        // and a release's own manifest wins over a stale copy carried by a later one.
+        var backfilled = Release(4, "Fourth");
+        var stale = ChannelManifest.FromJson(third.ToJson());
+        stale.History![0].Version = "stale";
+        backfilled.CarryHistory(Release(3, "Third"), stale, Release(1, "First"), Release(2, "Second"));
+        Assert.Equal([3L, 2, 1], backfilled.History!.Select(entry => entry.Sequence));
+        Assert.Equal("0.1.2", backfilled.History![1].Version);
+        Assert.Equal("Second", backfilled.History![1].NotesFor("en")!.General[0].Text);
+        Assert.Throws<InvalidDataException>(() => second.CarryHistory(first, third));
+
         // History is part of the signed manifest.
         var keys = ManifestSigner.CreateKeyPair();
         byte[] signed = Encoding.UTF8.GetBytes(third.ToJson());
