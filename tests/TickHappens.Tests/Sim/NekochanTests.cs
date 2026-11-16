@@ -14,7 +14,7 @@ public sealed class NekochanTests
         world.SetPlayerActive(1, true);
         world.StepCoop([default, default]);
 
-        TestWorld.Close(1 - 0.07f * 1.5f - 0.07f, world.Player.Stats[Stat.DamageTaken]);
+        TestWorld.Close(1 - 0.10f * 1.75f - 0.10f, world.Player.Stats[Stat.DamageTaken]);
     }
 
     [Fact]
@@ -29,9 +29,9 @@ public sealed class NekochanTests
         ally.Pos = self.Pos + new Vector2(150, 0);
         world.StepCoop([default, default]);
 
-        TestWorld.Close(1 - 0.07f * 1.5f, self.Stats[Stat.DamageTaken]);
-        TestWorld.Close(0.25f + 1.5f * 1.5f, self.Stats[Stat.Regen]);
-        TestWorld.Close(0.93f, ally.Stats[Stat.DamageTaken]);
+        TestWorld.Close(1 - 0.10f * 1.75f, self.Stats[Stat.DamageTaken]);
+        TestWorld.Close(0.45f + 1.5f * 1.75f, self.Stats[Stat.Regen]);
+        TestWorld.Close(0.90f, ally.Stats[Stat.DamageTaken]);
         TestWorld.Close(1.75f + 1.5f, ally.Stats[Stat.Regen]);
 
         ally.Pos = self.Pos + new Vector2(176, 0);
@@ -53,9 +53,9 @@ public sealed class NekochanTests
         ally.Pos = self.Pos + new Vector2(180, 0); // radius 175 + 4 × 1.5 = 181
         world.StepCoop([default, default]);
 
-        TestWorld.Close(1 - (0.07f + 4 * 0.0035f), ally.Stats[Stat.DamageTaken]);
-        TestWorld.Close(1.75f + 1.5f + 4 * 0.25f, ally.Stats[Stat.Regen]);
-        TestWorld.Close(1 - (0.07f + 4 * 0.0035f) * 1.5f, self.Stats[Stat.DamageTaken]);
+        TestWorld.Close(1 - (0.10f + 4 * 0.0035f), ally.Stats[Stat.DamageTaken]);
+        TestWorld.Close(1.75f + 1.5f + 4 * 0.3f, ally.Stats[Stat.Regen]);
+        TestWorld.Close(1 - (0.10f + 4 * 0.0035f) * 1.75f, self.Stats[Stat.DamageTaken]);
     }
 
     [Fact]
@@ -71,7 +71,7 @@ public sealed class NekochanTests
         world.SpawnEnemy(0, p.Pos);
         world.Step(default);
 
-        float expected = content.Enemies[0].Damage * world.DamageScale * (1 - 0.025f) * (1 - 0.07f * 1.5f);
+        float expected = content.Enemies[0].Damage * world.DamageScale * (1 - 0.025f) * (1 - 0.10f * 1.75f);
         Assert.Equal(expected, full - p.Hp, 2);
     }
 
@@ -85,7 +85,7 @@ public sealed class NekochanTests
 
         var summon = Assert.Single(world.Companions.ToArray(), c => c.Active);
         Assert.True(Vector2.Distance(summon.Pos, world.Player.Pos) < 175);
-        TestWorld.Close(0.07f, summon.DamageReduction);
+        TestWorld.Close(0.10f, summon.DamageReduction);
     }
 
     [Fact]

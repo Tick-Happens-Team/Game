@@ -357,7 +357,7 @@ public sealed partial class RunWorld
         if (player.Character.Id == "illusionist")
         {
             var attack = player.Attack;
-            float damage = player.Stats[Stat.Damage] * (0.25f + 0.0025f * (player.Level - 1));
+            float damage = player.Stats[Stat.Damage] * (0.30f + 0.0025f * (player.Level - 1));
             foreach (ref readonly var illusion in player.Illusions.AsSpan())
             {
                 if (illusion.UntilTick <= Tick) continue;

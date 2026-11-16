@@ -12,7 +12,7 @@ internal sealed partial class RunView
     private readonly record struct ItemEffectFrame(GameEvent Event, float Age, float Duration);
     private readonly SiphonBeam[] _siphonBeams;
     private readonly record struct SiphonBeam(int PlayerId, int EnemyUid, float Until);
-    private readonly SkateMark[] _skateTrail = new SkateMark[64];
+    private readonly SkateMark[] _skateTrail = new SkateMark[4 * RunWorld.TrailCapacity];
     private readonly SkateMark[] _lastSkateMarks = new SkateMark[4];
     private int _nextSkateMark;
     private readonly record struct SkateMark(Vector2 Start, Vector2 End, float Until);
@@ -22,9 +22,9 @@ internal sealed partial class RunView
         if ((uint)e.A >= (uint)_lastSkateMarks.Length) return;
         var end = new Vector2(e.X, e.Y);
         var last = _lastSkateMarks[e.A];
-        var start = last.Until > _time + 2.7f && Vector2.DistanceSquared(last.End, end) <= 24 * 24
+        var start = last.Until > _time + RunWorld.HeroTrailSeconds - 0.3f && Vector2.DistanceSquared(last.End, end) <= 24 * 24
             ? last.End : end;
-        var mark = new SkateMark(start, end, _time + 3);
+        var mark = new SkateMark(start, end, _time + RunWorld.HeroTrailSeconds);
         _lastSkateMarks[e.A] = mark;
         _skateTrail[_nextSkateMark] = mark;
         _nextSkateMark = (_nextSkateMark + 1) % _skateTrail.Length;

@@ -79,11 +79,25 @@ public sealed class RunProgressionTests
     {
         var world = new RunWorld(TestContent.LoadCore(), seed: 1, character: "goflin");
 
-        TestWorld.Close(1f + 0.20f, world.Player.Stats[Stat.GoldGain]);
+        TestWorld.Close(1f + 0.25f, world.Player.Stats[Stat.GoldGain]);
 
         TestWorld.LevelTo(world, 5);
 
-        TestWorld.Close(1f + 0.20f + 0.0075f * 4, world.Player.Stats[Stat.GoldGain]);
+        TestWorld.Close(1f + 0.25f + 0.0075f * 4, world.Player.Stats[Stat.GoldGain]);
+    }
+
+    [Fact]
+    public void GoflinDamageTracksGoldInHisWallet()
+    {
+        var world = new RunWorld(TestContent.LoadCore(), character: "goflin");
+        var player = world.Player;
+        player.Wallet.Collect(new GoldDrop(20, player.Id), player.Id);
+        world.Step(default);
+        TestWorld.Close(10, player.Stats[Stat.Damage]);
+
+        Assert.True(player.Wallet.TryPay());
+        world.Step(default);
+        TestWorld.Close(9, player.Stats[Stat.Damage]);
     }
 
     [Fact]
@@ -92,7 +106,7 @@ public sealed class RunProgressionTests
         var world = new RunWorld(TestContent.LoadCore(), seed: 1, character: "celestial_mage");
         var p = world.Player;
 
-        TestWorld.Close(p.Character.Stats.MaxHp * 0.40f, world.MaxHealth);
+        TestWorld.Close(p.Character.Stats.MaxHp * 0.50f, world.MaxHealth);
         TestWorld.Close(world.MaxHealth, p.Hp);
         TestWorld.Close(1.35f, p.Stats[Stat.MagicalDamage]);
         Assert.True(ContentLoader.TryParseDamage(p.Attack.DamageType, out var kind));
@@ -171,7 +185,7 @@ public sealed class RunProgressionTests
             octarine.Step(default);
         }
 
-        Assert.Equal(12, goflin.Player.Wallet.Gold); // floor(10 × 1.20): fractions are carried between pickups
+        Assert.Equal(12, goflin.Player.Wallet.Gold); // floor(10 * 1.25): fractions are carried between pickups
         Assert.Equal(10, octarine.Player.Wallet.Gold);
         Assert.True(goflin.Player.Wallet.Gold > octarine.Player.Wallet.Gold);
     }
