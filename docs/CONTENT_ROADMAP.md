@@ -103,7 +103,7 @@ Stats are copied from the owner's table. Growth means the per-level value of the
 | 17 | Иллюзионист | 125/+3 | 1.75 | 25 | 25 | 5% | 15% | 12/+1.75 | every 15 s creates a copy with 50% of the hero’s max HP; it lasts 8 s, draws enemies, and repeats attacks at 25% damage. Up to eight hero copies can overlap, plus the Phantom Mask copy. | +0.25 percentage points of damage and +0.15 s lifetime per level | [x] |
 | 18 | King Arthur | 200/+5 | 2.75 | 25 | 20 | 10% | 5% | 15/+2 | Excalibur replaces projectiles with a 350° physical slash in radius 30 | +5 Excalibur radius per level | [x] |
 
-The new heroes use these defaults where the sheet leaves values open. Diver gains one percentage point of armor per 100 pixels travelled and can still dash. Masochist converts the missing-health fraction into a proportional bonus to regeneration and movement speed, up to +100% at level 1. Skater fire patches share a damage tick, so overlapping patches from the same owner do not multiply damage. Necromancer summons use the shared companion cap. Pig keeps moving and attacking during the ghost interval with damage immunity.
+The heroes use these defaults where the sheet leaves values open. Diver gains one percentage point of armor per 100 pixels travelled and can still dash. Skater fire patches share a damage tick, so overlapping patches from the same owner do not multiply damage. Necromancer summons use the shared companion cap. Pig keeps moving and attacking during the ghost interval with damage immunity.
 
 ## 5. Items ordered by ease
 

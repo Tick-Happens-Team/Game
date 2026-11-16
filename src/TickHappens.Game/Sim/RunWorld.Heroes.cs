@@ -8,7 +8,9 @@ public sealed partial class RunWorld
     internal const int HeroIllusionCapacity = 8;
     internal const int BoarChargeTicks = 5 * TicksPerSecond;
     private const int TrailInterval = 6;
-    private const int TrailCapacity = 3 * TicksPerSecond / TrailInterval;
+    internal const int HeroTrailSeconds = 5;
+    internal const int TrailCapacity = HeroTrailSeconds * TicksPerSecond / TrailInterval;
+    private const float IllusionCooldown = 16;
     private const float TrailRadius = 14;
     private readonly (Vector2 Position, int Until)[,] _heroTrail = new (Vector2, int)[4, TrailCapacity];
 
@@ -34,9 +36,11 @@ public sealed partial class RunWorld
         {
             case "masochist":
                 float missing = 1 - Math.Clamp(player.Hp / Math.Max(1, MaxHealthFor(player)), 0, 1);
-                float regenGrowth = missing * 0.15f * level / (1 + missing);
-                player.Stats.ApplyDynamic(Stat.Regen, regenGrowth, missing);
-                player.Stats.ApplyDynamic(Stat.MoveSpeed, 0, missing * (1 + 0.003f * level));
+                player.Stats.ApplyDynamic(Stat.Regen, missing * (10 + 0.01f * level), 0);
+                player.Stats.ApplyDynamic(Stat.MoveSpeed, missing * (50 + 0.03f * level), 0);
+                break;
+            case "goflin":
+                player.Stats.ApplyDynamic(Stat.Damage, player.Wallet.Gold * 0.1f, 0);
                 break;
             case "diver":
                 player.Stats.ApplyDynamic(Stat.Armor, MathF.Floor(player.HeroDistance / 100) * 0.01f, 0);
@@ -64,7 +68,7 @@ public sealed partial class RunWorld
         else if (player.Character.Id == "pig" && player.Hp <= 0)
         {
             player.Hp = 1;
-            player.GhostUntilTick = Tick + (int)MathF.Round((5 + 0.1f * (player.Level - 1)) * TicksPerSecond);
+            player.GhostUntilTick = Tick + (int)MathF.Round((5 + 0.2f * (player.Level - 1)) * TicksPerSecond);
             Emit(EventKind.Pulse, player.Pos.X, player.Pos.Y, 24);
         }
     }
@@ -104,14 +108,14 @@ public sealed partial class RunWorld
                 while (player.PendingBlastDamage >= 80)
                 {
                     player.PendingBlastDamage -= 80;
-                    float radius = 50 + 2.5f * level;
-                    AreaItemHit(player.Pos, radius, 10 + 2.5f * level, DamageKind.Physical,
+                    float radius = 50 + 2.25f * level;
+                    AreaItemHit(player.Pos, radius, 15 + 2.5f * level, DamageKind.Physical,
                         new DamageSourceRef(player.Id, SuppressProcs: true));
                     Emit(EventKind.Blast, player.Pos.X, player.Pos.Y, radius);
                 }
                 break;
             case "skater":
-                if (Tick % TrailInterval == 0) StepFireTrail(player, 5 + 2.75f * level);
+                if (Tick % TrailInterval == 0) StepFireTrail(player, 5 + 2.75f * level, TrailRadius + 0.5f * level);
                 break;
             case "necromancer":
                 if (Tick >= player.NextHeroPassiveTick)
@@ -129,19 +133,19 @@ public sealed partial class RunWorld
             case "illusionist":
                 if (Tick >= player.NextHeroPassiveTick)
                 {
-                    player.NextHeroPassiveTick = Tick + 15 * TicksPerSecond;
+                    player.NextHeroPassiveTick = Tick + Math.Max(1, (int)MathF.Round((IllusionCooldown - 0.05f * level) * TicksPerSecond));
                     SpawnHeroIllusion(player, level);
                 }
                 break;
         }
     }
 
-    private void StepFireTrail(PlayerState player, float damagePerSecond)
+    private void StepFireTrail(PlayerState player, float damagePerSecond, float radius)
     {
         int slot = Tick / TrailInterval % TrailCapacity;
         if (player.Walking)
         {
-            _heroTrail[player.Id, slot] = (player.Prev, Tick + 3 * TicksPerSecond);
+            _heroTrail[player.Id, slot] = (player.Prev, Tick + HeroTrailSeconds * TicksPerSecond);
             Emit(EventKind.HeroFireTrail, player.Prev.X, player.Prev.Y, a: player.Id);
         }
         float damage = damagePerSecond * TrailInterval * Dt;
@@ -153,7 +157,7 @@ public sealed partial class RunWorld
             for (int j = 0; j < TrailCapacity; j++)
             {
                 var patch = _heroTrail[player.Id, j];
-                if (patch.Until <= Tick || Vector2.DistanceSquared(pos, patch.Position) > TrailRadius * TrailRadius) continue;
+                if (patch.Until <= Tick || Vector2.DistanceSquared(pos, patch.Position) > radius * radius) continue;
                 DamageEnemy(enemy, damage, DamageKind.Magical, source, patch.Position.X, patch.Position.Y, 0);
                 break;
             }
