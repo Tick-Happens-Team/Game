@@ -51,9 +51,19 @@ jobs:
           $sequence = 1
           $latest = gh release view --repo $env:GITHUB_REPOSITORY --json tagName --jq .tagName 2>$null
           if ($LASTEXITCODE -eq 0 -and $latest) {
-            gh release download $latest --repo $env:GITHUB_REPOSITORY --pattern 'channel.json*' --dir $env:RUNNER_TEMP/latest
+            gh release download $latest --repo $env:GITHUB_REPOSITORY --pattern channel.json --dir $env:RUNNER_TEMP/latest
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            "PREVIOUS_CHANNEL=$env:RUNNER_TEMP/latest/channel.json" >> $env:GITHUB_ENV
+            # Every published release's signed manifest feeds the launcher's version history, including releases
+            # from before manifests carried one.
+            $channels = @()
+            foreach ($tag in gh release list --repo $env:GITHUB_REPOSITORY --limit 1000 --exclude-drafts --json tagName --jq '.[].tagName') {
+              $dir = Join-Path $env:RUNNER_TEMP "history/$tag"
+              gh release download $tag --repo $env:GITHUB_REPOSITORY --pattern 'channel.json*' --dir $dir
+              if ($LASTEXITCODE -eq 0 -and (Test-Path "$dir/channel.json.sig")) { $channels += "$dir/channel.json" }
+              else { Write-Warning "Release $tag has no signed channel.json; it is left out of the version history." }
+              $global:LASTEXITCODE = 0
+            }
+            "PREVIOUS_CHANNELS=$($channels -join ';')" >> $env:GITHUB_ENV
             $previous = Get-Content -Raw "$env:RUNNER_TEMP/latest/channel.json" | ConvertFrom-Json
             $sequence = [long]$previous.sequence + 1
           }
@@ -134,7 +144,7 @@ jobs:
               -AssetsVersion $env:ASSETS_VERSION -Sequence $env:SEQUENCE -PublicKey tools/release-public.pem `
               -AssetsRoot ../Assets -DownloadBase "https://github.com/$env:GITHUB_REPOSITORY/releases/download/v$env:GAME_VERSION" `
               -Output .tmp/release -EosSdkArchive ../eos-sdk/eos-sdk-csharp-1.19.2.1-win64.zip -EosConfig $eosConfig `
-              -NotesDirectory $env:NOTES_DIR -PreviousChannel $env:PREVIOUS_CHANNEL
+              -NotesDirectory $env:NOTES_DIR -PreviousChannel ($env:PREVIOUS_CHANNELS -split ';')
           }
           finally { Remove-Item -LiteralPath $eosConfig -Force }
           $files = 'launcher-win-x64.zip', 'game-win-x64.zip', 'assets.zip', 'channel.json', 'channel.json.sig'
