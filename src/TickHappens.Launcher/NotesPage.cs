@@ -236,12 +236,20 @@ internal sealed class NotesPage
         switch (row.Kind)
         {
             case RowKind.Section:
+            {
                 Fill(c, x - 4, y - 2, w + 4, 1, PanelDark);
-                Bevel(c, x, y + 2, SectionIcon + 4, SectionIcon + 4, Panel, White, PanelDark);
-                DrawIcon(c, row.Icon, x + 2, y + 4, SectionIcon);
-                Label(c, row.Text, x + SectionIcon + 12, y + 6, Ink, 2);
-                if (row.Caption is { } kind) Label(c, kind, x + SectionIcon + 12, y + 23, Muted);
+                // Items have no sprites of their own; without an icon the title starts at the margin instead of an empty frame.
+                int tx = x + 2;
+                if (row.Icon is not null)
+                {
+                    Bevel(c, x, y + 2, SectionIcon + 4, SectionIcon + 4, Panel, White, PanelDark);
+                    DrawIcon(c, row.Icon, x + 2, y + 4, SectionIcon);
+                    tx = x + SectionIcon + 12;
+                }
+                Label(c, row.Text, tx, y + 6, Ink, 2);
+                if (row.Caption is { } kind) Label(c, kind, tx, y + 23, Muted);
                 break;
+            }
             case RowKind.Group:
                 Label(c, row.Text, x + 2, y + 4, Gold);
                 break;
@@ -337,6 +345,7 @@ internal sealed class NotesPage
     {
         "hero" => ContentSprite("characters.json", section.Id),
         "enemy" => ContentSprite("enemies.json", section.Id),
+        "item" when section.Id is not null => "item_" + section.Id,
         _ => null,
     };
 
