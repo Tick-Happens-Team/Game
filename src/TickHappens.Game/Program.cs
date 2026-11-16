@@ -53,6 +53,7 @@ if (args is ["--eos-probe"]) return EosProbe.Run();
 bool demo = false, noVsync = false, stayInMenu = false, noAudio = false;
 int frames = 0, dashEvery = 0;
 uint seed = 1;
+bool seedSpecified = false;
 string? screenshot = null, characterId = null, recordAudio = null;
 for (int i = 0; i < args.Length; i++)
 {
@@ -67,7 +68,7 @@ for (int i = 0; i < args.Length; i++)
         case "--character" when i + 1 < args.Length: characterId = args[++i]; break;
         case "--frames" when i + 1 < args.Length && int.TryParse(args[i + 1], out frames) && frames > 0: i++; break;
         case "--screenshot" when i + 1 < args.Length: screenshot = args[++i]; break;
-        case "--seed" when i + 1 < args.Length && uint.TryParse(args[i + 1], out seed): i++; break;
+        case "--seed" when i + 1 < args.Length && uint.TryParse(args[i + 1], out seed): seedSpecified = true; i++; break;
         default:
             Console.Error.WriteLine("Usage: TickHappens.Game [--demo] [--character ID] [--menu] [--seed S] [--no-vsync] [--no-audio] [--record-audio PATH] [--frames N [--screenshot PATH]] | --sim-bench CSV | --net-bench CSV");
             return 2;
@@ -78,6 +79,10 @@ if (screenshot is not null && frames == 0)
     Console.Error.WriteLine("--screenshot requires --frames.");
     return 2;
 }
+
+bool randomizeSeed = !seedSpecified && !demo && frames == 0;
+static uint NewRunSeed() => (uint)Random.Shared.NextInt64(1, 1L << 32);
+if (randomizeSeed) seed = NewRunSeed();
 
 ContentSet content;
 try
@@ -159,6 +164,7 @@ for (int frame = 1; !window.QuitRequested; frame++)
     online.Update(frameDt, coopHud.CapturesInput ? default : netInput);
     if (online.Playing != wasOnlinePlaying)
     {
+        if (randomizeSeed && online.Playing) seed = NewRunSeed();
         view.Reset();
         coopHud.Reset();
         onlineMenu.EndNicknameInput(window);
@@ -226,7 +232,7 @@ for (int frame = 1; !window.QuitRequested; frame++)
             : pauseMenu.Read(window, view.Renderer);
         if (toHeroSelect)
         {
-            seed++;
+            seed = randomizeSeed ? NewRunSeed() : seed + 1;
             world = new RunWorld(content, seed, content.Characters[selected].Id);
             loop = new RunLoop(world);
             pauseMenu.Reset();

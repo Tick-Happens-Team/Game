@@ -10,6 +10,73 @@ internal sealed partial class RunView
     private const uint RevivalMint = 0xFFAEF5B0u, RevivalGold = 0xFF9ADFFFu;
     private readonly List<ItemEffectFrame> _itemEffects = new(MaxItemEffects);
     private readonly record struct ItemEffectFrame(GameEvent Event, float Age, float Duration);
+    private readonly SiphonBeam[] _siphonBeams;
+    private readonly record struct SiphonBeam(int PlayerId, int EnemyUid, float Until);
+    private readonly SkateMark[] _skateTrail = new SkateMark[64];
+    private readonly SkateMark[] _lastSkateMarks = new SkateMark[4];
+    private int _nextSkateMark;
+    private readonly record struct SkateMark(Vector2 Start, Vector2 End, float Until);
+
+    private void AddSkateMark(GameEvent e)
+    {
+        if ((uint)e.A >= (uint)_lastSkateMarks.Length) return;
+        var end = new Vector2(e.X, e.Y);
+        var last = _lastSkateMarks[e.A];
+        var start = last.Until > _time + 2.7f && Vector2.DistanceSquared(last.End, end) <= 24 * 24
+            ? last.End : end;
+        var mark = new SkateMark(start, end, _time + 3);
+        _lastSkateMarks[e.A] = mark;
+        _skateTrail[_nextSkateMark] = mark;
+        _nextSkateMark = (_nextSkateMark + 1) % _skateTrail.Length;
+    }
+
+    private void DrawSkateTrail(PixelCanvas color, PixelCanvas light)
+    {
+        for (int i = 0; i < _skateTrail.Length; i++)
+        {
+            var mark = _skateTrail[(_nextSkateMark + i) % _skateTrail.Length];
+            float fade = Math.Clamp(mark.Until - _time, 0, 1);
+            if (fade <= 0) continue;
+            int steps = Math.Max(1, (int)MathF.Ceiling(Vector2.Distance(mark.Start, mark.End) / 5));
+            for (int step = 1; step <= steps; step++)
+            {
+                var point = Vector2.Lerp(mark.Start, mark.End, step / (float)steps);
+                color.AlphaDisc(point.X, point.Y, 5, 0xFF1B4EB8u, fade * 0.65f);
+                color.AlphaDisc(point.X, point.Y, 2.8f, 0xFF33B4F4u, fade * 0.8f);
+            }
+            light.Glow(mark.End.X, mark.End.Y, 8, 0xFF2B9CFFu, fade * 0.45f);
+        }
+    }
+
+    private void DrawSiphonBeams(RunWorld world, PixelCanvas color, PixelCanvas light, float alpha)
+    {
+        for (int slot = 0; slot < world.EnemyHighWater; slot++)
+        {
+            var beam = _siphonBeams[slot];
+            if (beam.Until <= _time || !world.EAlive[slot] || (world.EUid[slot] & ushort.MaxValue) != beam.EnemyUid)
+                continue;
+            var player = world.Players[beam.PlayerId];
+            if (!player.Active || player.Hp <= 0) continue;
+
+            var from = _displayPlayers[beam.PlayerId] - new Vector2(0, 9);
+            var to = world.EnemyPos(slot, alpha) - new Vector2(0, 7);
+            var delta = to - from;
+            float length = delta.Length();
+            if (length < 2 || length > 155) continue;
+
+            var normal = new Vector2(-delta.Y, delta.X) / length;
+            color.Line(from.X - normal.X, from.Y - normal.Y, to.X - normal.X, to.Y - normal.Y, 0xFF43A326u);
+            color.Line(from.X + normal.X, from.Y + normal.Y, to.X + normal.X, to.Y + normal.Y, 0xFF43A326u);
+            color.Line(from.X, from.Y, to.X, to.Y, 0xFF91F451u);
+            light.Line(from.X, from.Y, to.X, to.Y, 0xFF58B934u);
+            for (int i = 0; i < 3; i++)
+            {
+                float progress = (_time * 1.9f + i / 3f) % 1;
+                var pulse = from + delta * progress;
+                color.Disc(pulse.X, pulse.Y, 1.4f, 0xFFCDFB98u);
+            }
+        }
+    }
 
     private void AddItemEffect(GameEvent e)
     {
