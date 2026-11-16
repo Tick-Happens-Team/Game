@@ -116,6 +116,7 @@
   "online.player": "PLAYER {0}",
   "online.ms": "{0} MS",
   "online.ping": "PING {0}",
+  "online.hostPing": "HOST",
   "online.nickname": "ENTER NICKNAME",
   "online.confirmNickname": "SAVE  ENTER",
   "online.editNickname": "EDIT NICKNAME  F4",

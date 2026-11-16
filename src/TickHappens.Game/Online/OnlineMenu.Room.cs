@@ -144,7 +144,9 @@ internal sealed partial class OnlineMenu
                 x, layout.Foot + 13, bayWidth - 6, present ? Text : Muted);
             if (hero is int selected && present)
                 DrawFitted(ui, game.HeroName(selected), x, layout.Foot + 23, bayWidth - 6, accent);
-            if (present && !(game.IsHost && slot == 0) && game.Ping(local ? 0 : slot) is int ms)
+            if (present && slot == 0)
+                DrawFitted(ui, Localizer.Get("online.hostPing"), x, layout.Foot + 31, bayWidth - 6, Muted);
+            else if (present && game.Ping(slot) is int ms)
                 DrawFitted(ui, Localizer.Format("online.ms", ms), x, layout.Foot + 31, bayWidth - 6, Muted);
             if (present)
             {

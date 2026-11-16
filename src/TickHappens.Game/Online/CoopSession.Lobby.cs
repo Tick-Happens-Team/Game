@@ -15,14 +15,27 @@ public sealed partial class CoopSession
     private byte _readyMask;
     private readonly long[] _pingSent = new long[MaxPlayers], _lastPong = new long[MaxPlayers];
     private readonly uint[] _pingId = new uint[MaxPlayers];
+    // Host: smoothed round trip to each guest (1 + ms, 0 = unknown); guests receive the host's table.
     private readonly ushort[] _latency = new ushort[MaxPlayers];
     private readonly double[] _jitter = new double[MaxPlayers];
+    private readonly double[] _smoothedRtt = new double[MaxPlayers];
+    // Guest: its own smoothed round trip to the host, kept apart from the host's table.
+    private ushort _ownLatency;
     private uint _nextPing;
     internal event Action<int, double, double>? LatencySample;
     internal bool Paused { get; private set; }
     internal bool IsPresent(int slot) => _present[slot];
     internal PlayerProfile? Profile(int slot) => _profiles[slot];
-    internal int? Ping(int slot) => _latency[slot] == 0 ? null : _latency[slot] - 1;
+    /// <summary>
+    /// Round trip between the player in <paramref name="slot"/> and the host, in milliseconds. The host itself has
+    /// none. A guest reports its own measurement for its slot and the host's measurements for the other guests.
+    /// </summary>
+    internal int? Ping(int slot)
+    {
+        if ((uint)slot >= MaxPlayers || slot == 0) return null;
+        ushort latency = !IsHost && slot == LocalPlayerSlot ? _ownLatency : _latency[slot];
+        return latency == 0 ? null : latency - 1;
+    }
     internal bool IsReady(int slot) => (_readyMask & (1 << slot)) != 0;
     internal bool EveryoneReady => Enumerable.Range(0, MaxPlayers).All(slot => !_present[slot] || IsReady(slot));
 
@@ -177,8 +190,13 @@ public sealed partial class CoopSession
 
     private void SendPing(string peer, int slot, long now)
     {
-        if (_latency[slot] != 0 && _clock.GetElapsedTime(_lastPong[slot], now).TotalSeconds >= 6)
-            _latency[slot] = 0;
+        if (_lastPong[slot] != 0 && _clock.GetElapsedTime(_lastPong[slot], now).TotalSeconds >= 6)
+        {
+            _lastPong[slot] = 0;
+            _smoothedRtt[slot] = 0;
+            if (IsHost) _latency[slot] = 0;
+            else _ownLatency = 0;
+        }
         _pingSent[slot] = now;
         uint id = ++_nextPing;
         _pingId[slot] = id;
@@ -205,11 +223,18 @@ public sealed partial class CoopSession
         if (_pingId[slot] == 0 || BinaryPrimitives.ReadUInt32LittleEndian(packet[2..]) != _pingId[slot]) return;
         _pingId[slot] = 0;
         _lastPong[slot] = now;
-        double rtt = _clock.GetElapsedTime(_pingSent[slot], now).TotalMilliseconds;
-        if (_latency[slot] != 0)
-            _jitter[slot] += (Math.Abs(rtt - (_latency[slot] - 1)) - _jitter[slot]) / 4;
-        _latency[slot] = (ushort)(1 + Math.Clamp((int)Math.Round(rtt), 0, ushort.MaxValue - 1));
-        LatencySample?.Invoke(slot, rtt, _jitter[slot]);
+        double rtt = Math.Max(0, _clock.GetElapsedTime(_pingSent[slot], now).TotalMilliseconds);
+        // A smoothed value keeps the display steady; one late pong moves it a quarter of the way.
+        if (_smoothedRtt[slot] == 0) _smoothedRtt[slot] = Math.Max(rtt, 0.5);
+        else
+        {
+            _jitter[slot] += (Math.Abs(rtt - _smoothedRtt[slot]) - _jitter[slot]) / 4;
+            _smoothedRtt[slot] += (rtt - _smoothedRtt[slot]) / 4;
+        }
+        var latency = (ushort)(1 + Math.Clamp((int)Math.Round(_smoothedRtt[slot]), 0, ushort.MaxValue - 1));
+        if (IsHost) _latency[slot] = latency;
+        else _ownLatency = latency;
+        LatencySample?.Invoke(IsHost ? slot : LocalPlayerSlot ?? 0, rtt, _jitter[slot]);
     }
 
     private void BroadcastLatency()
@@ -225,6 +250,7 @@ public sealed partial class CoopSession
     private void ReceiveLatency(ReadOnlySpan<byte> packet)
     {
         if (packet.Length != HeaderBytes + 2 * MaxPlayers) return;
+        // Slot 0 is the host and carries no ping; the guest's own slot keeps its local measurement.
         for (int slot = 1; slot < MaxPlayers; slot++)
             _latency[slot] = BinaryPrimitives.ReadUInt16LittleEndian(packet[(HeaderBytes + 2 * slot)..]);
     }
