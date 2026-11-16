@@ -69,7 +69,7 @@ Stats are copied from the owner's table. Growth means the per-level value of the
 
 | # | Character | HP | Regen (HP/s) | Move speed | Attack speed | Armor | Magic resist | Damage | Passive → implementation | Growth | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | Octarine | 135/+5 | 1.75 | 25 | 25 | 5% | 15% | 18/+2.75 | −10% cooldown on all abilities and items → `cooldown` pct | 0.5% | [~] |
+| 1 | Florist (formerly Octarine) | 135/+5 | 1.75 | 25 | 25 | 5% | 15% | 18/+2.75 | −10% cooldown on all abilities and items → `cooldown` pct | 0.5% | [~] |
 | 2 | Swordsman | 275/+4.5 | 3 | 18 | 20 | 8% | 5% | 20/+1.75 | armor rises every level and blocks a physical contact hit with 18.5% chance | +0.5 percentage points to armor and block chance | [x] |
 | 3 | Smith | 200/+2 | 2.75 | 30 | 25 | 5% | 4% | 15/+1.8 | +10% item damage → `itemDamage` multiplier (needs S2 source tags) | 0.25% | [~] |
 | 4 | Goflin | 125/+3.5 | 1.75 | 35 | 30 | 4% | 6% | 5/+2.5 | +20% gold → `goldGain` (S13) | 0.75% | [~] |
@@ -326,7 +326,7 @@ Art for every character, enemy and summon goes through recipes (`art-recipe` ski
 | Boar | After death becomes an invulnerable ghost re-skin for 5 s (+0.25 s per level), like Wraith King's reincarnation, then dies. |
 | Watchman | Counts minutes on the game run clock, statues included. Damage bonus is 0.75 × run minutes. Each level grants +1 percentage point of physical and magical crit chance. |
 | Garlic | Caps enemy lifesteal at 12%. |
-| Octarine | Developer's choice: the cooldown reduction also applies to the dash. |
+| Florist | Developer's choice: the cooldown reduction also applies to the dash. |
 
 ## 9. Open questions for the owner
 
