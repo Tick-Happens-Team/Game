@@ -7,7 +7,7 @@ namespace TickHappens.Game.Sim;
 public sealed partial class RunWorld
 {
     public const int SnapshotCapacity = 64 * 1024;
-    private const byte SnapshotVersion = 10;
+    private const byte SnapshotVersion = 11;
     private const int OwnedXpPickupBase = 13;
     private int _replicaTick = -1;
     private readonly ushort[] _enemySnapshotSlots = new ushort[ushort.MaxValue / 8];
@@ -60,15 +60,24 @@ public sealed partial class RunWorld
                     case "diver": w.Float(p.HeroDistance); break;
                     case "necromancer": w.Int(p.Souls); break;
                     case "illusionist":
-                        w.Float(MathF.Max(0, p.IllusionHealth));
-                        w.Float(p.IllusionMaxHealth);
+                        byte activeIllusions = 0;
+                        for (int i = 0; i < p.Illusions.Length; i++)
+                            if (p.Illusions[i].UntilTick > Tick) activeIllusions |= (byte)(1 << i);
+                        w.Byte(activeIllusions);
+                        for (int i = 0; i < p.Illusions.Length; i++)
+                        {
+                            if ((activeIllusions & (1 << i)) == 0) continue;
+                            ref readonly var illusion = ref p.Illusions[i];
+                            w.Int(illusion.UntilTick);
+                            WritePoint(ref w, illusion.Position.X, illusion.Position.Y);
+                            w.Float(illusion.Health);
+                            w.Float(illusion.MaxHealth);
+                        }
                         break;
                     case "cybernetic_cube":
                         foreach (float bonus in p.CubeBonuses) w.Float(bonus);
                         break;
                 }
-                w.Int(p.IllusionUntilTick);
-                WritePoint(ref w, p.IllusionPosition.X, p.IllusionPosition.Y);
                 w.Int(p.MaskIllusionUntilTick);
                 WritePoint(ref w, p.MaskIllusionPosition.X, p.MaskIllusionPosition.Y);
                 w.Int(p.NearbyChest);
@@ -395,15 +404,24 @@ public sealed partial class RunWorld
                 Require(cube[i] >= 0);
             }
         }
-        float illusionHealth = 0, illusionMaxHealth = 0;
+        Span<HeroIllusion> illusions = stackalloc HeroIllusion[HeroIllusionCapacity];
+        illusions.Clear();
         if (hero == "illusionist")
         {
-            illusionHealth = r.Float();
-            illusionMaxHealth = r.Float();
-            Require(illusionHealth >= 0 && illusionMaxHealth >= illusionHealth);
+            int activeIllusions = r.Byte();
+            for (int i = 0; i < illusions.Length; i++)
+            {
+                if ((activeIllusions & (1 << i)) == 0) continue;
+                int until = r.Int();
+                var illusionPosition = ReadPoint(ref r);
+                float health = r.Float(), maxHealth = r.Float();
+                Require(until > 0 && health > 0 && maxHealth >= health);
+                illusions[i] = new HeroIllusion
+                {
+                    UntilTick = until, Position = illusionPosition, Health = health, MaxHealth = maxHealth
+                };
+            }
         }
-        int illusionUntil = r.Int();
-        var illusionPos = ReadPoint(ref r);
         int maskIllusionUntil = r.Int();
         var maskIllusionPos = ReadPoint(ref r);
         int chest = r.Int(), item = r.Int();
@@ -418,7 +436,7 @@ public sealed partial class RunWorld
             kills >= 0 && gold >= 0 && price > 0 && invulnerable >= 0 && dash >= 0 && cooldown >= 0 &&
             chest >= -1 && chest < MaxChestSlots && item >= -1 && item < Content.Items.Count && flags <= 7 && lastAppliedInput >= 0 &&
             dashTotal >= dash && dashChargesUsed is >= 0 and <= 9 && dashSpeed >= 0 && accelerator >= 0 &&
-            speedBonus >= 0 && shield >= 0 && bonusShield >= 0 && illusionUntil >= 0 && maskIllusionUntil >= 0 && equipped <= Content.Items.Count &&
+            speedBonus >= 0 && shield >= 0 && bonusShield >= 0 && maskIllusionUntil >= 0 && equipped <= Content.Items.Count &&
             (firstOffer == -1 && secondOffer == -1 && thirdOffer == -1 && offerUntil == 0 ||
             firstOffer >= 0 && firstOffer < Content.Items.Count && secondOffer >= 0 &&
             secondOffer < Content.Items.Count && firstOffer != secondOffer && offerUntil > 0 &&
@@ -469,10 +487,7 @@ public sealed partial class RunWorld
             p.HeroDistance = distance;
             p.Souls = souls;
             if (hero == "cybernetic_cube") cube.CopyTo(p.CubeBonuses);
-            p.IllusionUntilTick = illusionUntil;
-            p.IllusionHealth = illusionHealth;
-            p.IllusionMaxHealth = illusionMaxHealth;
-            p.IllusionPosition = illusionPos;
+            illusions.CopyTo(p.Illusions);
             p.MaskIllusionUntilTick = maskIllusionUntil;
             p.MaskIllusionPosition = maskIllusionPos;
             p.NearbyChest = chest;

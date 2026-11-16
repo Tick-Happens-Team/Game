@@ -56,6 +56,13 @@ public readonly record struct DamageSourceRef(int PlayerId, int ItemDef = -1, bo
     public bool FromItem => ItemDef >= 0;
 }
 
+internal struct HeroIllusion
+{
+    public Vector2 Position;
+    public int UntilTick, HurtTick;
+    public float Health, MaxHealth;
+}
+
 public sealed class PlayerState
 {
     public int Id;
@@ -87,13 +94,14 @@ public sealed class PlayerState
     public float Shield, RefundCarry;
     public int AcceleratorTicks;
     public readonly List<int> EffectItems = [];
-    public int DashChargesUsed, DashTicksTotal, BoughtChests, IllusionUntilTick, MaskIllusionUntilTick;
+    public int DashChargesUsed, DashTicksTotal, BoughtChests, MaskIllusionUntilTick;
     public float BonusShield, AuraBlockChance, PhysicalAuraBonus;
-    public Vector2 IllusionPosition, MaskIllusionPosition;
+    public Vector2 MaskIllusionPosition;
     public int BoarWalkTicks;
     public int GhostUntilTick, HeroAttackTick = -1;
-    internal int NextHeroPassiveTick, Souls, IllusionHurtTick;
-    internal float IllusionHealth, IllusionMaxHealth, PendingBlastDamage, HeroDistance, PuppeteerDamageBonus;
+    internal int NextHeroPassiveTick, Souls;
+    internal readonly HeroIllusion[] Illusions = new HeroIllusion[RunWorld.HeroIllusionCapacity];
+    internal float PendingBlastDamage, HeroDistance, PuppeteerDamageBonus;
     internal readonly float[] CubeBonuses = new float[RunWorld.CubeStatCount];
     public int ConversionItem = -1;
     public float AcceleratorSpeedBonus;

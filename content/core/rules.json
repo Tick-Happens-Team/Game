@@ -35,11 +35,11 @@
     "startPrice": 10,
     "priceGrowth": 1.5,
     "rarityWeights": {
-      "common": 40,
+      "common": 58,
       "rare": 25,
-      "epic": 17,
-      "mythic": 12,
-      "legendary": 6
+      "epic": 10,
+      "mythic": 5,
+      "legendary": 2
     }
   }
 }

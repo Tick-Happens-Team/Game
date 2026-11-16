@@ -66,7 +66,7 @@ public sealed class CoopWorldTests
         Assert.Equal(fallen.RevivalTicks, client.Player.RevivalTicks);
 
         host.StepCoop([new RunInput(1, 0), default]);
-        TestWorld.Close(0.4f * (fallen.Character.Stats.MaxHp + 125), fallen.Hp);
+        TestWorld.Close(0.4f * (fallen.Character.Stats.MaxHp + 50), fallen.Hp);
         Assert.Equal(0, fallen.RevivalTicks);
         Assert.Equal(corpse, fallen.Pos);
         Assert.Equal(2 * RunWorld.TicksPerSecond, fallen.InvulnTicks);
