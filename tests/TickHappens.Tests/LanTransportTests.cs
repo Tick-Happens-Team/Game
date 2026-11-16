@@ -5,8 +5,16 @@ using TickHappens.Game.Sim;
 
 namespace TickHappens.Tests;
 
+// Real UDP sockets on loopback: the handshake can take seconds on a busy two-core CI runner, so these tests
+// run outside the parallel test pool and wait generously. A met condition still returns at once.
+[CollectionDefinition(nameof(LanTransportTests), DisableParallelization = true)]
+public sealed class LanTransportCollection;
+
+[Collection(nameof(LanTransportTests))]
 public sealed class LanTransportTests
 {
+    private static readonly TimeSpan PumpTimeout = TimeSpan.FromSeconds(15);
+
     [Fact]
     public async Task PreMatchHeroChoicesInitializeBothWorldsAndHostPauseStopsBothClocks()
     {
@@ -20,7 +28,7 @@ public sealed class LanTransportTests
         async Task PumpUntil(Func<bool> done)
         {
             var timeout = Stopwatch.StartNew();
-            while (!done() && timeout.Elapsed < TimeSpan.FromSeconds(5))
+            while (!done() && timeout.Elapsed < PumpTimeout)
             {
                 host.Update(RunWorld.Dt, default);
                 guest.Update(RunWorld.Dt, default);
@@ -88,7 +96,7 @@ public sealed class LanTransportTests
         async Task PumpUntil(Func<bool> done)
         {
             var timeout = Stopwatch.StartNew();
-            while (!done() && timeout.Elapsed < TimeSpan.FromSeconds(5))
+            while (!done() && timeout.Elapsed < PumpTimeout)
             {
                 host.Update(RunWorld.Dt, default);
                 guest.Update(RunWorld.Dt, default);
