@@ -256,17 +256,20 @@ public sealed class EnemyAttacksTests
     public void ExistingEnemyGainsOnePercentMoveSpeedPerCompletedFiveMinutes(int targetTick, float expectedScale)
     {
         var world = IsolatedWorld();
+        world.Content.Waves.BossIntervalMinutes = 0;
+        world.Content.Waves.Elites.Clear();
         var start = world.Player.Pos + new Vector2(300, 0);
         int enemy = world.SpawnEnemy(world.Content.EnemyIndex("gloombat"), start);
         world.Step(default);
         float firstStep = start.X - world.EX[enemy];
 
-        while (world.Tick < targetTick)
+        for (int tick = 1; tick < targetTick; tick++)
         {
             world.EX[enemy] = start.X;
             world.Step(default);
         }
 
+        Assert.Equal(targetTick, world.Tick);
         Assert.True(world.EAlive[enemy]);
         Assert.True(firstStep > 0);
         TestWorld.Close(firstStep * expectedScale, start.X - world.EX[enemy], 3);
