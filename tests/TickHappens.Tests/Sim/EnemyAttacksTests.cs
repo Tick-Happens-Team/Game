@@ -249,8 +249,11 @@ public sealed class EnemyAttacksTests
         TestWorld.Close(55f / 1.5f, blast.Value);
     }
 
-    [Fact]
-    public void ExistingEnemyMovesOnePercentFasterAfterOneMinute()
+    [Theory]
+    [InlineData(5 * 60 * RunWorld.TicksPerSecond - 1, 1f)]
+    [InlineData(5 * 60 * RunWorld.TicksPerSecond, 1.01f)]
+    [InlineData(10 * 60 * RunWorld.TicksPerSecond, 1.02f)]
+    public void ExistingEnemyGainsOnePercentMoveSpeedPerCompletedFiveMinutes(int targetTick, float expectedScale)
     {
         var world = IsolatedWorld();
         var start = world.Player.Pos + new Vector2(300, 0);
@@ -258,8 +261,7 @@ public sealed class EnemyAttacksTests
         world.Step(default);
         float firstStep = start.X - world.EX[enemy];
 
-        const int minuteTicks = 60 * RunWorld.TicksPerSecond;
-        for (int i = 0; i < minuteTicks; i++)
+        while (world.Tick < targetTick)
         {
             world.EX[enemy] = start.X;
             world.Step(default);
@@ -267,7 +269,7 @@ public sealed class EnemyAttacksTests
 
         Assert.True(world.EAlive[enemy]);
         Assert.True(firstStep > 0);
-        TestWorld.Close(firstStep * 1.01f, start.X - world.EX[enemy], 3);
+        TestWorld.Close(firstStep * expectedScale, start.X - world.EX[enemy], 3);
     }
 
     private static RunWorld IsolatedWorld(int playerCount = 1)
