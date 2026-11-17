@@ -43,6 +43,8 @@ public enum Stat
     EliteDamage, HighestHealthDamage, DashLength, ExtraDashCharges, Lifesteal,
     /// <summary>Multiplier on damage the hero takes after defences (ally auras lower it). Default 1, floor 0.1.</summary>
     DamageTaken,
+    /// <summary>Most lifesteal can heal per second as a fraction of max HP (0.05 = 5%). Default 0.05.</summary>
+    LifestealHealCap,
 }
 
 public enum DamageKind { Physical, Magical, Pure }

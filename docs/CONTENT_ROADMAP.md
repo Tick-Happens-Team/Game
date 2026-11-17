@@ -24,7 +24,7 @@ Milestone M1 is playable: stat model v2 (S0), hero basic attack (S1), the damage
 | S1 | **Hero basic attack** driven by the character's «Damage» and «Attack speed». Auto-aimed projectiles use the shape described in §8. | S0 | Each character attacks with its own damage and rate. Damage and attack speed scale with level. |
 | S2 | **Damage pipeline.** Hit = base × source multipliers (hero, items, damage type) → crit → target defence (armor % for physical, Magic resist % for magical, none for pure) → on-hit and on-damage-taken hooks. Every hit carries source (hero / item id / summon owner), type and flags (crit, proc, reflected). | S0 | Order-independent multiplier tests. Pure damage ignores defences. Summon damage credits the summon owner. |
 | S3 | **Crit:** Players start with 5% physical and 5% magical crit chance, with a shared base crit multiplier of ×2. | S2 | Deterministic crit rolls from the seeded RNG. |
-| S4 | **Healing layer:** lifesteal (by damage type), shields (absorb, regenerating), heal-received events, a conditional regen hook. | S2 | Lifesteal and shields are tested. Shields show on the HUD. |
+| S4 | **Healing layer:** lifesteal (by damage type) limited by `lifestealHealCap` (default 5% of max HP per second, so area damage cannot out-heal every threat), shields (absorb, regenerating), heal-received events, a conditional regen hook. | S2 | Lifesteal and shields are tested. Shields show on the HUD. |
 | S5 | **Event hooks** usable from data: `onHit`, `onAttack` (proc chance), `onKill`, `onDamageTaken` (threshold accumulator), `onDash`, `onGoldSpent`, `onItemAcquired`, `onLevelUp`, `onDeath`, `everySeconds`, `whileStill`. | S2 | Each hook has a test. Hooks are tick-based and deterministic. |
 | S6 | **New weapon kinds:** `melee` (arc in the facing direction, slash VFX), `cone` (sustained, CombatArea.Cone), `boomerang` (out-and-back projectile), `bounce` (re-targets on kill), `dropped` (delayed bomb behind the hero), `trail` (ground hazard), `snipe` (hit the highest-HP enemy), `execute` (instant kill with a filter). | S1, S2 | Every kind is used by at least one item and verified in a capture. |
 | S7 | **Status effects on enemies:** slow (proximity-scaled), freeze, stun, poison or delayed damage over time, plus a boss flag that excludes executes and instant kills. | S2 | Effects stack by documented rules and have tests and VFX. |
@@ -80,7 +80,7 @@ Stats are copied from the owner's table. Growth means the per-level value of the
 
 | # | Character | HP | Regen (HP/s) | Move speed | Attack speed | Armor | Magic resist | Damage | Passive → implementation | Growth | Status |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 7 | Vamp-chan | 125/+1.5 | 1.25 | 35 | 35 | 5% | 0% | 18/+1.75 | 3.5% lifesteal from damage dealt → S4 | +0.25 pp lifesteal | [x] |
+| 7 | Vamp-chan | 125/+1.5 | 1.25 | 35 | 35 | 5% | 0% | 18/+1.75 | 3.5% lifesteal from damage dealt; lifesteal heals up to 8% max HP/s instead of 5% → S4 | +0.25 pp lifesteal | [x] |
 | 8 | Miner | 300/+3 | 3.75 | 20 | 20 | 10% | 5% | 10/+1.25 | after taking 80 damage, explodes for 10 in radius 50 → `onDamageTaken` accumulator plus blast VFX | +2.5 damage and +2.5 radius | [x] |
 | 9 | Cybernetic Cube | 100/+3.5 | 1.75 | 25 | 30 | 10% | 10% | 10/+0.75 | each level increases one random stat by 0.75–8.25% → seeded roll on `onLevelUp` | fixed roll range | [x] |
 | 10 | Masochist | 150/+3 | 0.25 | 22 | 35 | 1% | 3% | 13/+2.25 | lower HP gives more regen and move speed → stats computed from missing HP | +0.15 HP/s and +0.3 percentage points movement speed at maximum bonus | [x] |
@@ -197,7 +197,7 @@ Values the sheet leaves open use tunable defaults in `items.json`. Jetpack incre
 | F.B. Ring | Common | +15 HP to allies within 225 | aura | [x] |
 | Leader's Heart | Common | +8 attack speed to nearby allies | aura | [x] |
 | Totem | Common | heals all allied creatures within 425 at 1 HP/s | heal aura | [x] |
-| Vampire Hood | Rare | 8% lifesteal to all allies within 185 | lifesteal aura (S4) | [x] |
+| Vampire Hood | Rare | 8% lifesteal to all allies within 180; copies widen the radius by 15% and hoods do not add up | lifesteal aura (S4) | [x] |
 | Poor Man's Shield | Rare | 50 shield to the ally with the lowest HP | targeted shield (S4) | [x] |
 | Motivation Mask | Epic | +12% physical damage to allies within 300 | aura | [x] |
 | Shared Heart | Epic | the hero receives 7% of healing done to allies and 6% of healing done to summons | heal share | [x] |

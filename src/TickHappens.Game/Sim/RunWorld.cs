@@ -400,6 +400,7 @@ public sealed partial class RunWorld
             if (!p.Walking) regen += p.Stats[Stat.StationaryRegen] * MaxHealthFor(p);
             p.Hp = Math.Min(p.Hp, MaxHealthFor(p));
             RestorePlayer(p, regen * Dt);
+            p.LifestealSpent = Math.Max(0, p.LifestealSpent - p.Stats[Stat.LifestealHealCap] * MaxHealthFor(p) * Dt);
             if (Tick >= p.ShieldRechargeTick) p.Shield = ShieldCapacity(p);
         }
     }
@@ -776,7 +777,7 @@ public sealed partial class RunWorld
             ref var ally = ref _companions[source.CompanionSlot];
             RestoreCompanion(ref ally, Math.Min(amount, hpBefore) * ally.Lifesteal);
         }
-        else if (lifesteal > 0) RestorePlayer(p, Math.Min(amount, hpBefore) * lifesteal);
+        else if (lifesteal > 0) RestoreFromLifesteal(p, Math.Min(amount, hpBefore) * lifesteal);
         float threshold = EMaxHp[i] * 0.12f;
         if (source.SuppressProcs) return;
         if (EAlive[i]) OnEnemyHitWithItemEffects(p, i, amount);

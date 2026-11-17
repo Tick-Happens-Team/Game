@@ -24,6 +24,7 @@ public sealed class StatBlock
         _base[(int)Stat.PhysicalCrit] = 0.05f;
         _base[(int)Stat.MagicalCrit] = 0.05f;
         _base[(int)Stat.CritDamage] = 2;
+        _base[(int)Stat.LifestealHealCap] = 0.05f;
     }
 
     public void SetBase(Stat s, float v) => _base[(int)s] = v;
