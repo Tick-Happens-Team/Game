@@ -354,7 +354,7 @@
   "content.characters.necromancer.passive": "Каждое убийство даёт душу и +0,5% урона. Раз в 30 с души призывают духа: до 20 - целитель, до 50 - воин, от 51 - призрак с атакой по площади.",
   "content.characters.necromancer.growth": "Ещё +0,1% урона за душу с каждым уровнем.",
   "content.characters.vampire.name": "Вамптян",
-  "content.characters.vampire.passive": "Восстанавливает 3,65% от нанесённого урона. Вампиризм лечит до 8% максимального здоровья в секунду вместо 5%.",
+  "content.characters.vampire.passive": "Восстанавливает 3,65% от нанесённого урона. Вампиризм лечит в полную силу до 10% максимального здоровья в секунду вместо 6%.",
   "content.characters.vampire.growth": "+0,25 п. п. вампиризма за уровень.",
   "content.characters.puppeteer.name": "Кукловод",
   "content.characters.puppeteer.passive": "Союзники и их призванные существа получают +10% урона и скорости атаки.",

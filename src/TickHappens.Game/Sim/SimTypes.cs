@@ -96,7 +96,7 @@ public sealed class PlayerState
     public readonly List<int> EffectItems = [];
     public int DashChargesUsed, DashTicksTotal, BoughtChests, MaskIllusionUntilTick;
     public float BonusShield, AuraBlockChance, PhysicalAuraBonus, LifestealAura;
-    /// <summary>Host-only lifesteal healing spent within the last second; see Stat.LifestealHealCap.</summary>
+    /// <summary>Host-only full-efficiency lifesteal healing not yet refilled; see Stat.LifestealHealCap.</summary>
     public float LifestealSpent;
     public Vector2 MaskIllusionPosition;
     public int BoarWalkTicks;

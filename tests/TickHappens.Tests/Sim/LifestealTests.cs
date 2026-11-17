@@ -8,26 +8,31 @@ namespace TickHappens.Tests;
 public sealed class LifestealTests
 {
     [Fact]
-    public void LifestealHealsAtMostFivePercentOfMaxHealthPerSecond()
+    public void LifestealHealsInFullUpToTheBudgetAndAtTwentyPercentBeyondIt()
     {
         var world = new RunWorld(QuietContent(), character: "pig");
         TestWorld.DisableCrits(world);
         var player = world.Player;
-        player.Stats.Apply(Stat.Lifesteal, 1, 0);
+        player.Stats.Apply(Stat.Lifesteal, 0.1f, 0);
         float maxHealth = RunWorld.MaxHealthFor(player);
+        float budget = 0.06f * maxHealth * 2;
         player.Hp = 1;
 
         int first = world.SpawnEnemy(0, player.Pos + new Vector2(60, 0));
         int second = world.SpawnEnemy(0, player.Pos + new Vector2(-60, 0));
-        world.DamageEnemy(first, 500, DamageKind.Pure, new DamageSourceRef(0), 0, 0);
+        world.DamageEnemy(first, 100, DamageKind.Pure, new DamageSourceRef(0), 0, 0);
+        TestWorld.Close(1 + 10, player.Hp, 3);
         world.DamageEnemy(second, 500, DamageKind.Pure, new DamageSourceRef(0), 0, 0);
-        TestWorld.Close(1 + 0.05f * maxHealth, player.Hp, 3);
+        float overflow = 60 - budget;
+        TestWorld.Close(1 + budget + overflow * 0.2f, player.Hp, 3);
         TestWorld.Close(0, world.LifestealBudget(player));
 
         // Auto-attacks on the remaining enemies would spend the budget while it refills.
-        player.Stats.Apply(Stat.Lifesteal, -1, 0);
-        for (int i = 0; i < 2 * RunWorld.TicksPerSecond; i++) world.Step(default);
-        TestWorld.Close(0.05f * RunWorld.MaxHealthFor(player), world.LifestealBudget(player), 3);
+        player.Stats.Apply(Stat.Lifesteal, -0.1f, 0);
+        for (int i = 0; i < RunWorld.TicksPerSecond / 2; i++) world.Step(default);
+        TestWorld.Close(0.06f * maxHealth * 0.5f, world.LifestealBudget(player), 2);
+        for (int i = 0; i < 3 * RunWorld.TicksPerSecond; i++) world.Step(default);
+        TestWorld.Close(budget, world.LifestealBudget(player), 3);
     }
 
     [Fact]
@@ -35,7 +40,7 @@ public sealed class LifestealTests
     {
         var world = new RunWorld(QuietContent(), character: "vampire");
         world.Step(default);
-        TestWorld.Close(0.08f, world.Player.Stats[Stat.LifestealHealCap]);
+        TestWorld.Close(0.10f, world.Player.Stats[Stat.LifestealHealCap]);
     }
 
     [Fact]

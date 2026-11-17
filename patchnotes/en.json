@@ -1,10 +1,11 @@
 {
   "general": [
     {
-      "text": "Lifesteal heals at most 5% of max HP per second",
+      "text": "Lifesteal heals in full up to 6% of max HP per second, and only 20% of the healing beyond that",
       "change": "nerf",
       "details": [
         "Area damage against crowds no longer turns lifesteal into full healing every second",
+        "Unused full-strength healing builds up for up to 2 seconds",
         "Regeneration, shields and other healing are not limited"
       ]
     },
@@ -22,7 +23,7 @@
       "kind": "hero",
       "id": "vampire",
       "changes": [
-        { "text": "Lifesteal heals up to 8% of max HP per second instead of the usual 5%", "change": "buff" }
+        { "text": "Lifesteal heals in full up to 10% of max HP per second instead of the usual 6%", "change": "buff" }
       ]
     },
     {

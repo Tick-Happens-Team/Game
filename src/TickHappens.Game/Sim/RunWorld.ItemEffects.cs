@@ -232,20 +232,25 @@ public sealed partial class RunWorld
         if (share && restored > 0) ShareHealing(p.Id, restored, summon: false);
     }
 
+    /// <summary>Seconds of full-efficiency lifesteal healing the budget can hold.</summary>
+    internal const float LifestealBudgetSeconds = 2;
+    /// <summary>Share of lifesteal healing beyond the budget that still applies.</summary>
+    internal const float LifestealOverflowEfficiency = 0.2f;
+
     /// <summary>
-    /// Lifesteal heals from a budget of LifestealHealCap × max HP per second, so lifesteal on wide area damage
-    /// cannot out-heal every threat. The budget refills continuously and holds at most one second.
+    /// Lifesteal heals in full from a budget that refills at LifestealHealCap × max HP per second and holds
+    /// LifestealBudgetSeconds of it; healing beyond the budget applies at 20%. Lifesteal on wide area damage
+    /// still rewards investment but cannot out-heal every threat.
     /// </summary>
     private void RestoreFromLifesteal(PlayerState p, float amount)
     {
-        float heal = Math.Min(amount, LifestealBudget(p));
-        if (heal <= 0) return;
-        p.LifestealSpent += heal;
-        RestorePlayer(p, heal);
+        float full = Math.Min(amount, LifestealBudget(p));
+        p.LifestealSpent += full;
+        RestorePlayer(p, full + (amount - full) * LifestealOverflowEfficiency);
     }
 
     internal float LifestealBudget(PlayerState p) =>
-        Math.Max(0, p.Stats[Stat.LifestealHealCap] * MaxHealthFor(p) - p.LifestealSpent);
+        Math.Max(0, p.Stats[Stat.LifestealHealCap] * MaxHealthFor(p) * LifestealBudgetSeconds - p.LifestealSpent);
 
     /// <summary>Lifesteal auras do not add up: copies widen the radius by 15% each and the strongest aura in range applies.</summary>
     private static float LifestealAuraRange(ItemEffect effect, int copies, float area) =>
