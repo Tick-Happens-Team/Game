@@ -10,7 +10,7 @@ public sealed partial class RunWorld
     private const int TrailInterval = 6;
     internal const int HeroTrailSeconds = 5;
     internal const int TrailCapacity = HeroTrailSeconds * TicksPerSecond / TrailInterval;
-    private const float IllusionCooldown = 16;
+    private const float IllusionCooldown = 14;
     private const float TrailRadius = 14;
     private readonly (Vector2 Position, int Until)[,] _heroTrail = new (Vector2, int)[4, TrailCapacity];
 
@@ -27,7 +27,7 @@ public sealed partial class RunWorld
     ];
 
     private static float PuppeteerBonus(PlayerState player) =>
-        player.Character.Id == "puppeteer" ? 0.1f + 0.01f * (player.Level - 1) : 0;
+        player.Character.Id == "puppeteer" ? 0.105f + 0.01f * (player.Level - 1) : 0;
 
     private static void ApplyHeroStats(PlayerState player)
     {
@@ -56,7 +56,7 @@ public sealed partial class RunWorld
     {
         if (player.Character.Id != "cybernetic_cube") return;
         int stat = _rng.Int(CubeStats.Length);
-        player.CubeBonuses[stat] += _rng.Range(0.0075f, 0.0825f);
+        player.CubeBonuses[stat] += _rng.Range(0.0125f, 0.0825f);
     }
 
     private void OnHeroDamaged(PlayerState player, float damage)
@@ -115,7 +115,7 @@ public sealed partial class RunWorld
                 }
                 break;
             case "skater":
-                if (Tick % TrailInterval == 0) StepFireTrail(player, 5 + 2.75f * level, TrailRadius + 0.5f * level);
+                if (Tick % TrailInterval == 0) StepFireTrail(player, 5 + 2.75f * level, TrailRadius + 0.75f * level);
                 break;
             case "necromancer":
                 if (Tick >= player.NextHeroPassiveTick)
@@ -133,8 +133,16 @@ public sealed partial class RunWorld
             case "illusionist":
                 if (Tick >= player.NextHeroPassiveTick)
                 {
-                    player.NextHeroPassiveTick = Tick + Math.Max(1, (int)MathF.Round((IllusionCooldown - 0.05f * level) * TicksPerSecond));
+                    player.NextHeroPassiveTick = Tick + Math.Max(1, (int)MathF.Round((IllusionCooldown - 0.1f * level) * TicksPerSecond));
                     SpawnHeroIllusion(player, level);
+                }
+                break;
+            case "succubus":
+                if (Tick >= player.NextHeroPassiveTick)
+                {
+                    player.NextHeroPassiveTick = Tick + Math.Max(TicksPerSecond,
+                        (int)MathF.Round((12 - 0.15f * level) * player.Stats[Stat.Cooldown] * TicksPerSecond));
+                    CharmNearestEnemy(player, 225, (3 + 0.1f * level) * player.Stats[Stat.DebuffDuration]);
                 }
                 break;
         }

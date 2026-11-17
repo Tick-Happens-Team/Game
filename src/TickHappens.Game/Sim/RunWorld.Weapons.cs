@@ -16,6 +16,7 @@ public sealed partial class RunWorld
     public readonly float[] PX = new float[ProjectileCapacity], PY = new float[ProjectileCapacity];
     public readonly float[] PVx = new float[ProjectileCapacity], PVy = new float[ProjectileCapacity];
     private readonly float[] _pDamage = new float[ProjectileCapacity], _pLife = new float[ProjectileCapacity];
+    public readonly float[] PScale = new float[ProjectileCapacity];
     private readonly int[] _pPierce = new int[ProjectileCapacity];
     private readonly DamageKind[] _pKind = new DamageKind[ProjectileCapacity];
     private readonly int[] _pItem = new int[ProjectileCapacity];
@@ -177,7 +178,7 @@ public sealed partial class RunWorld
         int target = -1;
         for (int i = 0; i < _enemyHigh; i++)
         {
-            if (!EAlive[i] || (excludeBoss && Content.Enemies[EDef[i]].Boss)) continue;
+            if (!EAlive[i] || IsCharmed(i) || (excludeBoss && Content.Enemies[EDef[i]].Boss)) continue;
             if (target < 0 || EHp[i] > EHp[target]) target = i;
         }
         return target;
@@ -188,10 +189,10 @@ public sealed partial class RunWorld
         var circle = CombatArea.Circle(p.Pos, radius);
         for (int i = 0; i < _enemyHigh; i++)
         {
-            if (!EAlive[i] || !circle.Contains(new Vector2(EX[i], EY[i]), out float squared)) continue;
+            if (!EAlive[i] || IsCharmed(i) || !circle.Contains(new Vector2(EX[i], EY[i]), out float squared)) continue;
             float weight = Math.Clamp(1 - MathF.Sqrt(squared) / radius, 0, 1);
             float minSlow = w.MinSlow ?? 0.25f * w.Slow;
-            ApplyEnemyStatus(i, minSlow + (w.Slow - minSlow) * weight, 2, 0);
+            ApplyEnemyStatus(i, minSlow + (w.Slow - minSlow) * weight, 2 * p.Stats[Stat.DebuffDuration], 0);
             DamageEnemy(i, (w.MinDamage + (w.Damage - w.MinDamage) * weight) * count, kind, source, p.Pos.X, p.Pos.Y);
         }
         Emit(EventKind.WoodShockwave, p.Pos.X, p.Pos.Y, radius);
@@ -199,12 +200,12 @@ public sealed partial class RunWorld
 
     private bool SwingBasicAttack(PlayerState player, Vector2 origin, AttackDef attack, DamageKind kind, DamageSourceRef source, float damage)
     {
-        float radius = (attack.Range + attack.RangePerLevel * (player.Level - 1)) * player.Stats[Stat.Area];
+        float radius = (attack.Range + attack.RangePerLevel * (player.Level - 1)) * player.Stats[Stat.Area] * player.Stats[Stat.ProjectileSize];
         var cone = CombatArea.Cone(origin, radius, player.Facing, attack.MeleeAngle);
         bool hit = false;
         for (int i = 0; i < _enemyHigh; i++)
         {
-            if (!EAlive[i]) continue;
+            if (!EAlive[i] || IsCharmed(i)) continue;
             var delta = new Vector2(EX[i], EY[i]) - origin;
             float length = delta.Length();
             float edge = Math.Max(0, length - Content.Enemies[EDef[i]].Radius);
@@ -255,7 +256,7 @@ public sealed partial class RunWorld
         float bestD = range * range;
         for (int i = 0; i < _enemyHigh; i++)
         {
-            if (!EAlive[i]) continue;
+            if (!EAlive[i] || IsCharmed(i)) continue;
             float dx = EX[i] - from.X, dy = EY[i] - from.Y, d2 = dx * dx + dy * dy;
             if (d2 >= bestD) continue;
             bool skip = false;
@@ -323,6 +324,7 @@ public sealed partial class RunWorld
         _pKind[slot] = kind; _pItem[slot] = src.ItemDef; _pOwner[slot] = (byte)src.PlayerId;
         PAlive[slot] = true;
         PStyle[slot] = style;
+        PScale[slot] = !src.FromItem && style == ProjectileStyle.Bolt ? _players[src.PlayerId].Stats[Stat.ProjectileSize] : 1;
         _pHits.AsSpan(slot * HitMemory, HitMemory).Clear();
     }
 
@@ -332,10 +334,10 @@ public sealed partial class RunWorld
         private float _best = float.MaxValue;
         public void Visit(int j)
         {
-            if (!w.EAlive[j]) return;
+            if (!w.EAlive[j] || w.IsCharmed(j)) return;
             var hits = w._pHits.AsSpan(proj * HitMemory, HitMemory);
             foreach (int uid in hits) if (uid == w.EUid[j]) return;
-            float r = w.Content.Enemies[w.EDef[j]].Radius + 3;
+            float r = w.Content.Enemies[w.EDef[j]].Radius + 3 * w.PScale[proj];
             float dx = w.EX[j] - w.PX[proj], dy = w.EY[j] - 6 - w.PY[proj], d2 = dx * dx + dy * dy;
             if (d2 < r * r && d2 < _best) { _best = d2; Target = j; }
         }
@@ -345,7 +347,7 @@ public sealed partial class RunWorld
     {
         public void Visit(int j)
         {
-            if (!w.EAlive[j]) return;
+            if (!w.EAlive[j] || w.IsCharmed(j)) return;
             var hits = w._pHits.AsSpan(proj * HitMemory, HitMemory);
             foreach (int uid in hits) if (uid == w.EUid[j]) return;
             float weight = area.WeightAt(new Vector2(w.EX[j], w.EY[j] - 6));
@@ -396,7 +398,7 @@ public sealed partial class RunWorld
             PX[i] += PVx[i] * Dt;
             PY[i] += PVy[i] * Dt;
             var hit = new ProjectileHit(this, i);
-            _grid.Query(PX[i], PY[i] + 6, 12, ref hit);
+            _grid.Query(PX[i], PY[i] + 6, 32 + 3 * PScale[i], ref hit);
             if (hit.Target < 0) continue;
             int t = hit.Target;
             var hits = _pHits.AsSpan(i * HitMemory, HitMemory);
@@ -416,8 +418,8 @@ public sealed partial class RunWorld
             }
             if (style == ProjectileStyle.Bolt)
             {
-                var splash = new ProjectileSplash(this, i, CombatArea.Circle(new Vector2(PX[i], PY[i]), SplashRadius), _pDamage[i], _pKind[i], source);
-                _grid.Query(PX[i], PY[i] + 6, SplashRadius, ref splash);
+                var splash = new ProjectileSplash(this, i, CombatArea.Circle(new Vector2(PX[i], PY[i]), SplashRadius * PScale[i]), _pDamage[i], _pKind[i], source);
+                _grid.Query(PX[i], PY[i] + 6, SplashRadius * PScale[i], ref splash);
             }
             if (_pPierce[i] <= 0) PAlive[i] = false;
         }
@@ -460,7 +462,7 @@ public sealed partial class RunWorld
         public int Count;
         public void Visit(int j)
         {
-            if (!w.EAlive[j]) return;
+            if (!w.EAlive[j] || w.IsCharmed(j)) return;
             float dx = w.EX[j] - x, dy = w.EY[j] - y;
             if (dx * dx + dy * dy < radiusSquared) Count++;
         }
@@ -476,7 +478,7 @@ public sealed partial class RunWorld
             float bestDistance = float.PositiveInfinity;
             for (int i = 0; i < _enemyHigh; i++)
             {
-                if (!EAlive[i]) continue;
+                if (!EAlive[i] || IsCharmed(i)) continue;
                 float distance = Vector2.DistanceSquared(p, new Vector2(EX[i], EY[i]));
                 if (distance > range * range) continue;
                 var nearby = new CountNear(this, EX[i], EY[i], area * area);
@@ -489,7 +491,7 @@ public sealed partial class RunWorld
             var circle = CombatArea.Circle(new Vector2(cx, cy), area);
             for (int i = 0; i < _enemyHigh; i++)
             {
-                if (!EAlive[i]) continue;
+                if (!EAlive[i] || IsCharmed(i)) continue;
                 float w = circle.WeightAt(new Vector2(EX[i], EY[i]));
                 if (w > 0) DamageEnemy(i, damage * (0.5f + 0.5f * w), kind, src, cx, cy, 120);
             }

@@ -236,7 +236,7 @@ public sealed partial class RunWorld
     /// <summary>Gives the player one more copy of an item: its stat mods apply once per copy; weapon copies add +1 count.</summary>
     public void GiveItem(int def) => GiveItem(Player, def);
 
-    private void GiveItem(PlayerState p, int def)
+    internal void GiveItem(PlayerState p, int def)
     {
         float before = MaxHealthFor(p);
         float shieldBefore = ShieldCapacity(p);

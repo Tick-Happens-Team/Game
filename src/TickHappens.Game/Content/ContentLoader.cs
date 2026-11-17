@@ -165,7 +165,7 @@ public static class ContentLoader
                 if (effect.Kind is not ("armorAura" or "magicResistAura" or "attackSpeedAura" or "healthAura" or "physicalAura" or
                     "lifestealAura" or "summonRegenAura" or "healShare" or "lowestHealthShield" or
                     "weldingBlock" or "rearSlow" or "poison" or "icicle" or "revive" or "extraChestChoice" or
-                    "illusion" or "resetCooldown" or "magnetPulse" or "devour"))
+                    "illusion" or "resetCooldown" or "magnetPulse" or "devour" or "vacuum" or "debuffedDamage"))
                     e.Add($"{w}: unknown effect kind '{effect.Kind}'");
                 if (effect.Value < 0 || effect.Secondary < 0 || effect.Chance is < 0 or > 1 ||
                     effect.Duration < 0 || effect.Radius < 0 || effect.Threshold < 0)

@@ -2,7 +2,7 @@
   {
     "id": "octarine", "sprite": "char_octarine",
     "stats": { "maxHp": 135, "maxHpPerLevel": 5, "regen": 1.75, "moveSpeed": 25, "attackSpeed": 25, "armor": 0.05, "magicResist": 0.15, "damage": 18, "damagePerLevel": 2.75 },
-    "passives": [ { "stat": "cooldown", "pct": -0.10, "perLevel": { "pct": -0.005 } } ]
+    "passives": [ { "stat": "cooldown", "pct": -0.120, "perLevel": { "pct": -0.005 } } ]
   },
   {
     "id": "swordsman", "sprite": "char_swordsman",
@@ -30,7 +30,7 @@
   },
   {
     "id": "watchman", "sprite": "char_watchman",
-    "stats": { "maxHp": 200, "maxHpPerLevel": 1.5, "regen": 5, "moveSpeed": 40, "attackSpeed": 55, "armor": 0.05, "magicResist": 0.05, "damage": 4, "damagePerLevel": 0.35 },
+    "stats": { "maxHp": 200, "maxHpPerLevel": 1.5, "regen": 5, "moveSpeed": 40, "attackSpeed": 55, "armor": 0.05, "magicResist": 0.05, "damage": 4.5, "damagePerLevel": 0.45 },
     "passives": [
       { "stat": "damage", "add": 0.75, "per": "runMinute" },
       { "stat": "physicalCrit", "perLevel": { "add": 0.0105 } },
@@ -54,7 +54,7 @@
       "attackSpeed": 15,
       "armor": 0.05,
       "magicResist": 0.08,
-      "damage": 7,
+      "damage": 8.0,
       "damagePerLevel": 5.25
     },
     "passive": "Таранит врагов, отталкивая их и нанося 5% от максимального здоровья. Через 5 с ходьбы получает +25% скорости и +10% урона тарана. После смертельного удара остаётся призраком на 5 с.",
@@ -105,13 +105,13 @@
       "maxHpPerLevel": 1.45,
       "regen": 1.25,
       "moveSpeed": 35,
-      "attackSpeed": 35,
+      "attackSpeed": 33.0,
       "armor": 0.05,
       "magicResist": 0.05,
       "damage": 17,
       "damagePerLevel": 1.75
     },
-    "passive": "Восстанавливает 3,65% от нанесённого урона.",
+    "passive": "Восстанавливает 3,65% от нанесённого урона. Вампиризм лечит в полную силу до 10% максимального здоровья в секунду вместо 6%.",
     "growth": "+0,25 п. п. вампиризма за уровень.",
     "passives": [
       {
@@ -120,6 +120,10 @@
         "perLevel": {
           "add": 0.0025
         }
+      },
+      {
+        "stat": "lifestealHealCap",
+        "add": 0.04
       }
     ]
   },
@@ -138,7 +142,7 @@
       "damage": 15,
       "damagePerLevel": 1.25
     },
-    "passive": "Союзники и их призванные существа получают +10% урона и скорости атаки.",
+    "passive": "Союзники и их призванные существа получают +10,5% урона и скорости атаки.",
     "growth": "Ещё +1 п. п. к обоим бонусам за уровень."
   },
   {
@@ -153,11 +157,11 @@
       "attackSpeed": 30,
       "armor": 0.1,
       "magicResist": 0.1,
-      "damage": 10,
+      "damage": 11.0,
       "damagePerLevel": 0.75
     },
-    "passive": "Каждый уровень повышает одну случайную характеристику на 0,75-8,25%.",
-    "growth": "+0,75-8,25% к одной случайной характеристике за уровень."
+    "passive": "Каждый уровень повышает одну случайную характеристику на 1,25-8,25%.",
+    "growth": "+1,25-8,25% к одной случайной характеристике за уровень."
   },
   {
     "id": "masochist",
@@ -220,7 +224,7 @@
       "damagePerLevel": 1.25
     },
     "passive": "Движется на 25% быстрее и оставляет огонь на 5 с. След наносит 5 урона в секунду.",
-    "growth": "+1 п. п. скорости, +2,75 урона в секунду и +0,5 к радиусу следа за уровень.",
+    "growth": "+1 п. п. скорости, +2,75 урона в секунду и +0,75 к радиусу следа за уровень.",
     "passives": [
       {
         "stat": "moveSpeed",
@@ -237,17 +241,17 @@
     "sprite": "char_illusionist",
     "stats": {
       "maxHp": 145,
-      "maxHpPerLevel": 3,
+      "maxHpPerLevel": 2.0,
       "regen": 1.75,
       "moveSpeed": 25,
       "attackSpeed": 25,
       "armor": 0.05,
       "magicResist": 0.1,
       "damage": 13.25,
-      "damagePerLevel": 1.75
+      "damagePerLevel": 1.85
     },
-    "passive": "Каждые 16 с создаёт копию на 8 с. Она имеет 50% ОЗ героя, отвлекает врагов и повторяет атаки с 30% урона. Копии могут действовать одновременно.",
-    "growth": "+0,25 п. п. к урону, +0,15 с жизни копии и -0,05 с перезарядки за уровень."
+    "passive": "Каждые 14 с создаёт копию на 8 с. Она имеет 50% ОЗ героя, отвлекает врагов и повторяет атаки с 30% урона. Копии могут действовать одновременно.",
+    "growth": "+0,25 п. п. к урону, +0,15 с жизни копии и -0,1 с перезарядки за уровень."
   },
   {
     "id": "king_arthur",
@@ -261,7 +265,7 @@
       "attackSpeed": 20,
       "armor": 0.1,
       "magicResist": 0.05,
-      "damage": 15,
+      "damage": 16.5,
       "damagePerLevel": 2
     },
     "attack": {
@@ -272,5 +276,23 @@
     },
     "passive": "Экскалибур заменяет снаряды физическим ударом по дуге в 350 градусов и отталкивает врагов. Базовый радиус 30.",
     "growth": "+3 к радиусу Экскалибура за уровень."
+  },
+  {
+    "id": "succubus",
+    "sprite": "char_succubus",
+    "stats": {
+      "maxHp": 135.0,
+      "maxHpPerLevel": 2.0,
+      "regen": 1.25,
+      "moveSpeed": 32.0,
+      "attackSpeed": 25.0,
+      "armor": 0.03,
+      "magicResist": 0.18,
+      "damage": 14.0,
+      "damagePerLevel": 1.75
+    },
+    "name": "Суккуб",
+    "passive": "Каждые 12 секунд очаровывает ближайшего обычного врага в радиусе 225 на 3 секунды. Очарованный враг начинает атаковать других врагов, нанося 70% своего обычного урона. Не работает на боссов",
+    "growth": "плюс 0,1 секунда к длительности и минус 0,15 к кд "
   }
 ]

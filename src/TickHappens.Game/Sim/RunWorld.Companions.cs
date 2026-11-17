@@ -187,7 +187,7 @@ public sealed partial class RunWorld
         float squared = range * range;
         for (int i = 0; i < _enemyHigh; i++)
         {
-            if (!EAlive[i] || (excludeBoss && Content.Enemies[EDef[i]].Boss) || Vector2.DistanceSquared(origin, new Vector2(EX[i], EY[i])) > squared) continue;
+            if (!EAlive[i] || IsCharmed(i) || (excludeBoss && Content.Enemies[EDef[i]].Boss) || Vector2.DistanceSquared(origin, new Vector2(EX[i], EY[i])) > squared) continue;
             if (_rng.Int(++count) == 0) result = i;
         }
         return result;
@@ -199,8 +199,9 @@ public sealed partial class RunWorld
         var circle = CombatArea.Circle(center, radius);
         for (int i = 0; i < _enemyHigh; i++)
         {
-            if (!EAlive[i] || !circle.Contains(new Vector2(EX[i], EY[i]), out _)) continue;
-            ApplyEnemyStatus(i, slow, slow > 0 ? 2 : 0, stun);
+            if (!EAlive[i] || IsCharmed(i) || !circle.Contains(new Vector2(EX[i], EY[i]), out _)) continue;
+            float duration = _players[source.PlayerId].Stats[Stat.DebuffDuration];
+            ApplyEnemyStatus(i, slow, slow > 0 ? 2 * duration : 0, stun * duration);
             DamageEnemy(i, damage, kind, source, center.X, center.Y, 0);
         }
     }

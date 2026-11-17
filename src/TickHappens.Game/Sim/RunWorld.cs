@@ -90,6 +90,7 @@ public sealed partial class RunWorld
         _enemySlow = new float[EnemyCapacity];
         _enemySlowUntil = new int[EnemyCapacity];
         _enemyStunUntil = new int[EnemyCapacity];
+        _enemyPush = new Vector2[EnemyCapacity];
         EX = new float[EnemyCapacity]; EY = new float[EnemyCapacity];
         _prevX = new float[EnemyCapacity]; _prevY = new float[EnemyCapacity];
         EHp = new float[EnemyCapacity]; EMaxHp = new float[EnemyCapacity];
@@ -101,6 +102,11 @@ public sealed partial class RunWorld
         _poisonDamage = new float[playerCount, EnemyCapacity];
         _poisonTick = new int[playerCount, EnemyCapacity];
         _poisonSource = new int[playerCount, EnemyCapacity];
+        _armorShred = new float[playerCount, EnemyCapacity];
+        _armorShredUntil = new int[playerCount, EnemyCapacity];
+        _charmOwner = new int[EnemyCapacity];
+        _charmUntil = new int[EnemyCapacity];
+        _charmAttackReady = new int[EnemyCapacity];
         for (int item = 0; item < content.Items.Count; item++)
             if (content.Items[item].BossDrop is { } boss) _bossRewards.TryAdd(boss, item);
         EFlash = new byte[EnemyCapacity];
@@ -129,7 +135,7 @@ public sealed partial class RunWorld
             ItemPulseTimers = new float[Content.Items.Count],
             Pos = new Vector2(center + (id % 2) * 16, center + (id / 2) * 16),
             XpNext = XpForLevel(1),
-            NextHeroPassiveTick = Tick + (int)((character.Id == "necromancer" ? 30 : IllusionCooldown) * TicksPerSecond),
+            NextHeroPassiveTick = Tick + (int)((character.Id == "necromancer" ? 30 : character.Id == "succubus" ? 12 : IllusionCooldown) * TicksPerSecond),
         };
         p.Prev = p.Pos;
         var cs = character.Stats;
@@ -288,6 +294,7 @@ public sealed partial class RunWorld
         }
         SpawnEnemies();
         StepEnemies();
+        SeparateEnemies();
         StepBloodRain();
         // Combat queries use enemy positions after movement.
         BuildEnemyGrid();
@@ -398,6 +405,7 @@ public sealed partial class RunWorld
             if (!p.Walking) regen += p.Stats[Stat.StationaryRegen] * MaxHealthFor(p);
             p.Hp = Math.Min(p.Hp, MaxHealthFor(p));
             RestorePlayer(p, regen * Dt);
+            p.LifestealSpent = Math.Max(0, p.LifestealSpent - p.Stats[Stat.LifestealHealCap] * MaxHealthFor(p) * Dt);
             if (Tick >= p.ShieldRechargeTick) p.Shield = ShieldCapacity(p);
         }
     }
@@ -587,12 +595,15 @@ public sealed partial class RunWorld
         {
             _poisonTick[player, slot] = 0;
             _poisonDamage[player, slot] = 0;
+            _armorShred[player, slot] = 0;
+            _armorShredUntil[player, slot] = 0;
         }
         EFlash[slot] = 0;
         _enemyAttackTicks[slot] = 0;
         _enemyAttackReady[slot] = 0;
         InitEnemyAbility(slot, d);
         _enemySlowUntil[slot] = _enemyStunUntil[slot] = 0;
+        _charmUntil[slot] = _charmAttackReady[slot] = 0;
         EKx[slot] = EKy[slot] = 0;
         EUid[slot] = _nextUid++;
         AliveEnemies++;
@@ -604,7 +615,7 @@ public sealed partial class RunWorld
     private void StepEnemies()
     {
         float arena = Rules.ArenaSize;
-        float moveSpeedScale = Rules.Units.MoveSpeedScale * (1 + 0.01f * Minutes);
+        float moveSpeedScale = Rules.Units.MoveSpeedScale * (1 + 0.01f * MathF.Floor(Minutes / 5f));
         bool hasCompanions = false;
         foreach (ref readonly var companion in Companions)
             if (companion.Active && companion.Health > 0) { hasCompanions = true; break; }
@@ -617,6 +628,7 @@ public sealed partial class RunWorld
             _prevX[i] = EX[i];
             _prevY[i] = EY[i];
             if (EFlash[i] > 0) EFlash[i]--;
+            if (StepCharmedEnemy(i)) continue;
             var d = Content.Enemies[EDef[i]];
             if (d.Behavior == "illusion" && _enemyAbilities[i].Expires > 0 && Tick >= _enemyAbilities[i].Expires)
             {
@@ -735,7 +747,7 @@ public sealed partial class RunWorld
     /// </summary>
     public void DamageEnemy(int i, float raw, DamageKind kind, DamageSourceRef source, float fromX, float fromY, float knock = 40)
     {
-        if (!EAlive[i] || raw <= 0) return;
+        if (!EAlive[i] || IsCharmed(i) || raw <= 0) return;
         var def = Content.Enemies[EDef[i]];
         int playerId = source.PlayerId;
         var p = (uint)playerId < (uint)_players.Length ? _players[playerId] : Player;
@@ -754,7 +766,8 @@ public sealed partial class RunWorld
         outgoing *= 1 + (source.CompanionSlot >= 0 ? _companions[source.CompanionSlot].DamageBonus : p.PuppeteerDamageBonus);
         if (kind == DamageKind.Physical && source.CompanionSlot >= 0)
             outgoing *= (1 + _companions[source.CompanionSlot].PhysicalDamage) / (1 + p.PhysicalAuraBonus);
-        float amount = raw * critical * outgoing * (1 - Resist(kind, def.Armor, def.MagicResist));
+        if (!source.FromItem && source.CompanionSlot < 0 && HasNegativeEffect(i)) raw *= DebuffedDamageMultiplier(p);
+        float amount = raw * critical * outgoing * (1 - Resist(kind, Math.Max(0, def.Armor - ArmorShredAt(i)), def.MagicResist));
         if (amount <= 0) return;
         if (_guardiansAlive > 0 && def.Behavior is not ("guardian" or "vein" or "illusion"))
         {
@@ -774,10 +787,14 @@ public sealed partial class RunWorld
             ref var ally = ref _companions[source.CompanionSlot];
             RestoreCompanion(ref ally, Math.Min(amount, hpBefore) * ally.Lifesteal);
         }
-        else if (lifesteal > 0) RestorePlayer(p, Math.Min(amount, hpBefore) * lifesteal);
+        else if (lifesteal > 0) RestoreFromLifesteal(p, Math.Min(amount, hpBefore) * lifesteal);
         float threshold = EMaxHp[i] * 0.12f;
         if (source.SuppressProcs) return;
-        if (EAlive[i]) OnEnemyHitWithItemEffects(p, i, amount);
+        if (EAlive[i])
+        {
+            OnEnemyHitWithItemEffects(p, i, amount);
+            if (!source.FromItem && source.CompanionSlot < 0) ApplyAttackModifiers(p, i);
+        }
         if (EAlive[i] && !def.Boss && def.Behavior is not ("illusion" or "vein") && p.ConversionItem >= 0 && ItemEnabled(p, p.ConversionItem))
         {
             int item = p.ConversionItem;
@@ -877,7 +894,18 @@ public sealed partial class RunWorld
                 Mix(illusion.UntilTick); Mix(illusion.HurtTick);
             }
         }
-        for (int i = 0; i < _enemyHigh; i++) if (EAlive[i]) { Mix(EX[i]); Mix(EY[i]); Mix(EHp[i]); }
+        for (int i = 0; i < _enemyHigh; i++)
+        {
+            if (!EAlive[i]) continue;
+            Mix(EX[i]); Mix(EY[i]); Mix(EHp[i]);
+            Mix(_charmOwner[i]); Mix(_charmUntil[i]); Mix(_charmAttackReady[i]);
+            Mix(_enemySlow[i]); Mix(_enemySlowUntil[i]); Mix(_enemyStunUntil[i]);
+            for (int owner = 0; owner < _players.Length; owner++)
+            {
+                Mix(_armorShred[owner, i]); Mix(_armorShredUntil[owner, i]);
+                Mix(_poisonTick[owner, i]); Mix(_poisonDamage[owner, i]);
+            }
+        }
         foreach (ref readonly var shot in EnemyShots) { Mix(shot.Pos.X); Mix(shot.Pos.Y); Mix(shot.Life); }
         foreach (ref readonly var cloud in EnemyClouds) { Mix(cloud.Pos.X); Mix(cloud.Pos.Y); Mix(cloud.Life); }
         Mix(AliveEnemies);

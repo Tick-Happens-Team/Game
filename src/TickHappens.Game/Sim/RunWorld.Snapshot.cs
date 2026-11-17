@@ -7,7 +7,7 @@ namespace TickHappens.Game.Sim;
 public sealed partial class RunWorld
 {
     public const int SnapshotCapacity = 64 * 1024;
-    private const byte SnapshotVersion = 11;
+    private const byte SnapshotVersion = 12;
     private const int OwnedXpPickupBase = 13;
     private int _replicaTick = -1;
     private readonly ushort[] _enemySnapshotSlots = new ushort[ushort.MaxValue / 8];
@@ -123,7 +123,7 @@ public sealed partial class RunWorld
                 w.Short(EDef[i]);
                 int hp = Math.Clamp((int)MathF.Ceiling(EHp[i] / EMaxHp[i] * 63), 1, 63);
                 w.Byte((byte)(hp | (EFlash[i] > 0 ? 64 : 0) | (_enemyHidden[i] ? 128 : 0)));
-                w.Byte(_enemyAttackTicks[i]);
+                w.Byte((byte)(_enemyAttackTicks[i] | (IsCharmed(i) ? 128 | _charmOwner[i] << 5 : 0)));
             }
             int companions = 0;
             foreach (ref readonly var ally in Companions) if (ally.Active) companions++;
@@ -157,6 +157,7 @@ public sealed partial class RunWorld
                 if (!PAlive[i]) continue;
                 WritePoint(ref w, PX[i], PY[i]);
                 w.Byte((byte)PStyle[i]);
+                w.Float(PScale[i]);
                 w.Short((int)Math.Clamp(MathF.Round(PVx[i] * 4), short.MinValue, short.MaxValue) & ushort.MaxValue);
                 w.Short((int)Math.Clamp(MathF.Round(PVy[i] * 4), short.MinValue, short.MaxValue) & ushort.MaxValue);
             }
@@ -246,7 +247,11 @@ public sealed partial class RunWorld
         {
             int slot = r.Short(), uid = r.Short();
             Vector2 position = ReadPoint(ref r);
-            int def = r.Short(), status = r.Byte(), windup = r.Byte();
+            int def = r.Short(), status = r.Byte(), attackFlags = r.Byte();
+            int windup = attackFlags & 31;
+            bool charmed = (attackFlags & 128) != 0;
+            int charmOwner = (attackFlags >> 5) & 3;
+            Require(!charmed || charmOwner < playerCount);
             Require(slot < EnemyCapacity && slot > prev && def < Content.Enemies.Count &&
                 (status & 63) > 0 && windup <= EnemyWindupDuration(Content.Enemies[def]));
             prev = slot;
@@ -263,6 +268,8 @@ public sealed partial class RunWorld
             EUid[slot] = uid;
             EFlash[slot] = (status & 64) == 0 ? (byte)0 : (byte)3;
             _enemyAttackTicks[slot] = (byte)windup;
+            _charmUntil[slot] = charmed ? int.MaxValue : 0;
+            _charmOwner[slot] = charmOwner;
             _enemyHidden[slot] = (status & 128) != 0;
             EMaxHp[slot] = Content.Enemies[def].Hp * (Content.Enemies[def].Boss ? 1 : HpScale);
             EHp[slot] = EMaxHp[slot] * (status & 63) / 63;
@@ -334,11 +341,14 @@ public sealed partial class RunWorld
         {
             var position = ReadPoint(ref r);
             var style = (ProjectileStyle)r.Byte();
+            float scale = r.Float();
+            Require(float.IsFinite(scale) && scale >= 1);
             Require(style <= ProjectileStyle.Phantom);
             float vx = (short)r.Short() * 0.25f, vy = (short)r.Short() * 0.25f;
             if (!apply) continue;
             PAlive[i] = true;
             PStyle[i] = style;
+            PScale[i] = scale;
             PX[i] = position.X;
             PY[i] = position.Y;
             PVx[i] = vx;

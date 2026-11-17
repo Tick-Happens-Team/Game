@@ -153,8 +153,10 @@ public sealed class EnemyAttacksTests
         Assert.Equal(2, world.Events.Count(e => e.Kind == EventKind.PlayerHurt));
     }
 
-    [Fact]
-    public void DashPassesThroughEnemiesAndEnemiesCanOverlap()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void PlayerPassesThroughEnemiesThatSeparateFromEachOther(bool dash)
     {
         var world = IsolatedWorld();
         var player = world.Player;
@@ -164,13 +166,13 @@ public sealed class EnemyAttacksTests
         world.Content.Enemies[def].Speed = 0;
         var start = player.Pos;
         int front = world.SpawnEnemy(def, start + new Vector2(22, 0));
-        int rear = world.SpawnEnemy(def, start + new Vector2(22 + enemyRadius, 0));
+        int rear = world.SpawnEnemy(def, start + new Vector2(22, 0));
 
-        world.Step(new RunInput(1, 0, Dash: true));
-        Advance(world, 8);
+        world.Step(new RunInput(1, 0, Dash: dash));
+        for (int i = 0; i < RunWorld.TicksPerSecond; i++) world.Step(new RunInput(1, 0));
 
-        Assert.True(player.Pos.X > world.EX[rear] + RunWorld.PlayerRadius + enemyRadius);
-        TestWorld.Close(enemyRadius, world.EX[rear] - world.EX[front]);
+        Assert.True(player.Pos.X > MathF.Max(world.EX[front], world.EX[rear]) + RunWorld.PlayerRadius + enemyRadius);
+        Assert.InRange(Vector2.Distance(world.EnemyPos(front, 1), world.EnemyPos(rear, 1)), enemyRadius, 2 * enemyRadius);
     }
 
     [Fact]
@@ -249,25 +251,30 @@ public sealed class EnemyAttacksTests
         TestWorld.Close(55f / 1.5f, blast.Value);
     }
 
-    [Fact]
-    public void ExistingEnemyMovesOnePercentFasterAfterOneMinute()
+    [Theory]
+    [InlineData(5 * 60 * RunWorld.TicksPerSecond - 1, 1f)]
+    [InlineData(5 * 60 * RunWorld.TicksPerSecond, 1.01f)]
+    [InlineData(10 * 60 * RunWorld.TicksPerSecond, 1.02f)]
+    public void ExistingEnemyGainsOnePercentMoveSpeedPerCompletedFiveMinutes(int targetTick, float expectedScale)
     {
         var world = IsolatedWorld();
+        world.Content.Waves.BossIntervalMinutes = 0;
+        world.Content.Waves.Elites.Clear();
         var start = world.Player.Pos + new Vector2(300, 0);
         int enemy = world.SpawnEnemy(world.Content.EnemyIndex("gloombat"), start);
         world.Step(default);
         float firstStep = start.X - world.EX[enemy];
 
-        const int minuteTicks = 60 * RunWorld.TicksPerSecond;
-        for (int i = 0; i < minuteTicks; i++)
+        for (int tick = 1; tick < targetTick; tick++)
         {
             world.EX[enemy] = start.X;
             world.Step(default);
         }
 
+        Assert.Equal(targetTick, world.Tick);
         Assert.True(world.EAlive[enemy]);
         Assert.True(firstStep > 0);
-        TestWorld.Close(firstStep * 1.01f, start.X - world.EX[enemy], 3);
+        TestWorld.Close(firstStep * expectedScale, start.X - world.EX[enemy], 3);
     }
 
     private static RunWorld IsolatedWorld(int playerCount = 1)

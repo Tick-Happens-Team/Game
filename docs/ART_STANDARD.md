@@ -21,6 +21,8 @@ Use 640×360 art pixels (16:9). Scale by an integer, typically ×2 at 720p, ×3 
 
 TH005 allows sides of 8, 12, 16, 24, 32, 48, 64, 96, or 128 pixels.
 
+Succubus uses a 24×24 frame to leave room for bat wings and a heart-tipped tail. Her body keeps the normal player height and feet origin; the extra width is cosmetic and does not enlarge the collision radius. The open outfit uses a black two-piece, exposed red shoulders and midriff, and tall boots.
+
 ## Palette
 
 The 50-color `Assets/art/palette/tickhappens-v1.hex` uses hue-shifted ramps. Neutrals include ink `#1a1422`, shadows and bone. Warm ramps cover skin and wood. The fire ramp matches Sprite Fusion VFX. Green, turquoise, blue, violet-magenta, and stone round out the palette. Use at most 24 colors per sprite (TH007) and alpha 0 or 255 (TH002), with translucent VFX and particles allowed. Palette expansion requires a versioned palette and migration with `snap`.
