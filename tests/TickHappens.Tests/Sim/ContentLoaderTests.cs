@@ -6,7 +6,7 @@ public sealed class ContentLoaderTests
 {
     private static readonly string[] CharacterIds =
         ["octarine", "swordsman", "smith", "goflin", "celestial_mage", "watchman", "nekochan",
-        "pig", "miner", "necromancer", "vampire", "puppeteer", "cybernetic_cube", "masochist", "diver", "skater", "illusionist", "king_arthur"];
+        "pig", "miner", "necromancer", "vampire", "puppeteer", "cybernetic_cube", "masochist", "diver", "skater", "illusionist", "king_arthur", "succubus"];
 
     [Fact]
     public void CoreContentLoadsWithExpectedShape()
@@ -14,7 +14,7 @@ public sealed class ContentLoaderTests
         var content = TestContent.LoadCore();
 
         Assert.Equal(CharacterIds.Length, content.Characters.Count);
-        Assert.Equal(65, content.Items.Count);
+        Assert.Equal(71, content.Items.Count);
         Assert.Equal(new[] { "gloombat", "amberslime", "duskslime", "rot", "spark", "kamikaze",
             "jumper", "witch", "guardian", "butcher", "siphoner", "skeleton_swordsman", "screamer",
             "dark_mage", "ninja", "she_wolf", "devourer", "timekeeper", "phantom", "thief", "prospector",
@@ -69,7 +69,7 @@ public sealed class ContentLoaderTests
         Assert.Equal(2.75f, octarine.Stats.DamagePerLevel);
         var cooldown = Assert.Single(octarine.Passives);
         Assert.Equal("cooldown", cooldown.Stat);
-        Assert.Equal(-0.10f, cooldown.Pct);
+        Assert.Equal(-0.12f, cooldown.Pct);
         Assert.Equal(-0.005f, cooldown.PerLevel!.Pct);
 
         var swordsman = Character(content, "swordsman");

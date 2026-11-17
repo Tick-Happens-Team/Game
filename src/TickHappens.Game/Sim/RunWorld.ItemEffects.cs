@@ -119,12 +119,14 @@ public sealed partial class RunWorld
                     p.ItemTimers[item] = Math.Max(0, p.ItemTimers[item] - ItemStep(p));
                     break;
                 case "lowestHealthShield":
+                case "vacuum":
                 case "resetCooldown":
                 case "magnetPulse":
                     p.ItemTimers[item] -= ItemStep(p);
                     if (p.ItemTimers[item] > 0.001f) break;
                     p.ItemTimers[item] = effect.Duration * p.Stats[Stat.Cooldown];
-                    if (effect.Kind == "lowestHealthShield") ShieldLowestHealthAlly(p, effect.Value * copies);
+                    if (effect.Kind == "vacuum") VacuumEnemies(p, effect);
+                    else if (effect.Kind == "lowestHealthShield") ShieldLowestHealthAlly(p, effect.Value * copies);
                     else if (effect.Kind == "resetCooldown") ResetItemCooldown(p, item);
                     else PullDistantPickups(p);
                     break;
@@ -342,7 +344,7 @@ public sealed partial class RunWorld
             if (effect.Kind != "poison" || !RollChance(effect.Chance * player.ItemStacks[item])) continue;
             if (_poisonTick[player.Id, enemy] == 0)
             {
-                _poisonTick[player.Id, enemy] = Tick + (int)MathF.Ceiling(effect.Duration * TicksPerSecond);
+                _poisonTick[player.Id, enemy] = Tick + (int)MathF.Ceiling(effect.Duration * player.Stats[Stat.DebuffDuration] * TicksPerSecond);
                 _poisonSource[player.Id, enemy] = item;
             }
             _poisonDamage[player.Id, enemy] += dealt * effect.Value;

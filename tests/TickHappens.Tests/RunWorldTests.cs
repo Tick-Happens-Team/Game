@@ -59,9 +59,9 @@ public sealed class RunWorldTests
         int baseTicks = (int)MathF.Round(content.Rules.Dash.Cooldown * RunWorld.TicksPerSecond);
 
         Assert.Equal(baseTicks, DashCooldownTicks(content, "swordsman", item: null));
-        Assert.Equal((int)MathF.Round(baseTicks * 0.9f), DashCooldownTicks(content, "octarine", item: null));
+        Assert.Equal((int)MathF.Round(baseTicks * 0.88f), DashCooldownTicks(content, "octarine", item: null));
         Assert.Equal((int)MathF.Round(baseTicks * 0.92f), DashCooldownTicks(content, "swordsman", item: "snack_bar"));
-        Assert.Equal((int)MathF.Round(baseTicks * 0.9f * 0.92f), DashCooldownTicks(content, "octarine", item: "snack_bar"));
+        Assert.Equal((int)MathF.Round(baseTicks * 0.88f * 0.92f), DashCooldownTicks(content, "octarine", item: "snack_bar"));
     }
 
     [Fact]
