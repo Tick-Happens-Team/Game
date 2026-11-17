@@ -15,7 +15,7 @@ public sealed partial class RunWorld
         {
             if (!p.Active || p.Hp <= 0) continue;
             UpdateDynamicStats(p);
-            p.AuraBlockChance = p.PhysicalAuraBonus = p.PuppeteerDamageBonus = 0;
+            p.AuraBlockChance = p.PhysicalAuraBonus = p.PuppeteerDamageBonus = p.LifestealAura = 0;
         }
         foreach (var source in _players)
         {
@@ -31,9 +31,16 @@ public sealed partial class RunWorld
                     "attackSpeedAura" => Stat.AttackSpeed,
                     "healthAura" => Stat.MaxHp,
                     "physicalAura" => Stat.PhysicalDamage,
-                    "lifestealAura" => Stat.Lifesteal,
                     _ => (Stat?)null,
                 };
+                if (effect.Kind == "lifestealAura")
+                {
+                    float hoodRange = LifestealAuraRange(effect, source.ItemStacks[item], source.Stats[Stat.Area]);
+                    foreach (var target in _players)
+                        if (target.Active && target.Hp > 0 && Vector2.DistanceSquared(source.Pos, target.Pos) <= hoodRange * hoodRange)
+                            target.LifestealAura = Math.Max(target.LifestealAura, effect.Value);
+                    continue;
+                }
                 if (stat == null) continue;
                 float value = effect.Value * source.ItemStacks[item];
                 float range = effect.Radius * source.Stats[Stat.Area];
@@ -68,6 +75,8 @@ public sealed partial class RunWorld
                 target.Stats.ApplyDynamic(Stat.Regen, regen * scale, 0);
             }
         }
+        foreach (var p in _players)
+            if (p.Active && p.Hp > 0 && p.LifestealAura > 0) p.Stats.ApplyDynamic(Stat.Lifesteal, p.LifestealAura, 0);
     }
 
     private static float CharacterAuraValue(PlayerState source, float value, float perLevel) => value + perLevel * (source.Level - 1);
@@ -223,6 +232,30 @@ public sealed partial class RunWorld
         if (share && restored > 0) ShareHealing(p.Id, restored, summon: false);
     }
 
+    /// <summary>Seconds of full-efficiency lifesteal healing the budget can hold.</summary>
+    internal const float LifestealBudgetSeconds = 2;
+    /// <summary>Share of lifesteal healing beyond the budget that still applies.</summary>
+    internal const float LifestealOverflowEfficiency = 0.2f;
+
+    /// <summary>
+    /// Lifesteal heals in full from a budget that refills at LifestealHealCap × max HP per second and holds
+    /// LifestealBudgetSeconds of it; healing beyond the budget applies at 20%. Lifesteal on wide area damage
+    /// still rewards investment but cannot out-heal every threat.
+    /// </summary>
+    private void RestoreFromLifesteal(PlayerState p, float amount)
+    {
+        float full = Math.Min(amount, LifestealBudget(p));
+        p.LifestealSpent += full;
+        RestorePlayer(p, full + (amount - full) * LifestealOverflowEfficiency);
+    }
+
+    internal float LifestealBudget(PlayerState p) =>
+        Math.Max(0, p.Stats[Stat.LifestealHealCap] * MaxHealthFor(p) * LifestealBudgetSeconds - p.LifestealSpent);
+
+    /// <summary>Lifesteal auras do not add up: copies widen the radius by 15% each and the strongest aura in range applies.</summary>
+    private static float LifestealAuraRange(ItemEffect effect, int copies, float area) =>
+        effect.Radius * (1 + 0.15f * (copies - 1)) * area;
+
     private void ShareHealing(int target, float amount, bool summon)
     {
         foreach (var source in _players)
@@ -266,7 +299,9 @@ public sealed partial class RunWorld
                 var effect = Content.Items[item].Effect!;
                 if (effect.Radius <= 0) continue;
                 int copies = source.ItemStacks[item];
-                float range = effect.Radius * source.Stats[Stat.Area];
+                float range = effect.Kind == "lifestealAura"
+                    ? LifestealAuraRange(effect, copies, source.Stats[Stat.Area])
+                    : effect.Radius * source.Stats[Stat.Area];
                 if (Vector2.DistanceSquared(source.Pos, ally.Pos) > range * range) continue;
                 switch (effect.Kind)
                 {
@@ -279,7 +314,7 @@ public sealed partial class RunWorld
                     case "magicResistAura": ally.MagicResist += effect.Value * copies; break;
                     case "attackSpeedAura": ally.AttackSpeed += effect.Value * copies; break;
                     case "physicalAura": ally.PhysicalDamage += effect.Value * copies; break;
-                    case "lifestealAura": ally.Lifesteal += effect.Value * copies; break;
+                    case "lifestealAura": ally.Lifesteal = Math.Max(ally.Lifesteal, effect.Value); break;
                 }
             }
         }
