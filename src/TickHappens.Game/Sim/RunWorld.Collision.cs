@@ -1,10 +1,71 @@
 using System.Numerics;
+using TickHappens.Engine.Spatial;
 
 namespace TickHappens.Game.Sim;
 
 public sealed partial class RunWorld
 {
     private const float ContactTolerance = 0.25f;
+    private const float EnemyBodyScale = 0.65f;
+    private readonly Vector2[] _enemyPush;
+
+    private void SeparateEnemies()
+    {
+        if (AliveEnemies < 2) return;
+
+        BuildEnemyGrid();
+        Array.Clear(_enemyPush, 0, _enemyHigh);
+        float maxBodyRadius = 0;
+        for (int i = 0; i < Content.Enemies.Count; i++)
+            maxBodyRadius = MathF.Max(maxBodyRadius, Content.Enemies[i].Radius * EnemyBodyScale);
+
+        for (int i = 0; i < _enemyHigh; i++)
+        {
+            if (!EAlive[i]) continue;
+
+            var def = Content.Enemies[EDef[i]];
+            float bodyRadius = def.Radius * EnemyBodyScale;
+            var separation = new EnemySeparation(this, i, bodyRadius, def.Behavior == "vein");
+            _grid.Query(EX[i], EY[i], bodyRadius + maxBodyRadius, ref separation);
+        }
+
+        var min = new Vector2(4);
+        var max = new Vector2(Rules.ArenaSize - 4);
+        for (int i = 0; i < _enemyHigh; i++)
+        {
+            var push = _enemyPush[i];
+            if (push == Vector2.Zero) continue;
+
+            const float maxPush = 4;
+            if (push.LengthSquared() > maxPush * maxPush) push = Vector2.Normalize(push) * maxPush;
+            var position = Vector2.Clamp(new Vector2(EX[i], EY[i]) + push, min, max);
+            (EX[i], EY[i]) = (position.X, position.Y);
+        }
+    }
+
+    private struct EnemySeparation(RunWorld world, int self, float bodyRadius, bool anchored) : IGridVisitor
+    {
+        public void Visit(int other)
+        {
+            if (other <= self || !world.EAlive[other]) return;
+
+            var def = world.Content.Enemies[world.EDef[other]];
+            bool otherAnchored = def.Behavior == "vein";
+            if (anchored && otherAnchored) return;
+
+            var offset = new Vector2(world.EX[self] - world.EX[other], world.EY[self] - world.EY[other]);
+            float limit = bodyRadius + def.Radius * EnemyBodyScale;
+            float distanceSquared = offset.LengthSquared();
+            if (distanceSquared >= limit * limit) return;
+
+            float distance = MathF.Sqrt(distanceSquared);
+            var direction = distance > 0 ? offset / distance : Vector2.UnitX;
+            var push = direction * (limit - distance);
+            if (!anchored) world._enemyPush[self] += otherAnchored ? push : push * 0.5f;
+            if (!otherAnchored) world._enemyPush[other] -= anchored ? push : push * 0.5f;
+        }
+    }
+
     private Vector2 MoveWithTeammateCollision(PlayerState player, Vector2 destination)
     {
         var position = player.Pos;

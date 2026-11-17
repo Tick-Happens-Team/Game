@@ -90,6 +90,7 @@ public sealed partial class RunWorld
         _enemySlow = new float[EnemyCapacity];
         _enemySlowUntil = new int[EnemyCapacity];
         _enemyStunUntil = new int[EnemyCapacity];
+        _enemyPush = new Vector2[EnemyCapacity];
         EX = new float[EnemyCapacity]; EY = new float[EnemyCapacity];
         _prevX = new float[EnemyCapacity]; _prevY = new float[EnemyCapacity];
         EHp = new float[EnemyCapacity]; EMaxHp = new float[EnemyCapacity];
@@ -288,6 +289,7 @@ public sealed partial class RunWorld
         }
         SpawnEnemies();
         StepEnemies();
+        SeparateEnemies();
         StepBloodRain();
         // Combat queries use enemy positions after movement.
         BuildEnemyGrid();
