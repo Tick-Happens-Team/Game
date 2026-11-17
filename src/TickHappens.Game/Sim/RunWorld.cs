@@ -604,7 +604,7 @@ public sealed partial class RunWorld
     private void StepEnemies()
     {
         float arena = Rules.ArenaSize;
-        float moveSpeedScale = Rules.Units.MoveSpeedScale * (1 + 0.01f * Minutes);
+        float moveSpeedScale = Rules.Units.MoveSpeedScale * (1 + 0.01f * MathF.Floor(Minutes / 5f));
         bool hasCompanions = false;
         foreach (ref readonly var companion in Companions)
             if (companion.Active && companion.Health > 0) { hasCompanions = true; break; }
