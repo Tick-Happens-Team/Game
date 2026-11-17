@@ -219,7 +219,7 @@ Values the sheet leaves open use tunable defaults in `items.json`. Jetpack incre
 | Разбитые часы | Хранитель времени | every 11 s resets one item that is on cooldown | periodic cooldown reset (S5) | [~] |
 | Сердце Пожирателя | Пожиратель | below 15% HP, devours a random non-boss enemy and restores 20% of max HP; 35 s cooldown | HP threshold trigger, filtered execute, and heal (S4–S6) | [~] |
 
-**Coverage:** 60 chest items and five cursed rewards.
+**Coverage:** 66 chest items and five cursed rewards.
 
 ### I8: attack modifiers and control (17 November 2026 sheet)
 
