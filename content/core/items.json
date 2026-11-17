@@ -1,7 +1,7 @@
 [
   { "id": "sneakers", "rarity": "common", "mods": [ { "stat": "moveSpeed", "pct": 0.045 } ] },
   { "id": "sprats", "rarity": "common", "mods": [ { "stat": "maxHp", "add": 10 } ] },
-  { "id": "chocolate", "rarity": "common", "mods": [ { "stat": "magicalDamage", "pct": 0.05 } ] },
+  { "id": "chocolate", "rarity": "common", "mods": [ { "stat": "magicalDamage", "pct": 0.06 } ] },
   { "id": "snack_bar", "rarity": "common", "mods": [ { "stat": "dashCooldown", "pct": -0.08 } ] },
   { "id": "expander", "rarity": "epic", "mods": [ { "stat": "area", "pct": 0.20 } ] },
   { "id": "heavy_shackles", "rarity": "legendary", "mods": [ { "stat": "moveSpeed", "pct": -0.6 }, { "stat": "might", "pct": 0.3 } ] },
@@ -63,5 +63,75 @@
   {"id": "devourer_heart", "rarity": "cursed", "bossDrop": "devourer", "effect": {"kind": "devour", "threshold": 0.35, "value": 0.2, "duration": 30}},
   {"id": "magnet", "rarity": "rare", "effect": {"kind": "magnetPulse", "duration": 40}},
   {"id": "hookah", "rarity": "epic", "effect": {"kind": "magicResistAura", "value": 0.10, "radius": 200}},
-  {"id": "archmage_cloak", "rarity": "rare", "mods": [{"stat": "magicResist", "add": 0.08}]}
+  {"id": "archmage_cloak", "rarity": "rare", "mods": [{"stat": "magicResist", "add": 0.08}]},
+  {
+    "id": "devil_sword",
+    "rarity": "mythic",
+    "effect": {
+      "kind": "debuffedDamage",
+      "value": 0.22
+    },
+    "name": "Дьявольский меч",
+    "description": "Атаки наносят на 22% больше урона врагам под негативными эффектами. Не складывается."
+  },
+  {
+    "id": "vacuum",
+    "rarity": "epic",
+    "effect": {
+      "kind": "vacuum",
+      "radius": 300,
+      "duration": 12,
+      "secondary": 2
+    },
+    "name": "Пылесос",
+    "description": "Стягивает врагов в радиусе 300 и оглушает на 2 секунды"
+  },
+  {
+    "id": "file",
+    "rarity": "epic",
+    "mods": [
+      {
+        "stat": "armorShred",
+        "add": 0.08
+      }
+    ],
+    "name": "Напильник",
+    "description": "Модификатор атаки. Снижает броню на 8% врагам при попадании, действует в радиусе атаки. Складывается."
+  },
+  {
+    "id": "black_candle",
+    "rarity": "epic",
+    "mods": [
+      {
+        "stat": "debuffDuration",
+        "pct": 0.08
+      }
+    ],
+    "name": "Черная свеча",
+    "description": "Увеличивает длительность негативных эффектов на врагов на 8%. Складывается."
+  },
+  {
+    "id": "snowball",
+    "rarity": "rare",
+    "mods": [
+      {
+        "stat": "hitSlow",
+        "add": 0.04
+      }
+    ],
+    "name": "Снежок",
+    "description": "Модификатор атаки: замедляет врагов при попадании на 4%, действует в радиусе атаки. Складывается. "
+  },
+  {
+    "id": "pill",
+    "rarity": "rare",
+    "mods": [
+      {
+        "stat": "projectileSize",
+        "pct": 1
+      }
+    ],
+    "name": "Таблетка",
+    "description": "Увеличивает размер снаряда героя в 2 раза и его радиус атаки "
+  }
 ]

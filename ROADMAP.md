@@ -54,7 +54,7 @@
 | 2.8 | [x] Ordered additive and multiplicative StatBlock modifiers and event-based passives | P! | 2.2 | (base + Σadd) × (1 + Σpct), cooldown floor, order-independent; levelUp passive (+1 armor per level) tested. |
 | 2.9 | [x] Chests and loot tables | P+ | 2.8 | Chests open passively when affordable and grant one item rolled by rarity weights (rules.json); copies stack. Killer-owned gold with the gold multiplier, 1.5× price per player. |
 | 2.10 | [x] HUD clock, level, HP, XP, and results screen | P+ | 1.9 | XP bar, level, run clock with statue bonus, gold and chest price, kills, loadout, HP and dash bars, notices, pause and death results. |
-| 2.11 | [x] Simulation performance | P! | 2.3 | Headless Release benchmark reports per-tick timings for 2,000 active enemies. Local run: 1.45 ms average, 2.24 ms p99, zero allocations over 600 measured ticks. GPU/frame profiling is tracked in 1.8. |
+| 2.11 | [~] Simulation performance | P! | 2.3 | Headless Release benchmark reports per-tick timings for 2,000 active enemies. 17 November 2026: 7.36 ms average and 9.73 ms p99, zero allocations over 600 measured ticks; clean dev measured 7.49 ms average and 10.59 ms p99 on the same machine. The 4 ms target is still pending after enemy body collision was introduced. GPU/frame profiling is tracked in 1.8. |
 
 ## P3. Co-op for 2–4 players
 
@@ -83,11 +83,12 @@
 
 ## P5. Content and progression
 
-Depends on P2. The owner's [Google Sheet](https://docs.google.com/spreadsheets/d/1q4DUxTFMWcSg_zevYYDIWf2DWFH_v2YpFHKe_LTDcOM/edit) is the source of truth for content design. The [content roadmap](docs/CONTENT_ROADMAP.md) orders the 18 characters, 63 items and 24 enemies by ease of implementation, lists the engine systems (S0–S13 for heroes and items, E0–E7 for enemies) they need, groups them into milestones, and records owner decisions and open questions. Content is data-driven, with stat application tests for each item and character.
+Depends on P2. The owner's [Google Sheet](https://docs.google.com/spreadsheets/d/1q4DUxTFMWcSg_zevYYDIWf2DWFH_v2YpFHKe_LTDcOM/edit) is the source of truth for content design. The [content roadmap](docs/CONTENT_ROADMAP.md) orders the 19 characters, 71 items and 24 enemies by ease of implementation, lists the engine systems (S0–S13 for heroes and items, E0–E7 for enemies) they need, groups them into milestones, and records owner decisions and open questions. Content is data-driven, with stat application tests for each item and character.
 
-- [~] 5.1 Characters with unique passives: 18 playable heroes use the sheet stats and growth. The Illusionist can sustain overlapping copies as their lifetime grows. Captures of every character are tracked in the content roadmap.
-- [~] 5.2 Weapons, items, evolutions, and combinations: 60 chest items and five cursed boss rewards. Chest rarity weights are 58/25/10/5/2. See the content roadmap for system and capture acceptance.
+- [~] 5.1 Characters with unique passives: 19 playable heroes use the sheet stats and growth. The Illusionist can sustain overlapping copies as their lifetime grows. Captures of every character are tracked in the content roadmap.
+- [~] 5.2 Weapons, items, evolutions, and combinations: 66 chest items and five cursed boss rewards. Chest rarity weights are 58/25/10/5/2. See the content roadmap for system and capture acceptance.
 - [~] 5.3 Enemies and bosses based on run time: 24 sheet enemies, including five bosses, are reachable through the wave table or boss rotation. See the content roadmap for encounter and capture acceptance.
+- [x] 5.7 Synchronize all three owner sheet tabs (17 November 2026): 19 heroes, 71 items and 24 enemy rows. Includes Succubus charm, six new items, balance updates, Russian/English text, local sprite recipe and snapshot support. Acceptance: sheet values compared, build with warnings as errors, simulation and co-op tests, atlas lint, hero/menu and recipe/pxs bench captures. Defaults for unspecified values are recorded in the content roadmap.
 - [ ] 5.4 Balance using local run logs under .tmp/.
 - [ ] 5.5 Metaprogression pending owner decision.
 - [x] 5.6 Projectile splash: bolts damage the nearest enemies within a 30 px radius of the impact instead of only the primary target. Acceptance: a bolt landing in a cluster damages every enemy within 30 px, damage falls off with distance, and a test covers the radius and the falloff. Implemented as `RunWorld.SplashRadius` with linear falloff from full damage at the impact point to 50% at the rim, matching the blast falloff floor. The primary target and earlier pierce hits are excluded through the projectile hit memory, so no enemy takes the bolt twice. `BoltSplashDamagesNearbyEnemiesWithFalloff` covers the radius boundary, the falloff ordering, and the no-double-dip rule.

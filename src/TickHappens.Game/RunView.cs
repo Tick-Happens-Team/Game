@@ -649,7 +649,7 @@ internal sealed partial class RunView : IDisposable
                     int duration = RunWorld.EnemyWindupDuration(world.Content.Enemies[def]);
                     frame = attack.Frames[(duration - windup) * attack.Frames.Count / duration];
                 }
-                uint tint = _enemyTint[def];
+                uint tint = world.IsCharmed(id) ? 0xFFFF9EDFu : _enemyTint[def];
                 var enemy = world.Content.Enemies[def];
                 float scale = EnemyScale(enemy, _enemySprites[def].W);
                 bool goldFever = enemy.Behavior == "prospector" && world.EHp[id] <= world.EMaxHp[id] * 0.35f;
@@ -785,7 +785,9 @@ internal sealed partial class RunView : IDisposable
                 light.Glow(px, py, 9, core, 0.75f);
                 continue;
             }
-            color.Line(px - ux * 5, py - uy * 5, px - ux * 2, py - uy * 2, 0xFFC0C43Fu);
+            float size = world.PScale[i];
+            color.Disc(px, py, Math.Max(1, size), 0xFFDEF08Fu);
+            color.Line(px - ux * 5 * size, py - uy * 5 * size, px - ux * 2, py - uy * 2, 0xFFC0C43Fu);
             color.Line(px - ux * 2, py - uy * 2, px, py, 0xFFDEF08Fu);
             color.Set(px, py, 0xFFFFFFFFu);
             light.Glow(px, py, 7, 0xFFDEF08Fu, 0.45f);

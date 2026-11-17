@@ -101,7 +101,7 @@ public sealed class ItemSheetTests
         var expected = Enumerable.Range(0, world.Content.Items.Count)
             .Where(i => world.Content.Items[i].Rarity != ContentSet.CursedRarity);
         Assert.Equal(expected, rolled.Order());
-        Assert.Equal(60, rolled.Count);
+        Assert.Equal(66, rolled.Count);
     }
 
     [Fact]

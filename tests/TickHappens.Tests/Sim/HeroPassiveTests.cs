@@ -114,7 +114,7 @@ public sealed class HeroPassiveTests
     public void IllusionSpawnsOnScheduleRepeatsTheAttackAndExpires()
     {
         var world = new RunWorld(QuietContent(), character: "illusionist");
-        int interval = 16 * RunWorld.TicksPerSecond;
+        int interval = 14 * RunWorld.TicksPerSecond;
         Step(world, interval - 1);
         Assert.Equal(0, world.Player.Illusions[0].UntilTick);
 
@@ -147,8 +147,8 @@ public sealed class HeroPassiveTests
     {
         var world = new RunWorld(QuietContent(), character: "illusionist");
         world.Player.Level = 51;
-        int interval = 16 * RunWorld.TicksPerSecond;
-        int secondSpawn = interval + (int)(13.5f * RunWorld.TicksPerSecond);
+        int interval = 14 * RunWorld.TicksPerSecond;
+        int secondSpawn = interval + (int)(9f * RunWorld.TicksPerSecond);
         Step(world, secondSpawn);
         var first = world.Player.Illusions[0];
         var second = world.Player.Illusions[1];
@@ -175,7 +175,7 @@ public sealed class HeroPassiveTests
         TestWorld.LevelTo(world, 2);
         TestWorld.LevelTo(second, 2);
 
-        Assert.InRange(Assert.Single(world.Player.CubeBonuses, bonus => bonus > 0), 0.0075f, 0.0825f);
+        Assert.InRange(Assert.Single(world.Player.CubeBonuses, bonus => bonus > 0), 0.0125f, 0.0825f);
         Assert.Equal(world.Player.CubeBonuses, second.Player.CubeBonuses);
         var replica = new RunWorld(world.Content, character: "cybernetic_cube");
         CopySnapshot(world, replica);
@@ -184,15 +184,15 @@ public sealed class HeroPassiveTests
     }
 
     [Fact]
-    public void CubeStartsWithTenDamageAndGainsThreeQuartersOfADamagePerLevelEarnedThroughXp()
+    public void CubeStartsWithElevenDamageAndGainsThreeQuartersOfADamagePerLevelEarnedThroughXp()
     {
         var world = new RunWorld(QuietContent(), character: "cybernetic_cube");
         Step(world, 15 * RunWorld.TicksPerSecond);
         Assert.Equal(1, world.Player.Level);
-        Assert.Equal(10, world.Player.Stats.Base(Stat.Damage));
+        Assert.Equal(11, world.Player.Stats.Base(Stat.Damage));
 
         TestWorld.LevelTo(world, 3);
-        Assert.Equal(11.5f, world.Player.Stats.Base(Stat.Damage));
+        Assert.Equal(12.5f, world.Player.Stats.Base(Stat.Damage));
     }
 
     [Fact]
@@ -231,11 +231,11 @@ public sealed class HeroPassiveTests
         world.GiveItem(world.Content.ItemIndex("sausages"));
         world.StepCoop([default, default]);
         TestWorld.Close(20, world.Player.Stats[Stat.AttackSpeed]);
-        TestWorld.Close(27.5f, world.Players[1].Stats[Stat.AttackSpeed]);
-        TestWorld.Close(0.1f, world.Players[1].PuppeteerDamageBonus);
+        TestWorld.Close(27.625f, world.Players[1].Stats[Stat.AttackSpeed]);
+        TestWorld.Close(0.105f, world.Players[1].PuppeteerDamageBonus);
         var companion = Assert.Single(world.Companions.ToArray(), ally => ally.Active);
-        TestWorld.Close(0.1f, companion.DamageBonus);
-        TestWorld.Close(0.1f, companion.AttackSpeedBonus);
+        TestWorld.Close(0.105f, companion.DamageBonus);
+        TestWorld.Close(0.105f, companion.AttackSpeedBonus);
     }
 
     [Fact]
