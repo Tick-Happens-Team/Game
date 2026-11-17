@@ -16,22 +16,304 @@
     {
       "text": "Enemies push each other apart lightly and no longer stack into one point",
       "change": "new"
+    },
+    {
+      "text": "Added a new hero and six items: the roster now has 19 heroes and 71 items",
+      "change": "new"
+    },
+    {
+      "text": "All co-op players must update to the same game version"
     }
   ],
   "sections": [
     {
       "kind": "hero",
+      "id": "succubus",
+      "changes": [
+        {
+          "text": "New hero: Succubus",
+          "change": "new",
+          "details": [
+            "Every 12 s, charms the nearest ordinary enemy within 225 for 3 s; elites and bosses are immune",
+            "The charmed enemy attacks other enemies at 70% of its normal damage; its kills credit Succubus",
+            "Heroes and their attacks do not target the charmed enemy; hostile behavior resumes when charm ends",
+            "Per level: +0.1 s charm duration and −0.15 s cooldown",
+            "Health 135 (+2 per level), regeneration 1.25, movement speed 32, attack speed 25",
+            "Armor 3%, magic resistance 18%, damage 14 (+1.75 per level)",
+            "Unique appearance and animations: red skin, an open black outfit, tall boots, horns, wings and a tail"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "hero",
       "id": "vampire",
       "changes": [
-        { "text": "Lifesteal heals in full up to 10% of max HP per second instead of the usual 6%", "change": "buff" }
+        {
+          "text": "Lifesteal heals in full up to 10% of max HP per second instead of the usual 6%",
+          "change": "buff"
+        },
+        {
+          "text": "Attack speed reduced from 35 to 33",
+          "change": "nerf"
+        }
+      ]
+    },
+    {
+      "kind": "hero",
+      "id": "octarine",
+      "changes": [
+        {
+          "text": "Base ability and item cooldown reduction increased from 10% to 12%",
+          "change": "buff"
+        }
+      ]
+    },
+    {
+      "kind": "hero",
+      "id": "pig",
+      "changes": [
+        {
+          "text": "Base damage increased from 7 to 8",
+          "change": "buff"
+        }
+      ]
+    },
+    {
+      "kind": "hero",
+      "id": "watchman",
+      "changes": [
+        {
+          "text": "Base damage increased from 4 to 4.5",
+          "change": "buff"
+        },
+        {
+          "text": "Damage growth per level increased from 0.35 to 0.45",
+          "change": "buff"
+        }
+      ]
+    },
+    {
+      "kind": "hero",
+      "id": "puppeteer",
+      "changes": [
+        {
+          "text": "Allied player and summon damage and attack-speed bonuses increased from 10% to 10.5%",
+          "change": "buff"
+        }
+      ]
+    },
+    {
+      "kind": "hero",
+      "id": "cybernetic_cube",
+      "changes": [
+        {
+          "text": "Base damage increased from 10 to 11",
+          "change": "buff"
+        },
+        {
+          "text": "Random stat growth per level: 0.75–8.25% → 1.25–8.25%",
+          "change": "buff"
+        }
+      ]
+    },
+    {
+      "kind": "hero",
+      "id": "skater",
+      "changes": [
+        {
+          "text": "Fire-trail radius growth per level increased from 0.5 to 0.75",
+          "change": "buff"
+        }
+      ]
+    },
+    {
+      "kind": "hero",
+      "id": "illusionist",
+      "changes": [
+        {
+          "text": "Base copy creation cooldown reduced from 16 to 14 s",
+          "change": "buff"
+        },
+        {
+          "text": "Cooldown reduction per level increased from 0.05 to 0.1 s",
+          "change": "buff"
+        },
+        {
+          "text": "Damage growth per level increased from 1.75 to 1.85",
+          "change": "buff"
+        },
+        {
+          "text": "Maximum health growth per level reduced from 3 to 2",
+          "change": "nerf"
+        }
+      ]
+    },
+    {
+      "kind": "hero",
+      "id": "king_arthur",
+      "changes": [
+        {
+          "text": "Base damage increased from 15 to 16.5",
+          "change": "buff"
+        }
+      ]
+    },
+    {
+      "kind": "item",
+      "id": "devil_sword",
+      "changes": [
+        {
+          "text": "New mythic item: basic attacks deal 22% more damage to enemies with negative effects",
+          "change": "new",
+          "details": [
+            "Works against slow, stun, pending poison and armor reduction",
+            "The bonus does not stack between copies"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "item",
+      "id": "vacuum",
+      "changes": [
+        {
+          "text": "New epic item: every 12 s, pulls enemies within 300 toward the hero and stuns them for 2 s",
+          "change": "new"
+        }
+      ]
+    },
+    {
+      "kind": "item",
+      "id": "file",
+      "changes": [
+        {
+          "text": "New epic item: basic attacks reduce enemy armor by 8 percentage points for 3 s",
+          "change": "new",
+          "details": [
+            "Applies throughout the basic attack area, including projectile splash",
+            "Copies add armor reduction; repeated hits refresh the duration"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "item",
+      "id": "black_candle",
+      "changes": [
+        {
+          "text": "New epic item: increases the duration of negative effects you apply by 8% per copy",
+          "change": "new",
+          "details": [
+            "Extends slow, stun, poison delay, armor reduction and Succubus charm"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "item",
+      "id": "snowball",
+      "changes": [
+        {
+          "text": "New rare item: basic attacks slow enemies by 4% for 3 s per copy",
+          "change": "new",
+          "details": [
+            "Applies throughout the basic attack area, including projectile splash",
+            "Repeated hits refresh the duration; slow is capped at 90%"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "item",
+      "id": "pill",
+      "changes": [
+        {
+          "text": "New rare item: doubles basic projectile size and its splash radius",
+          "change": "new",
+          "details": [
+            "For heroes with a basic melee attack, increases its radius instead",
+            "Each additional copy adds one more base size and radius"
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "item",
+      "id": "chocolate",
+      "changes": [
+        {
+          "text": "Magic damage bonus increased from 5% to 6%",
+          "change": "buff"
+        }
       ]
     },
     {
       "kind": "item",
       "id": "vampire_hood",
       "changes": [
-        { "text": "Copies no longer add lifesteal: each extra copy widens the radius by 15%", "change": "nerf" },
-        { "text": "Several Vampire Hoods in a team do not add up: the strongest one in range applies", "change": "nerf" }
+        {
+          "text": "Copies no longer add lifesteal: each extra copy widens the radius by 15%",
+          "change": "nerf"
+        },
+        {
+          "text": "Several Vampire Hoods in a team do not add up: the strongest one in range applies",
+          "change": "nerf"
+        }
+      ]
+    },
+    {
+      "kind": "enemy",
+      "id": "she_wolf",
+      "changes": [
+        {
+          "text": "Health reduced from 115 to 75",
+          "change": "nerf"
+        },
+        {
+          "text": "Movement speed increased from 55 to 60",
+          "change": "buff"
+        },
+        {
+          "text": "Attack speed reduced from 65 to 35",
+          "change": "nerf"
+        },
+        {
+          "text": "Armor reduced from 20% to 10%, magic resistance from 15% to 5%",
+          "change": "nerf"
+        },
+        {
+          "text": "Lifesteal reduced from 35% to 15%",
+          "change": "nerf"
+        }
+      ]
+    },
+    {
+      "kind": "enemy",
+      "id": "senior_cultist",
+      "changes": [
+        {
+          "text": "Damage reduced from 35 to 25",
+          "change": "nerf"
+        },
+        {
+          "text": "Lifesteal reduced from 35% to 18%",
+          "change": "nerf"
+        }
+      ]
+    },
+    {
+      "kind": "enemy",
+      "id": "ancient_cultist",
+      "changes": [
+        {
+          "text": "Magic resistance reduced from 50% to 33%",
+          "change": "nerf"
+        },
+        {
+          "text": "Lifesteal reduced from 22% to 19%",
+          "change": "nerf"
+        }
       ]
     }
   ]
